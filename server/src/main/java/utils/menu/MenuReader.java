@@ -17,11 +17,17 @@ import java.util.Map;
 
 public class MenuReader {
 
-    public static final String MENU_FILE_PATH = "data/menu.json";
+    // Dynamic getter to allow tests to switch files
+    public static String getMenuFilePath() {
+        return System.getProperty("menu.file", "data/menu.json");
+    }
+
     private static final Gson gson = new Gson();
 
     public static JsonObject loadMenu() throws IOException {
-        return gson.fromJson(new FileReader(MENU_FILE_PATH), JsonObject.class);
+        try (FileReader reader = new FileReader(getMenuFilePath())) {
+            return gson.fromJson(reader, JsonObject.class);
+        }
     }
 
     // List all

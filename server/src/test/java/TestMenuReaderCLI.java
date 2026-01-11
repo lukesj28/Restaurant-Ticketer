@@ -4,7 +4,7 @@ import models.Item;
 import java.util.List;
 import java.util.Scanner;
 
-public class TestMenuReader {
+public class TestMenuReaderCLI {
     public static void main(String[] args) {
         try (Scanner scanner = new Scanner(System.in)) {
             while (true) {

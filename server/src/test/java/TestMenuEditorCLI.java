@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
-public class TestMenuEditor {
+public class TestMenuEditorCLI {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
