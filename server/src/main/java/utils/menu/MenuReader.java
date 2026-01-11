@@ -17,7 +17,7 @@ import java.util.Map;
 
 public class MenuReader {
 
-    public static final String MENU_FILE_PATH = "src/main/java/data/menu.json";
+    public static final String MENU_FILE_PATH = "data/menu.json";
     private static final Gson gson = new Gson();
 
     public static JsonObject loadMenu() throws IOException {
