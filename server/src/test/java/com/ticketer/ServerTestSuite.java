@@ -10,7 +10,9 @@ import org.junit.runners.Suite;
                 com.ticketer.models.ItemTest.class,
                 com.ticketer.utils.menu.dto.ComplexItemTest.class,
                 com.ticketer.utils.menu.dto.MenuItemViewTest.class,
-                com.ticketer.utils.menu.dto.SideTest.class
+                com.ticketer.utils.menu.dto.SideTest.class,
+                com.ticketer.utils.settings.SettingsReaderTest.class,
+                com.ticketer.utils.settings.SettingsEditorTest.class
 })
 public class ServerTestSuite {
 

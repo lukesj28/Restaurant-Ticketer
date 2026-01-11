@@ -17,7 +17,6 @@ import java.util.Map;
 
 public class MenuReader {
 
-    // Dynamic getter to allow tests to switch files
     public static String getMenuFilePath() {
         return System.getProperty("menu.file", "data/menu.json");
     }

@@ -47,7 +47,6 @@ public class MenuEditor {
     }
 
     // Edit Methods
-
     private static void saveMenu(JsonObject menu) throws IOException {
         try (FileWriter writer = new FileWriter(MenuReader.getMenuFilePath())) {
             gson.toJson(menu, writer);
