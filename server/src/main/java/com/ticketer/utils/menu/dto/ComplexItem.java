@@ -1,4 +1,4 @@
-package utils.menu.dto;
+package com.ticketer.utils.menu.dto;
 
 import java.util.Map;
 

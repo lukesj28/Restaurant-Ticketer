@@ -1,4 +1,4 @@
-package models;
+package com.ticketer.models;
 
 public class Item {
     public String name;

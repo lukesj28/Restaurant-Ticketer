@@ -1,6 +1,8 @@
-import utils.menu.MenuEditor;
-import utils.menu.MenuReader;
-import utils.menu.dto.MenuItemView;
+package com.ticketer;
+
+import com.ticketer.utils.menu.MenuEditor;
+import com.ticketer.utils.menu.MenuReader;
+import com.ticketer.utils.menu.dto.MenuItemView;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;

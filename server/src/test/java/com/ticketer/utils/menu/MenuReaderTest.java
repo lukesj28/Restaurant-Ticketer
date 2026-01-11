@@ -1,10 +1,10 @@
-package utils.menu;
+package com.ticketer.utils.menu;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
-import utils.menu.dto.ComplexItem;
-import utils.menu.dto.Side;
-import models.Item;
+import com.ticketer.utils.menu.dto.ComplexItem;
+import com.ticketer.utils.menu.dto.Side;
+import com.ticketer.models.Item;
 import java.util.Map;
 import java.util.HashMap;
 

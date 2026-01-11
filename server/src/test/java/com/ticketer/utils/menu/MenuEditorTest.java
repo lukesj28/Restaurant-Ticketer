@@ -1,10 +1,12 @@
-package utils.menu;
+package com.ticketer.utils.menu;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
+import com.ticketer.utils.menu.MenuEditor;
+import com.ticketer.utils.menu.MenuReader;
 import com.google.gson.JsonObject;
 
 import java.io.File;

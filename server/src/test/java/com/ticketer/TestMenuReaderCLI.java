@@ -1,6 +1,8 @@
-import utils.menu.MenuReader;
-import utils.menu.dto.*;
-import models.Item;
+package com.ticketer;
+
+import com.ticketer.utils.menu.MenuReader;
+import com.ticketer.utils.menu.dto.*;
+import com.ticketer.models.Item;
 import java.util.List;
 import java.util.Scanner;
 

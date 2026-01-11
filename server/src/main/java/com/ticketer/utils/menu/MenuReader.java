@@ -1,12 +1,12 @@
-package utils.menu;
+package com.ticketer.utils.menu;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
-import utils.menu.dto.ComplexItem;
-import utils.menu.dto.MenuItemView;
-import models.Item;
-import utils.menu.dto.Side;
+import com.ticketer.utils.menu.dto.ComplexItem;
+import com.ticketer.utils.menu.dto.MenuItemView;
+import com.ticketer.models.Item;
+import com.ticketer.utils.menu.dto.Side;
 
 import java.io.FileReader;
 import java.io.IOException;
