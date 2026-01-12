@@ -1,4 +1,4 @@
-package com.ticketer;
+package com.ticketer.tooling;
 
 import com.ticketer.utils.menu.MenuEditor;
 import com.ticketer.utils.menu.MenuReader;
