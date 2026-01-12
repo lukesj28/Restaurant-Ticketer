@@ -76,4 +76,19 @@ public class TicketUtils {
     public static String serializeTicket(Ticket ticket) {
         return gson.toJson(ticket);
     }
+
+    public static java.util.Map<String, Integer> countItems(Ticket ticket) {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        for (com.ticketer.models.Order order : ticket.getOrders()) {
+            for (com.ticketer.models.Item item : order.getItems()) {
+                counts.put(item.getName(), counts.getOrDefault(item.getName(), 0) + 1);
+
+                String side = item.getSelectedSide();
+                if (side != null && !side.equalsIgnoreCase("none")) {
+                    counts.put(side, counts.getOrDefault(side, 0) + 1);
+                }
+            }
+        }
+        return counts;
+    }
 }

@@ -30,14 +30,6 @@ public class SettingsEditor {
         if (settings == null) {
             settings = new Settings(tax, Collections.emptyMap());
         } else {
-            // Reconstruct since fields are final/private effectively (or no setters)
-            // But wait, Settings fields are just private. We need a way to set them.
-            // Since we don't have setters, we must create a new object.
-            // However, modifying the existing object's state directly is what the previous
-            // code did.
-            // Since we made them private and didn't add setters, we HAVE to create a new
-            // instance or add setters.
-            // Given the context, recreating with new value is cleaner for now.
             settings = new Settings(tax, settings.getHours());
         }
         saveSettings(settings);

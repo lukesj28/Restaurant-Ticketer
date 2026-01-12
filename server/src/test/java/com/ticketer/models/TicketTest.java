@@ -30,7 +30,7 @@ public class TicketTest {
 
     @Test
     public void testAddOrdersAndCalculatePrice() {
-        Ticket ticket = new Ticket(1, 0.1); // 10% tax
+        Ticket ticket = new Ticket(1, 0.1);
 
         Order order1 = new Order();
         order1.addItem(new Item("A", null, 10.0));
@@ -39,12 +39,10 @@ public class TicketTest {
         order2.addItem(new Item("B", null, 5.0));
 
         ticket.addOrder(order1);
-        // Subtotal: 10.0, Total: 11.0
         assertEquals(10.0, ticket.getSubtotal(), 0.001);
         assertEquals(11.0, ticket.getTotal(), 0.001);
 
         ticket.addOrder(order2);
-        // Subtotal: 15.0, Total: 16.5
         assertEquals(15.0, ticket.getSubtotal(), 0.001);
         assertEquals(16.5, ticket.getTotal(), 0.001);
 
