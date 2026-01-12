@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import com.ticketer.utils.menu.dto.ComplexItem;
 import com.ticketer.utils.menu.dto.Side;
 import com.ticketer.models.Item;
+import java.io.IOException;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -24,7 +25,7 @@ public class MenuReaderTest {
         assertNotNull(result);
         assertEquals("Fish", result.getName());
         assertEquals("chips", result.getSelectedSide());
-        assertEquals(12.00, result.getTotalPrice(), 0.001);
+        assertEquals(12.00, result.getPrice(), 0.001);
     }
 
     @Test
@@ -33,7 +34,7 @@ public class MenuReaderTest {
 
         Item result = MenuReader.getItem(complexItem, null);
 
-        assertEquals(5.00, result.getTotalPrice(), 0.001);
+        assertEquals(5.00, result.getPrice(), 0.001);
         assertNull(result.getSelectedSide());
     }
 
@@ -45,7 +46,7 @@ public class MenuReaderTest {
 
         Item result = MenuReader.getItem(complexItem, null);
 
-        assertEquals(10.00, result.getTotalPrice(), 0.001);
+        assertEquals(10.00, result.getPrice(), 0.001);
         assertNull(result.getSelectedSide());
     }
 
@@ -63,18 +64,12 @@ public class MenuReaderTest {
         new MenuReader();
     }
 
-    @Test
-    public void testGetItemDetailsNotFound() {
-        assertNull(MenuReader.getItemDetails("non_existent"));
-    }
-
-    @Test
-    public void testGetAllItemsError() {
+    @Test(expected = IOException.class)
+    public void testGetAllItemsError() throws IOException {
         String originalPath = System.getProperty("menu.file");
         System.setProperty("menu.file", "invalid_path/missing.json");
         try {
-            var items = MenuReader.getAllItems();
-            assertTrue(items.isEmpty());
+            MenuReader.getAllItems();
         } finally {
             if (originalPath != null)
                 System.setProperty("menu.file", originalPath);
@@ -83,12 +78,12 @@ public class MenuReaderTest {
         }
     }
 
-    @Test
-    public void testGetItemDetailsError() {
+    @Test(expected = IOException.class)
+    public void testGetItemDetailsError() throws IOException {
         String originalPath = System.getProperty("menu.file");
         System.setProperty("menu.file", "invalid_path/missing.json");
         try {
-            assertNull(MenuReader.getItemDetails("some_item"));
+            MenuReader.getItemDetails("some_item");
         } finally {
             if (originalPath != null)
                 System.setProperty("menu.file", originalPath);
@@ -111,5 +106,10 @@ public class MenuReaderTest {
         } catch (Exception e) {
             fail(e.getMessage());
         }
+    }
+
+    @Test
+    public void testGetItemDetailsNotFound() throws IOException {
+        assertNull(MenuReader.getItemDetails("non_existent"));
     }
 }

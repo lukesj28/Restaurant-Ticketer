@@ -3,20 +3,20 @@ package com.ticketer.models;
 public class Item {
     private String name;
     private String selectedSide;
-    private double totalPrice;
+    private double price;
 
-    public Item(String name, String selectedSide, double totalPrice) {
+    public Item(String name, String selectedSide, double price) {
         this.name = name;
         this.selectedSide = selectedSide;
-        this.totalPrice = totalPrice;
+        this.price = price;
     }
 
     @Override
     public String toString() {
         if (selectedSide != null) {
-            return String.format("Item: %s, Side: %s, Total: $%.2f", name, selectedSide, totalPrice);
+            return String.format("Item: %s, Side: %s, Total: $%.2f", name, selectedSide, price);
         }
-        return String.format("Item: %s, Total: $%.2f", name, totalPrice);
+        return String.format("Item: %s, Total: $%.2f", name, price);
     }
 
     public String getName() {
@@ -27,8 +27,8 @@ public class Item {
         return selectedSide;
     }
 
-    public double getTotalPrice() {
-        return totalPrice;
+    public double getPrice() {
+        return price;
     }
 
 }

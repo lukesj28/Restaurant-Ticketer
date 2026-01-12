@@ -33,8 +33,8 @@ public class ItemTest {
     }
 
     @Test
-    public void testGetTotalPrice() {
+    public void testGetPrice() {
         Item item = new Item("Burger", "Fries", 15.50);
-        assertEquals(15.50, item.getTotalPrice(), 0.001);
+        assertEquals(15.50, item.getPrice(), 0.001);
     }
 }

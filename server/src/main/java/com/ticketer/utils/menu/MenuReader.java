@@ -30,47 +30,39 @@ public class MenuReader {
     }
 
     // List all
-    public static List<MenuItemView> getAllItems() {
+    public static List<MenuItemView> getAllItems() throws IOException {
         List<MenuItemView> list = new ArrayList<>();
-        try {
-            JsonObject menu = loadMenu();
-            for (String category : menu.keySet()) {
-                JsonObject catObj = menu.getAsJsonObject(category);
-                for (String key : catObj.keySet()) {
-                    JsonObject item = catObj.getAsJsonObject(key);
-                    double price = item.get("price").getAsDouble();
-                    boolean avail = item.has("available") && item.get("available").getAsBoolean();
-                    list.add(new MenuItemView(key, price, avail, category));
-                }
+        JsonObject menu = loadMenu();
+        for (String category : menu.keySet()) {
+            JsonObject catObj = menu.getAsJsonObject(category);
+            for (String key : catObj.keySet()) {
+                JsonObject item = catObj.getAsJsonObject(key);
+                double price = item.get("price").getAsDouble();
+                boolean avail = item.has("available") && item.get("available").getAsBoolean();
+                list.add(new MenuItemView(key, price, avail, category));
             }
-        } catch (IOException e) {
-            System.err.println("Error reading menu.json: " + e.getMessage());
         }
         return list;
     }
 
     // Get details
-    public static ComplexItem getItemDetails(String itemName) {
-        try {
-            JsonObject menu = loadMenu();
-            for (String category : menu.keySet()) {
-                JsonObject catObj = menu.getAsJsonObject(category);
-                if (catObj.has(itemName)) {
-                    JsonObject item = catObj.getAsJsonObject(itemName);
-                    double price = item.get("price").getAsDouble();
-                    boolean avail = item.has("available") && item.get("available").getAsBoolean();
+    public static ComplexItem getItemDetails(String itemName) throws IOException {
+        JsonObject menu = loadMenu();
+        for (String category : menu.keySet()) {
+            JsonObject catObj = menu.getAsJsonObject(category);
+            if (catObj.has(itemName)) {
+                JsonObject item = catObj.getAsJsonObject(itemName);
+                double price = item.get("price").getAsDouble();
+                boolean avail = item.has("available") && item.get("available").getAsBoolean();
 
-                    Map<String, Side> sides = null;
-                    if (item.has("sides")) {
-                        Type sideType = new TypeToken<Map<String, Side>>() {
-                        }.getType();
-                        sides = new Gson().fromJson(item.get("sides"), sideType);
-                    }
-                    return new ComplexItem(itemName, price, avail, sides);
+                Map<String, Side> sides = null;
+                if (item.has("sides")) {
+                    Type sideType = new TypeToken<Map<String, Side>>() {
+                    }.getType();
+                    sides = new Gson().fromJson(item.get("sides"), sideType);
                 }
+                return new ComplexItem(itemName, price, avail, sides);
             }
-        } catch (IOException e) {
-            System.err.println("Error reading menu.json: " + e.getMessage());
         }
         return null;
     }

@@ -63,7 +63,14 @@ public class TestMenuEditorCLI {
 
     private static void editExistingItem(Scanner scanner) {
         // List
-        List<MenuItemView> allItems = MenuReader.getAllItems();
+        List<MenuItemView> allItems;
+        try {
+            allItems = MenuReader.getAllItems();
+        } catch (IOException e) {
+            System.err.println("Error reading menu: " + e.getMessage());
+            return;
+        }
+
         System.out.println("Items:");
         for (MenuItemView item : allItems) {
             System.out.println(" - " + item.name + " (" + item.category + ")");

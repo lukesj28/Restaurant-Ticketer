@@ -16,36 +16,36 @@ public class TestSettingsReaderCLI {
 
                 String input = scanner.nextLine().trim();
 
-                switch (input) {
-                    case "1":
-                        try {
+                try {
+                    switch (input) {
+                        case "1":
                             System.out.println("Tax: " + SettingsReader.getTax());
-                        } catch (RuntimeException e) {
-                            System.out.println("Error: " + e.getMessage());
-                        }
-                        break;
-                    case "2":
-                        Map<String, String> hours = SettingsReader.getOpeningHours();
-                        if (hours.isEmpty()) {
-                            System.out.println("No hours defined or closed.");
-                        } else {
-                            hours.forEach((day, time) -> System.out.println(day + ": " + time));
-                        }
-                        break;
-                    case "3":
-                        System.out.print("Day: ");
-                        String openDay = scanner.nextLine().trim();
-                        String openTime = SettingsReader.getOpenTime(openDay);
-                        System.out.println(openTime != null ? "Open: " + openTime : "Closed or Not Found");
-                        break;
-                    case "4":
-                        System.out.print("Day: ");
-                        String closeDay = scanner.nextLine().trim();
-                        String closeTime = SettingsReader.getCloseTime(closeDay);
-                        System.out.println(closeTime != null ? "Close: " + closeTime : "Closed or Not Found");
-                        break;
-                    default:
-                        System.out.println("Invalid option.");
+                            break;
+                        case "2":
+                            Map<String, String> hours = SettingsReader.getOpeningHours();
+                            if (hours.isEmpty()) {
+                                System.out.println("No hours defined or closed.");
+                            } else {
+                                hours.forEach((day, time) -> System.out.println(day + ": " + time));
+                            }
+                            break;
+                        case "3":
+                            System.out.print("Day: ");
+                            String openDay = scanner.nextLine().trim();
+                            String openTime = SettingsReader.getOpenTime(openDay);
+                            System.out.println(openTime != null ? "Open: " + openTime : "Closed or Not Found");
+                            break;
+                        case "4":
+                            System.out.print("Day: ");
+                            String closeDay = scanner.nextLine().trim();
+                            String closeTime = SettingsReader.getCloseTime(closeDay);
+                            System.out.println(closeTime != null ? "Close: " + closeTime : "Closed or Not Found");
+                            break;
+                        default:
+                            System.out.println("Invalid option.");
+                    }
+                } catch (java.io.IOException e) {
+                    System.err.println("Error accessing settings: " + e.getMessage());
                 }
             }
         }
