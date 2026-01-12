@@ -29,15 +29,15 @@ public class SettingsReader {
         if (config == null) {
             throw new RuntimeException("Could not load settings configuration.");
         }
-        return config.tax;
+        return config.getTax();
     }
 
     public static String getOpeningHours(String day) {
         Settings config = loadConfig();
-        if (config == null || config.hours == null) {
+        if (config == null || config.getHours() == null) {
             return "closed";
         }
-        return config.hours.getOrDefault(day.toLowerCase(), "closed");
+        return config.getHours().getOrDefault(day.toLowerCase(), "closed");
     }
 
     public static String getOpenTime(String day) {
@@ -60,9 +60,9 @@ public class SettingsReader {
 
     public static Map<String, String> getOpeningHours() {
         Settings config = loadConfig();
-        if (config == null || config.hours == null) {
+        if (config == null || config.getHours() == null) {
             return Collections.emptyMap();
         }
-        return config.hours;
+        return config.getHours();
     }
 }

@@ -1,9 +1,9 @@
 package com.ticketer.models;
 
 public class Item {
-    public String name;
-    public String selectedSide;
-    public double totalPrice;
+    private String name;
+    private String selectedSide;
+    private double totalPrice;
 
     public Item(String name, String selectedSide, double totalPrice) {
         this.name = name;
@@ -18,4 +18,17 @@ public class Item {
         }
         return String.format("Item: %s, Total: $%.2f", name, totalPrice);
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getSelectedSide() {
+        return selectedSide;
+    }
+
+    public double getTotalPrice() {
+        return totalPrice;
+    }
+
 }

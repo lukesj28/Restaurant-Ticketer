@@ -34,11 +34,9 @@ public class SettingsEditorTest {
 
     @Test
     public void testSetTax() throws IOException {
-        // Initial set
         SettingsEditor.setTax(0.20);
         assertEquals(0.20, SettingsReader.getTax(), 0.001);
 
-        // Update
         SettingsEditor.setTax(0.25);
         assertEquals(0.25, SettingsReader.getTax(), 0.001);
     }
@@ -49,8 +47,6 @@ public class SettingsEditorTest {
 
         assertEquals("09:00 - 17:00", SettingsReader.getOpeningHours("mon"));
 
-        // Ensure strictly lower case handling in storage if desired,
-        // or at least that reading it back works (Reader lowercases input)
         SettingsEditor.setOpeningHours("Fri", "10:00 - 20:00");
         assertEquals("10:00 - 20:00", SettingsReader.getOpeningHours("fri"));
     }

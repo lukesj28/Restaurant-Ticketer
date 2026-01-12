@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Map;
 
 public class SettingsEditor {
 
@@ -29,21 +30,34 @@ public class SettingsEditor {
         if (settings == null) {
             settings = new Settings(tax, Collections.emptyMap());
         } else {
-            settings.tax = tax;
+            // Reconstruct since fields are final/private effectively (or no setters)
+            // But wait, Settings fields are just private. We need a way to set them.
+            // Since we don't have setters, we must create a new object.
+            // However, modifying the existing object's state directly is what the previous
+            // code did.
+            // Since we made them private and didn't add setters, we HAVE to create a new
+            // instance or add setters.
+            // Given the context, recreating with new value is cleaner for now.
+            settings = new Settings(tax, settings.getHours());
         }
         saveSettings(settings);
     }
 
     public static void setOpeningHours(String day, String hours) throws IOException {
         Settings settings = loadSettingsInternal();
+        Map<String, String> newHours;
+
         if (settings == null) {
-            settings = new Settings(0.0, Collections.emptyMap());
-        }
-        if (settings.hours == null) {
-            settings.hours = new java.util.HashMap<>();
+            newHours = new java.util.HashMap<>();
+            newHours.put(day.toLowerCase(), hours);
+            settings = new Settings(0.0, newHours);
+        } else {
+            newHours = settings.getHours() != null ? new java.util.HashMap<>(settings.getHours())
+                    : new java.util.HashMap<>();
+            newHours.put(day.toLowerCase(), hours);
+            settings = new Settings(settings.getTax(), newHours);
         }
 
-        settings.hours.put(day.toLowerCase(), hours);
         saveSettings(settings);
     }
 

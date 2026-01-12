@@ -22,9 +22,9 @@ public class MenuReaderTest {
         Item result = MenuReader.getItem(complexItem, "chips");
 
         assertNotNull(result);
-        assertEquals("Fish", result.name);
-        assertEquals("chips", result.selectedSide);
-        assertEquals(12.00, result.totalPrice, 0.001);
+        assertEquals("Fish", result.getName());
+        assertEquals("chips", result.getSelectedSide());
+        assertEquals(12.00, result.getTotalPrice(), 0.001);
     }
 
     @Test
@@ -33,8 +33,8 @@ public class MenuReaderTest {
 
         Item result = MenuReader.getItem(complexItem, null);
 
-        assertEquals(5.00, result.totalPrice, 0.001);
-        assertNull(result.selectedSide);
+        assertEquals(5.00, result.getTotalPrice(), 0.001);
+        assertNull(result.getSelectedSide());
     }
 
     @Test
@@ -45,8 +45,8 @@ public class MenuReaderTest {
 
         Item result = MenuReader.getItem(complexItem, null);
 
-        assertEquals(10.00, result.totalPrice, 0.001);
-        assertNull(result.selectedSide);
+        assertEquals(10.00, result.getTotalPrice(), 0.001);
+        assertNull(result.getSelectedSide());
     }
 
     @Test(expected = IllegalArgumentException.class)

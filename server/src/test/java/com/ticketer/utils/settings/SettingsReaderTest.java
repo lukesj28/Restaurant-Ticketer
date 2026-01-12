@@ -55,7 +55,6 @@ public class SettingsReaderTest {
 
     @Test
     public void testGetOpeningHours_MissingDay() {
-        // Defaults to closed
         assertEquals("closed", SettingsReader.getOpeningHours("sun"));
     }
 
@@ -71,40 +70,36 @@ public class SettingsReaderTest {
     public void testGetOpenTime() {
         assertEquals("09:00", SettingsReader.getOpenTime("tue"));
         assertEquals("10:30", SettingsReader.getOpenTime("wed"));
-        assertNull(SettingsReader.getOpenTime("mon")); // closed
+        assertNull(SettingsReader.getOpenTime("mon"));
     }
 
     @Test
     public void testGetCloseTime() {
         assertEquals("17:00", SettingsReader.getCloseTime("tue"));
         assertEquals("22:00", SettingsReader.getCloseTime("wed"));
-        assertNull(SettingsReader.getCloseTime("mon")); // closed
+        assertNull(SettingsReader.getCloseTime("mon"));
     }
 
     @Test
     public void testSettingsModelConstructor() {
-        // Cover Settings model constructor
         com.ticketer.models.Settings settings = new com.ticketer.models.Settings(0.1, null);
-        assertEquals(0.1, settings.tax, 0.001);
-        assertNull(settings.hours);
+        assertEquals(0.1, settings.getTax(), 0.001);
+        assertNull(settings.getHours());
     }
 
     @Test
     public void testSettingsReaderConstructor() {
-        // Cover SettingsReader constructor (even if unused)
         new SettingsReader();
     }
 
     @Test(expected = RuntimeException.class)
     public void testMissingFileGetTax() {
-        // delete file created by setUp
         new File(TEST_SETTINGS_PATH).delete();
         SettingsReader.getTax();
     }
 
     @Test
     public void testMissingFileGetHours() {
-        // delete file created by setUp
         new File(TEST_SETTINGS_PATH).delete();
 
         assertEquals("closed", SettingsReader.getOpeningHours("mon"));
@@ -123,7 +118,6 @@ public class SettingsReaderTest {
             writer.write(jsonContent);
         }
 
-        // 12:00 split by " - " gives array length 1
         assertEquals("12:00", SettingsReader.getOpenTime("bad_format"));
         assertNull(SettingsReader.getCloseTime("bad_format"));
     }
