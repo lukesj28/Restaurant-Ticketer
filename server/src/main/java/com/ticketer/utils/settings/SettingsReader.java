@@ -21,6 +21,10 @@ public class SettingsReader {
         }
     }
 
+    public static Settings readSettings() throws IOException {
+        return loadConfig();
+    }
+
     public static double getTax() throws IOException {
         Settings config = loadConfig();
         if (config == null) {

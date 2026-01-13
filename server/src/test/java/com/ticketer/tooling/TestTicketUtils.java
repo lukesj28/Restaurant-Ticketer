@@ -9,7 +9,7 @@ import com.ticketer.utils.ticket.TicketUtils;
 import java.io.IOException;
 import java.util.Scanner;
 
-public class TestTicketUtilsSerializer {
+public class TestTicketUtils {
     public static void main(String[] args) {
         try (Scanner scanner = new Scanner(System.in)) {
             int ticketId = 1;
