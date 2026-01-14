@@ -78,6 +78,10 @@ public class TicketUtils {
         return gson.toJson(ticket);
     }
 
+    public static String serializeTickets(List<Ticket> tickets) {
+        return gson.toJson(tickets);
+    }
+
     public static java.util.Map<String, Integer> countItems(Ticket ticket) {
         java.util.Map<String, Integer> counts = new java.util.HashMap<>();
         for (com.ticketer.models.Order order : ticket.getOrders()) {

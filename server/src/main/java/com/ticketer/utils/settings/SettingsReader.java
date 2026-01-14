@@ -15,25 +15,27 @@ public class SettingsReader {
         return System.getProperty("settings.file", "data/settings.json");
     }
 
-    private static Settings loadConfig() throws IOException {
+    private static Settings loadConfig() {
         try (FileReader reader = new FileReader(getSettingsFilePath())) {
             return gson.fromJson(reader, Settings.class);
+        } catch (IOException e) {
+            throw new com.ticketer.exceptions.StorageException("Failed to load settings", e);
         }
     }
 
-    public static Settings readSettings() throws IOException {
+    public static Settings readSettings() {
         return loadConfig();
     }
 
-    public static double getTax() throws IOException {
+    public static double getTax() {
         Settings config = loadConfig();
         if (config == null) {
-            throw new IOException("Could not load settings configuration.");
+            throw new com.ticketer.exceptions.StorageException("Could not load settings configuration.");
         }
         return config.getTax();
     }
 
-    public static String getOpeningHours(String day) throws IOException {
+    public static String getOpeningHours(String day) {
         Settings config = loadConfig();
         if (config == null || config.getHours() == null) {
             return "closed";
@@ -41,7 +43,7 @@ public class SettingsReader {
         return config.getHours().getOrDefault(day.toLowerCase(), "closed");
     }
 
-    public static String getOpenTime(String day) throws IOException {
+    public static String getOpenTime(String day) {
         String hours = getOpeningHours(day);
         if ("closed".equalsIgnoreCase(hours)) {
             return null;
@@ -50,7 +52,7 @@ public class SettingsReader {
         return parts.length > 0 ? parts[0] : null;
     }
 
-    public static String getCloseTime(String day) throws IOException {
+    public static String getCloseTime(String day) {
         String hours = getOpeningHours(day);
         if ("closed".equalsIgnoreCase(hours)) {
             return null;
@@ -59,7 +61,7 @@ public class SettingsReader {
         return parts.length > 1 ? parts[1] : null;
     }
 
-    public static Map<String, String> getOpeningHours() throws IOException {
+    public static Map<String, String> getOpeningHours() {
         Settings config = loadConfig();
         if (config == null || config.getHours() == null) {
             return Collections.emptyMap();

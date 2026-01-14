@@ -3,17 +3,17 @@ package com.ticketer.controllers;
 import com.ticketer.models.Settings;
 import com.ticketer.utils.settings.SettingsEditor;
 import com.ticketer.utils.settings.SettingsReader;
-import java.io.IOException;
+import com.ticketer.exceptions.BadRequestException;
 
 public class SettingsController {
 
     private Settings settings;
 
-    public SettingsController() throws IOException {
+    public SettingsController() {
         refreshSettings();
     }
 
-    public void refreshSettings() throws IOException {
+    public void refreshSettings() {
         this.settings = SettingsReader.readSettings();
     }
 
@@ -54,12 +54,15 @@ public class SettingsController {
         return parts.length > 1 ? parts[1] : null;
     }
 
-    public void setTax(double tax) throws IOException {
+    public void setTax(double tax) {
+        if (tax < 0) {
+            throw new BadRequestException("Tax cannot be negative");
+        }
         SettingsEditor.setTax(tax);
         refreshSettings();
     }
 
-    public void setOpeningHours(String day, String hours) throws IOException {
+    public void setOpeningHours(String day, String hours) {
         SettingsEditor.setOpeningHours(day, hours);
         refreshSettings();
     }

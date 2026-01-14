@@ -44,7 +44,7 @@ public class TestSettingsReaderCLI {
                         default:
                             System.out.println("Invalid option.");
                     }
-                } catch (java.io.IOException e) {
+                } catch (com.ticketer.exceptions.StorageException e) {
                     System.err.println("Error accessing settings: " + e.getMessage());
                 }
             }

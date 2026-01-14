@@ -43,23 +43,23 @@ public class SettingsReaderTest {
     }
 
     @Test
-    public void testGetTax() throws IOException {
+    public void testGetTax() {
         assertEquals(0.15, SettingsReader.getTax(), 0.0001);
     }
 
     @Test
-    public void testGetOpeningHours_SpecificDay() throws IOException {
+    public void testGetOpeningHours_SpecificDay() {
         assertEquals("closed", SettingsReader.getOpeningHours("mon"));
         assertEquals("09:00 - 17:00", SettingsReader.getOpeningHours("tue"));
     }
 
     @Test
-    public void testGetOpeningHours_MissingDay() throws IOException {
+    public void testGetOpeningHours_MissingDay() {
         assertEquals("closed", SettingsReader.getOpeningHours("sun"));
     }
 
     @Test
-    public void testGetAllOpeningHours() throws IOException {
+    public void testGetAllOpeningHours() {
         Map<String, String> hours = SettingsReader.getOpeningHours();
         assertNotNull(hours);
         assertEquals("closed", hours.get("mon"));
@@ -67,14 +67,14 @@ public class SettingsReaderTest {
     }
 
     @Test
-    public void testGetOpenTime() throws IOException {
+    public void testGetOpenTime() {
         assertEquals("09:00", SettingsReader.getOpenTime("tue"));
         assertEquals("10:30", SettingsReader.getOpenTime("wed"));
         assertNull(SettingsReader.getOpenTime("mon"));
     }
 
     @Test
-    public void testGetCloseTime() throws IOException {
+    public void testGetCloseTime() {
         assertEquals("17:00", SettingsReader.getCloseTime("tue"));
         assertEquals("22:00", SettingsReader.getCloseTime("wed"));
         assertNull(SettingsReader.getCloseTime("mon"));
@@ -92,20 +92,20 @@ public class SettingsReaderTest {
         new SettingsReader();
     }
 
-    @Test(expected = IOException.class)
-    public void testMissingFileGetTax() throws IOException {
+    @Test(expected = com.ticketer.exceptions.StorageException.class)
+    public void testMissingFileGetTax() {
         new File(TEST_SETTINGS_PATH).delete();
         SettingsReader.getTax();
     }
 
-    @Test(expected = IOException.class)
-    public void testMissingFileGetHours() throws IOException {
+    @Test(expected = com.ticketer.exceptions.StorageException.class)
+    public void testMissingFileGetHours() {
         new File(TEST_SETTINGS_PATH).delete();
         SettingsReader.getOpeningHours("mon");
     }
 
-    @Test(expected = IOException.class)
-    public void testEmptyFileGetTax() throws IOException {
+    @Test(expected = com.ticketer.exceptions.StorageException.class)
+    public void testEmptyFileGetTax() throws java.io.IOException {
         try (FileWriter writer = new FileWriter(TEST_SETTINGS_PATH)) {
             writer.write("");
         }

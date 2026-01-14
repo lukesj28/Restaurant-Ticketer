@@ -22,15 +22,19 @@ public class MenuControllerTest {
     private static final String TEST_MENU_PATH = "target/test-menu-controller.json";
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() {
         File dataDir = new File("target");
         if (!dataDir.exists()) {
             dataDir.mkdir();
         }
         File original = new File(ORIGINAL_MENU_PATH);
         if (original.exists()) {
-            Files.copy(original.toPath(), new File(TEST_MENU_PATH).toPath(),
-                    StandardCopyOption.REPLACE_EXISTING);
+            try {
+                Files.copy(original.toPath(), new File(TEST_MENU_PATH).toPath(),
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to set up test environment", e);
+            }
         }
 
         System.setProperty("menu.file", TEST_MENU_PATH);
@@ -38,7 +42,7 @@ public class MenuControllerTest {
     }
 
     @After
-    public void tearDown() throws IOException {
+    public void tearDown() {
         try {
             Files.deleteIfExists(new File(TEST_MENU_PATH).toPath());
         } catch (Exception e) {
@@ -64,7 +68,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testRemoveItem() throws IOException {
+    public void testRemoveItem() {
         if (controller.getAllItems().isEmpty()) {
             controller.addItem("TempCat", "ToRemove", 10.0, null);
         }
@@ -75,7 +79,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testRenameCategory() throws IOException {
+    public void testRenameCategory() {
         String oldCat = "OldCat";
         controller.addItem(oldCat, "ItemInCat", 10.0, null);
 
@@ -89,10 +93,7 @@ public class MenuControllerTest {
     @Test
     public void testGetItemObject() {
         if (controller.getAllItems().isEmpty()) {
-            try {
-                controller.addItem("Cat", "Item", 10.0, null);
-            } catch (IOException e) {
-            }
+            controller.addItem("Cat", "Item", 10.0, null);
         }
 
         MenuItemView view = controller.getAllItems().get(0);
@@ -105,7 +106,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testGetItemWithSide() throws IOException {
+    public void testGetItemWithSide() {
         String name = "ItemSideTest";
         Map<String, Double> sides = new HashMap<>();
         sides.put("Fries", 2.0);
@@ -119,7 +120,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testAddItem() throws IOException {
+    public void testAddItem() {
         String cat = "TestCategory";
         String name = "TestItemAdd";
         double price = 12.34;
@@ -137,7 +138,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testEditItemPrice() throws IOException {
+    public void testEditItemPrice() {
         String name = "PriceItem";
         controller.addItem("Cat", name, 10.0, null);
 
@@ -148,7 +149,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testEditItemAvailability() throws IOException {
+    public void testEditItemAvailability() {
         String name = "AvailItem";
         controller.addItem("Cat", name, 10.0, null);
 
@@ -160,7 +161,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testRenameItem() throws IOException {
+    public void testRenameItem() {
         String oldName = "OldNameItem";
         controller.addItem("Cat", oldName, 10.0, null);
 
@@ -172,7 +173,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testChangeCategory() throws IOException {
+    public void testChangeCategory() {
         String name = "CatChangeItem";
         String oldCat = "Cat1";
         controller.addItem(oldCat, name, 10.0, null);
@@ -191,7 +192,7 @@ public class MenuControllerTest {
     }
 
     @Test
-    public void testUpdateSide() throws IOException {
+    public void testUpdateSide() {
         String name = "ItemWithSide";
         Map<String, Double> sides = new HashMap<>();
         sides.put("Fries", 2.0);

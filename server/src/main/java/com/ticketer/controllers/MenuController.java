@@ -6,7 +6,9 @@ import com.ticketer.utils.menu.MenuEditor;
 import com.ticketer.utils.menu.MenuReader;
 import com.ticketer.utils.menu.dto.ComplexItem;
 import com.ticketer.utils.menu.dto.MenuItemView;
-import java.io.IOException;
+import com.ticketer.exceptions.ResourceNotFoundException;
+import com.ticketer.exceptions.BadRequestException;
+
 import java.util.List;
 import java.util.Map;
 
@@ -14,11 +16,11 @@ public class MenuController {
 
     private Menu menu;
 
-    public MenuController() throws IOException {
+    public MenuController() {
         refreshMenu();
     }
 
-    public void refreshMenu() throws IOException {
+    public void refreshMenu() {
         this.menu = MenuReader.readMenu();
     }
 
@@ -35,7 +37,7 @@ public class MenuController {
     }
 
     public List<ComplexItem> getCategory(String categoryName) {
-        return menu != null ? menu.getCategory(categoryName) : null;
+        return menu != null ? menu.getCategory(categoryName.toLowerCase()) : null;
     }
 
     public List<MenuItemView> getAllItems() {
@@ -46,42 +48,75 @@ public class MenuController {
         return menu != null ? menu.getCategories() : java.util.Collections.emptyMap();
     }
 
-    public void addItem(String category, String name, double price, Map<String, Double> sides) throws IOException {
+    public void addItem(String category, String name, double price, Map<String, Double> sides) {
+        if (price < 0) {
+            throw new BadRequestException("Price cannot be negative");
+        }
         MenuEditor.addItem(category, name, price, sides);
         refreshMenu();
     }
 
-    public void editItemPrice(String itemName, double newPrice) throws IOException {
+    public void editItemPrice(String itemName, double newPrice) {
+        if (getItem(itemName) == null) {
+            throw new ResourceNotFoundException("Item with name " + itemName + " not found");
+        }
+        if (newPrice < 0) {
+            throw new BadRequestException("Price cannot be negative");
+        }
         MenuEditor.editItemPrice(itemName, newPrice);
         refreshMenu();
     }
 
-    public void editItemAvailability(String itemName, boolean available) throws IOException {
+    public void editItemAvailability(String itemName, boolean available) {
+        if (getItem(itemName) == null) {
+            throw new ResourceNotFoundException("Item with name " + itemName + " not found");
+        }
         MenuEditor.editItemAvailability(itemName, available);
         refreshMenu();
     }
 
-    public void renameItem(String oldName, String newName) throws IOException {
+    public void renameItem(String oldName, String newName) {
+        if (getItem(oldName) == null) {
+            throw new ResourceNotFoundException("Item with name " + oldName + " not found");
+        }
+        if (getItem(newName) != null) {
+            throw new BadRequestException("Item with name " + newName + " already exists");
+        }
         MenuEditor.renameItem(oldName, newName);
         refreshMenu();
     }
 
-    public void removeItem(String itemName) throws IOException {
+    public void removeItem(String itemName) {
+        if (getItem(itemName) == null) {
+            throw new ResourceNotFoundException("Item with name " + itemName + " not found");
+        }
         MenuEditor.removeItem(itemName);
         refreshMenu();
     }
 
-    public void renameCategory(String oldCategory, String newCategory) throws IOException {
+    public void renameCategory(String oldCategory, String newCategory) {
+        if (getCategory(oldCategory) == null) {
+            throw new ResourceNotFoundException("Category " + oldCategory + " not found");
+        }
         MenuEditor.renameCategory(oldCategory, newCategory);
         refreshMenu();
     }
 
-    public void changeCategory(String itemName, String newCategory) throws IOException {
+    public void changeCategory(String itemName, String newCategory) {
+        if (getItem(itemName) == null) {
+            throw new ResourceNotFoundException("Item with name " + itemName + " not found");
+        }
         MenuEditor.changeCategory(itemName, newCategory);
         refreshMenu();
     }
 
-    public void updateSide(String itemName, String sideName, double newPrice) throws IOException {
+    public void updateSide(String itemName, String sideName, double newPrice) {
+        if (getItem(itemName) == null) {
+            throw new ResourceNotFoundException("Item with name " + itemName + " not found");
+        }
+        if (newPrice < 0) {
+            throw new BadRequestException("Price cannot be negative");
+        }
         MenuEditor.updateSide(itemName, sideName, newPrice);
         refreshMenu();
     }

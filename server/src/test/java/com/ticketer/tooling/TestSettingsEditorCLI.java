@@ -2,7 +2,7 @@ package com.ticketer.tooling;
 
 import com.ticketer.utils.settings.SettingsEditor;
 import com.ticketer.utils.settings.SettingsReader;
-import java.io.IOException;
+
 import java.util.Scanner;
 
 public class TestSettingsEditorCLI {
@@ -38,7 +38,7 @@ public class TestSettingsEditorCLI {
                         default:
                             System.out.println("Invalid option.");
                     }
-                } catch (IOException e) {
+                } catch (com.ticketer.exceptions.StorageException e) {
                     System.err.println("IO Error: " + e.getMessage());
                 } catch (RuntimeException e) {
                     System.err.println("Error: " + e.getMessage());

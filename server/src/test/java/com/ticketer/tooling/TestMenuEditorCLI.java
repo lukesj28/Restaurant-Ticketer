@@ -3,7 +3,6 @@ package com.ticketer.tooling;
 import com.ticketer.utils.menu.MenuEditor;
 import com.ticketer.utils.menu.MenuReader;
 import com.ticketer.utils.menu.dto.MenuItemView;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,17 +55,16 @@ public class TestMenuEditorCLI {
         try {
             MenuEditor.addItem(category, name, price, sides);
             System.out.println("Added.");
-        } catch (IOException e) {
+        } catch (com.ticketer.exceptions.StorageException e) {
             System.err.println("Error: " + e.getMessage());
         }
     }
 
     private static void editExistingItem(Scanner scanner) {
-        // List
         List<MenuItemView> allItems;
         try {
             allItems = MenuReader.readMenu().getAllItems();
-        } catch (IOException e) {
+        } catch (com.ticketer.exceptions.StorageException e) {
             System.err.println("Error reading menu: " + e.getMessage());
             return;
         }
@@ -117,7 +115,7 @@ public class TestMenuEditorCLI {
             System.out.println("Updated.");
         } catch (IllegalArgumentException e) {
             System.err.println("Error: " + e.getMessage());
-        } catch (IOException e) {
+        } catch (com.ticketer.exceptions.StorageException e) {
             System.err.println("IO Error: " + e.getMessage());
         }
     }

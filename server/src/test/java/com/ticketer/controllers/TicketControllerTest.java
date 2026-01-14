@@ -5,9 +5,9 @@ import com.ticketer.models.Order;
 import com.ticketer.models.Ticket;
 import org.junit.Before;
 import org.junit.Test;
-
+import java.io.File;
 import java.io.IOException;
-
+import java.nio.file.Files;
 import static org.junit.Assert.*;
 
 public class TicketControllerTest {
@@ -15,9 +15,10 @@ public class TicketControllerTest {
     private TicketController ticketController;
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() {
         ticketController = new TicketController();
         ticketController.resetTicketCounter();
+        new File("data/tickets").mkdirs();
     }
 
     @Test
@@ -61,17 +62,17 @@ public class TicketControllerTest {
         assertTrue(ticketController.getClosedTickets().contains(t));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testMoveToCompletedInvalid() {
         ticketController.moveToCompleted(999);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testMoveToClosedInvalid() {
         ticketController.moveToClosed(999);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testMoveToActiveInvalid() {
         ticketController.moveToActive(999);
     }
@@ -94,7 +95,7 @@ public class TicketControllerTest {
         assertFalse(ticketController.getClosedTickets().contains(t3));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testRemoveTicketNotFound() {
         ticketController.removeTicket(999);
     }
@@ -126,26 +127,101 @@ public class TicketControllerTest {
         assertEquals(0.0, ticket.getTotal(), 0.001);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testAddOrderToTicketNotFound() {
         ticketController.addOrderToTicket(999, ticketController.createOrder(0));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testRemoveOrderFromTicketNotFoundTicket() {
         ticketController.removeOrderFromTicket(999, ticketController.createOrder(0));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testRemoveOrderFromTicketNotFoundOrder() {
         Ticket t = ticketController.createTicket("T1");
         ticketController.removeOrderFromTicket(t.getId(), ticketController.createOrder(0));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
     public void testRemoveItemFromOrderNotFound() {
         Order order = ticketController.createOrder(0.0);
         Item item = new Item("None", null, 0);
         ticketController.removeItemFromOrder(order, item);
+    }
+
+    @Test
+    public void testMoveAllToClosed() {
+        ticketController.createTicket("T1");
+        Ticket t2 = ticketController.createTicket("T2");
+        ticketController.moveToCompleted(t2.getId());
+
+        ticketController.moveAllToClosed();
+
+        assertTrue(ticketController.getActiveTickets().isEmpty());
+        assertTrue(ticketController.getCompletedTickets().isEmpty());
+        assertEquals(2, ticketController.getClosedTickets().size());
+    }
+
+    @Test
+    public void testClearAllTickets() {
+        Ticket t1 = ticketController.createTicket("T1");
+        ticketController.moveToCompleted(t1.getId());
+        ticketController.moveToClosed(t1.getId());
+
+        ticketController.createTicket("T2");
+
+        ticketController.clearAllTickets();
+
+        assertTrue(ticketController.getActiveTickets().isEmpty());
+        assertTrue(ticketController.getCompletedTickets().isEmpty());
+        assertTrue(ticketController.getClosedTickets().isEmpty());
+
+        assertEquals(1, ticketController.createTicket("T3").getId());
+    }
+
+    @Test
+    public void testSerializeClosedTickets() throws IOException {
+        Ticket t1 = ticketController.createTicket("T1");
+        ticketController.moveToCompleted(t1.getId());
+        ticketController.moveToClosed(t1.getId());
+
+        ticketController.serializeClosedTickets();
+
+        String date = new java.text.SimpleDateFormat("ddMMyyyy").format(new java.util.Date());
+        String filename = "data/tickets/" + date + ".json";
+        File file = new File(filename);
+
+        assertTrue(file.exists());
+
+        String content = new String(Files.readAllBytes(file.toPath()));
+        assertTrue(content.contains("T1"));
+
+        file.delete();
+    }
+
+    @Test
+    public void testAddOrderToCompletedTicket() {
+        Ticket ticket = ticketController.createTicket("T1");
+        int id = ticket.getId();
+        ticketController.moveToCompleted(id);
+
+        Order order = ticketController.createOrder(0.1);
+        ticketController.addOrderToTicket(id, order);
+
+        assertTrue(ticketController.getActiveTickets().contains(ticket));
+        assertFalse(ticketController.getCompletedTickets().contains(ticket));
+        assertEquals(1, ticket.getOrders().size());
+    }
+
+    @Test(expected = com.ticketer.exceptions.BadRequestException.class)
+    public void testAddOrderToClosedTicket() {
+        Ticket ticket = ticketController.createTicket("T2");
+        int id = ticket.getId();
+        ticketController.moveToCompleted(id);
+        ticketController.moveToClosed(id);
+
+        Order order = ticketController.createOrder(0.1);
+        ticketController.addOrderToTicket(id, order);
     }
 }

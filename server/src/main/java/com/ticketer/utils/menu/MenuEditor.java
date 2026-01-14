@@ -12,8 +12,7 @@ public class MenuEditor {
 
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    public static void addItem(String category, String name, double price, Map<String, Double> sides)
-            throws IOException {
+    public static void addItem(String category, String name, double price, Map<String, Double> sides) {
         category = category.toLowerCase();
         JsonObject menu = MenuReader.loadMenu();
 
@@ -44,13 +43,15 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    private static void saveMenu(JsonObject menu) throws IOException {
+    private static void saveMenu(JsonObject menu) {
         try (FileWriter writer = new FileWriter(MenuReader.getMenuFilePath())) {
             gson.toJson(menu, writer);
+        } catch (IOException e) {
+            throw new com.ticketer.exceptions.StorageException("Failed to save menu", e);
         }
     }
 
-    public static void editItemPrice(String itemName, double newPrice) throws IOException {
+    public static void editItemPrice(String itemName, double newPrice) {
         JsonObject menu = MenuReader.loadMenu();
         String category = MenuReader.findCategoryOfItem(menu, itemName);
         if (category == null)
@@ -61,7 +62,7 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    public static void editItemAvailability(String itemName, boolean available) throws IOException {
+    public static void editItemAvailability(String itemName, boolean available) {
         JsonObject menu = MenuReader.loadMenu();
         String category = MenuReader.findCategoryOfItem(menu, itemName);
         if (category == null)
@@ -72,7 +73,7 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    public static void renameItem(String oldName, String newName) throws IOException {
+    public static void renameItem(String oldName, String newName) {
         JsonObject menu = MenuReader.loadMenu();
         String category = MenuReader.findCategoryOfItem(menu, oldName);
         if (category == null)
@@ -85,7 +86,7 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    public static void changeCategory(String itemName, String newCategory) throws IOException {
+    public static void changeCategory(String itemName, String newCategory) {
         newCategory = newCategory.toLowerCase();
         JsonObject menu = MenuReader.loadMenu();
         String oldCategory = MenuReader.findCategoryOfItem(menu, itemName);
@@ -111,7 +112,7 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    public static void updateSide(String itemName, String sideName, double newPrice) throws IOException {
+    public static void updateSide(String itemName, String sideName, double newPrice) {
         JsonObject menu = MenuReader.loadMenu();
         String category = MenuReader.findCategoryOfItem(menu, itemName);
         if (category == null)
@@ -134,7 +135,7 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    public static void removeItem(String itemName) throws IOException {
+    public static void removeItem(String itemName) {
         JsonObject menu = MenuReader.loadMenu();
         String category = MenuReader.findCategoryOfItem(menu, itemName);
         if (category == null) {
@@ -146,7 +147,7 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    public static void renameCategory(String oldCategory, String newCategory) throws IOException {
+    public static void renameCategory(String oldCategory, String newCategory) {
         oldCategory = oldCategory.toLowerCase();
         newCategory = newCategory.toLowerCase();
         JsonObject menu = MenuReader.loadMenu();

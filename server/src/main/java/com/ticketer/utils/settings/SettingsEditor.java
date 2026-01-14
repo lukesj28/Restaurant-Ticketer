@@ -12,13 +12,15 @@ public class SettingsEditor {
 
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    private static void saveSettings(Settings settings) throws IOException {
+    private static void saveSettings(Settings settings) {
         try (FileWriter writer = new FileWriter(SettingsReader.getSettingsFilePath())) {
             gson.toJson(settings, writer);
+        } catch (IOException e) {
+            throw new com.ticketer.exceptions.StorageException("Failed to save settings", e);
         }
     }
 
-    public static void setTax(double tax) throws IOException {
+    public static void setTax(double tax) {
         Settings settings = SettingsReader.readSettings();
         if (settings == null) {
             settings = new Settings(tax, Collections.emptyMap());
@@ -28,7 +30,7 @@ public class SettingsEditor {
         saveSettings(settings);
     }
 
-    public static void setOpeningHours(String day, String hours) throws IOException {
+    public static void setOpeningHours(String day, String hours) {
         Settings settings = SettingsReader.readSettings();
         Map<String, String> newHours;
 

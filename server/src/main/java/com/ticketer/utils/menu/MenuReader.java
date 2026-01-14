@@ -23,13 +23,15 @@ public class MenuReader {
 
     private static final Gson gson = new Gson();
 
-    public static JsonObject loadMenu() throws IOException {
+    public static JsonObject loadMenu() {
         try (FileReader reader = new FileReader(getMenuFilePath())) {
             return gson.fromJson(reader, JsonObject.class);
+        } catch (IOException e) {
+            throw new com.ticketer.exceptions.StorageException("Failed to load menu", e);
         }
     }
 
-    public static Menu readMenu() throws IOException {
+    public static Menu readMenu() {
         JsonObject json = loadMenu();
         Map<String, List<ComplexItem>> categories = new HashMap<>();
 

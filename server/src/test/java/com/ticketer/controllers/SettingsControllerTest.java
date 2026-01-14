@@ -16,7 +16,7 @@ public class SettingsControllerTest {
     private static final String TEST_SETTINGS_PATH = "target/test-settings-controller.json";
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() {
         File dataDir = new File("target");
         if (!dataDir.exists()) {
             dataDir.mkdir();
@@ -24,8 +24,12 @@ public class SettingsControllerTest {
 
         File original = new File(ORIGINAL_SETTINGS_PATH);
         if (original.exists()) {
-            Files.copy(original.toPath(), new File(TEST_SETTINGS_PATH).toPath(),
-                    StandardCopyOption.REPLACE_EXISTING);
+            try {
+                Files.copy(original.toPath(), new File(TEST_SETTINGS_PATH).toPath(),
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to set up test environment", e);
+            }
         }
 
         System.setProperty("settings.file", TEST_SETTINGS_PATH);
