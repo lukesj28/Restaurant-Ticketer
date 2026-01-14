@@ -185,4 +185,45 @@ public class MenuEditorTest {
     public void testUpdateSideNotFound() throws IOException {
         MenuEditor.updateSide("non_existent_item", "side", 1.0);
     }
+
+    @Test
+    public void testRemoveItem() throws IOException {
+        MenuEditor.removeItem("haddock");
+        JsonObject menu = MenuReader.loadMenu();
+        assertFalse(menu.getAsJsonObject("mains").has("haddock"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRemoveItemNotFound() throws IOException {
+        MenuEditor.removeItem("non_existent_item");
+    }
+
+    @Test
+    public void testRenameCategory() throws IOException {
+        MenuEditor.renameCategory("mains", "entreés");
+        JsonObject menu = MenuReader.loadMenu();
+        assertFalse(menu.has("mains"));
+        assertTrue(menu.has("entreés"));
+        assertTrue(menu.getAsJsonObject("entreés").has("haddock"));
+    }
+
+    @Test
+    public void testRenameCategoryMerge() throws IOException {
+        MenuEditor.addItem("seafood", "salmon", 18.00, null);
+
+        MenuEditor.renameCategory("seafood", "mains");
+
+        JsonObject menu = MenuReader.loadMenu();
+        assertFalse(menu.has("seafood"));
+        assertTrue(menu.has("mains"));
+
+        JsonObject mains = menu.getAsJsonObject("mains");
+        assertTrue(mains.has("haddock"));
+        assertTrue(mains.has("salmon"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testRenameCategoryNotFound() throws IOException {
+        MenuEditor.renameCategory("non_existent_cat", "new_name");
+    }
 }

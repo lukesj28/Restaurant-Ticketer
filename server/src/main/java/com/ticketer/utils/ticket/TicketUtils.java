@@ -61,7 +61,8 @@ public class TicketUtils {
                 JsonSerializationContext context) {
             JsonObject json = new JsonObject();
             json.add("items", context.serialize(order.getItems()));
-            json.addProperty("price", round(order.getPrice()));
+            json.addProperty("subtotal", round(order.getSubtotal()));
+            json.addProperty("total", round(order.getTotal()));
             return json;
         }
     }

@@ -8,13 +8,11 @@ public class Ticket {
     private String tableNumber;
     private List<Order> orders;
     private double subtotal;
-    private double taxRate;
     private double total;
     private long createdAt;
 
-    public Ticket(int id, double taxRate) {
+    public Ticket(int id) {
         this.id = id;
-        this.taxRate = taxRate;
         this.tableNumber = "";
         this.orders = new ArrayList<>();
         this.subtotal = 0.0;
@@ -24,8 +22,17 @@ public class Ticket {
 
     public void addOrder(Order order) {
         orders.add(order);
-        subtotal += order.getPrice();
-        total = subtotal * (1 + taxRate);
+        subtotal += order.getSubtotal();
+        total += order.getTotal();
+    }
+
+    public boolean removeOrder(Order order) {
+        if (orders.remove(order)) {
+            subtotal -= order.getSubtotal();
+            total -= order.getTotal();
+            return true;
+        }
+        return false;
     }
 
     public void setTableNumber(String tableNumber) {
@@ -50,10 +57,6 @@ public class Ticket {
 
     public double getTotal() {
         return total;
-    }
-
-    public double getTaxRate() {
-        return taxRate;
     }
 
     public long getCreatedAt() {

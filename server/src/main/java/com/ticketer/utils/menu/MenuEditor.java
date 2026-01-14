@@ -17,7 +17,6 @@ public class MenuEditor {
         category = category.toLowerCase();
         JsonObject menu = MenuReader.loadMenu();
 
-        // Check category
         JsonObject categoryObj;
         if (menu.has(category)) {
             categoryObj = menu.getAsJsonObject(category);
@@ -26,7 +25,6 @@ public class MenuEditor {
             menu.add(category, categoryObj);
         }
 
-        // Create item
         JsonObject itemObj = new JsonObject();
         itemObj.addProperty("price", price);
         itemObj.addProperty("available", true);
@@ -46,7 +44,6 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    // Edit Methods
     private static void saveMenu(JsonObject menu) throws IOException {
         try (FileWriter writer = new FileWriter(MenuReader.getMenuFilePath())) {
             gson.toJson(menu, writer);
@@ -134,6 +131,40 @@ public class MenuEditor {
         sideDetails.addProperty("available", true);
         sidesObj.add(sideName, sideDetails);
 
+        saveMenu(menu);
+    }
+
+    public static void removeItem(String itemName) throws IOException {
+        JsonObject menu = MenuReader.loadMenu();
+        String category = MenuReader.findCategoryOfItem(menu, itemName);
+        if (category == null) {
+            throw new IllegalArgumentException("Item not found: " + itemName);
+        }
+
+        JsonObject catObj = menu.getAsJsonObject(category);
+        catObj.remove(itemName);
+        saveMenu(menu);
+    }
+
+    public static void renameCategory(String oldCategory, String newCategory) throws IOException {
+        oldCategory = oldCategory.toLowerCase();
+        newCategory = newCategory.toLowerCase();
+        JsonObject menu = MenuReader.loadMenu();
+
+        if (!menu.has(oldCategory)) {
+            throw new IllegalArgumentException("Category not found: " + oldCategory);
+        }
+
+        JsonObject oldCatObj = menu.remove(oldCategory).getAsJsonObject();
+
+        if (menu.has(newCategory)) {
+            JsonObject newCatObj = menu.getAsJsonObject(newCategory);
+            for (String itemKey : oldCatObj.keySet()) {
+                newCatObj.add(itemKey, oldCatObj.get(itemKey));
+            }
+        } else {
+            menu.add(newCategory, oldCatObj);
+        }
         saveMenu(menu);
     }
 }

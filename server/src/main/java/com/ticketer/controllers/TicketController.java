@@ -1,8 +1,6 @@
 package com.ticketer.controllers;
 
-import com.ticketer.models.Settings;
 import com.ticketer.models.Ticket;
-import com.ticketer.utils.settings.SettingsReader;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,13 +11,11 @@ public class TicketController {
     private List<Ticket> activeTickets;
     private List<Ticket> completedTickets;
     private List<Ticket> closedTickets;
-    private Settings settings;
 
     public TicketController() throws IOException {
         this.activeTickets = new ArrayList<>();
         this.completedTickets = new ArrayList<>();
         this.closedTickets = new ArrayList<>();
-        this.settings = SettingsReader.readSettings();
     }
 
     public List<Ticket> getActiveTickets() {
@@ -32,10 +28,6 @@ public class TicketController {
 
     public List<Ticket> getClosedTickets() {
         return closedTickets;
-    }
-
-    public Settings getSettings() {
-        return settings;
     }
 
     public void moveToCompleted(int ticketId) {

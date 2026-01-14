@@ -1,10 +1,10 @@
 package com.ticketer.tooling;
 
+import com.ticketer.controllers.MenuController;
 import com.ticketer.models.Menu;
 import com.ticketer.models.Item;
 import com.ticketer.models.Order;
 import com.ticketer.models.Ticket;
-import com.ticketer.utils.menu.MenuReader;
 import com.ticketer.utils.menu.dto.ComplexItem;
 import com.ticketer.utils.ticket.TicketUtils;
 import java.io.IOException;
@@ -13,9 +13,9 @@ import java.util.Scanner;
 public class TestTicketUtilsCLI {
     public static void main(String[] args) {
         try (Scanner scanner = new Scanner(System.in)) {
-            Menu menu = null;
+            MenuController menuController;
             try {
-                menu = MenuReader.readMenu();
+                menuController = new MenuController();
             } catch (IOException e) {
                 System.err.println("Failed to load menu: " + e.getMessage());
                 return;
@@ -25,7 +25,7 @@ public class TestTicketUtilsCLI {
 
             while (true) {
                 System.out.println("New Ticket:");
-                Ticket ticket = new Ticket(ticketId++, 0.1);
+                Ticket ticket = new Ticket(ticketId++);
 
                 System.out.print("Table Number: ");
                 String tableNumber = scanner.nextLine().trim();
@@ -54,7 +54,7 @@ public class TestTicketUtilsCLI {
                             break;
                         }
 
-                        ComplexItem itemDetails = menu.getItem(input);
+                        ComplexItem itemDetails = menuController.getItem(input);
                         if (itemDetails == null) {
                             System.out.println("Item not found in menu.");
                             continue;

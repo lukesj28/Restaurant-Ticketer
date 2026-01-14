@@ -12,10 +12,10 @@ public class TicketUtilsTest {
 
     @Test
     public void testSerializeTicket() {
-        Ticket ticket = new Ticket(1, 0.1);
+        Ticket ticket = new Ticket(1);
         ticket.setTableNumber("T1");
 
-        Order order = new Order();
+        Order order = new Order(0.1);
         order.addItem(new Item("Burger", null, 10.0));
         ticket.addOrder(order);
 
@@ -48,7 +48,7 @@ public class TicketUtilsTest {
 
     @Test
     public void testCountItems() {
-        Ticket ticket = new Ticket(1, 0.1);
+        Ticket ticket = new Ticket(1);
         Order order1 = new Order();
         order1.addItem(new Item("Burger", "Fries", 15.0));
         order1.addItem(new Item("Burger", "none", 12.0));

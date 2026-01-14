@@ -5,23 +5,45 @@ import java.util.List;
 
 public class Order {
     private List<Item> items;
-    private double price;
+    private double subtotal;
+    private double total;
+    private double taxRate;
+
+    public Order(double taxRate) {
+        this.items = new ArrayList<>();
+        this.subtotal = 0.0;
+        this.total = 0.0;
+        this.taxRate = taxRate;
+    }
 
     public Order() {
-        this.items = new ArrayList<>();
-        this.price = 0.0;
+        this(0.0);
     }
 
     public void addItem(Item item) {
         items.add(item);
-        price += item.getPrice();
+        subtotal += item.getPrice();
+        total = subtotal * (1 + taxRate);
+    }
+
+    public void setTaxRate(double taxRate) {
+        this.taxRate = taxRate;
+        total = subtotal * (1 + taxRate);
+    }
+
+    public double getTaxRate() {
+        return taxRate;
     }
 
     public List<Item> getItems() {
         return new ArrayList<>(items);
     }
 
-    public double getPrice() {
-        return price;
+    public double getSubtotal() {
+        return subtotal;
+    }
+
+    public double getTotal() {
+        return total;
     }
 }
