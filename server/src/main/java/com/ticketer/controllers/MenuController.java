@@ -1,6 +1,7 @@
 package com.ticketer.controllers;
 
 import com.ticketer.models.Menu;
+import com.ticketer.models.Item;
 import com.ticketer.utils.menu.MenuEditor;
 import com.ticketer.utils.menu.MenuReader;
 import com.ticketer.utils.menu.dto.ComplexItem;
@@ -29,7 +30,7 @@ public class MenuController {
         return menu != null ? menu.getItem(name) : null;
     }
 
-    public com.ticketer.models.Item getItem(ComplexItem item, String sideName) {
+    public Item getItem(ComplexItem item, String sideName) {
         return Menu.getItem(item, sideName);
     }
 

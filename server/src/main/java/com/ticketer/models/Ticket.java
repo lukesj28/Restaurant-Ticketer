@@ -7,32 +7,21 @@ public class Ticket {
     private int id;
     private String tableNumber;
     private List<Order> orders;
-    private double subtotal;
-    private double total;
     private long createdAt;
 
     public Ticket(int id) {
         this.id = id;
         this.tableNumber = "";
         this.orders = new ArrayList<>();
-        this.subtotal = 0.0;
-        this.total = 0.0;
         this.createdAt = System.currentTimeMillis();
     }
 
     public void addOrder(Order order) {
         orders.add(order);
-        subtotal += order.getSubtotal();
-        total += order.getTotal();
     }
 
     public boolean removeOrder(Order order) {
-        if (orders.remove(order)) {
-            subtotal -= order.getSubtotal();
-            total -= order.getTotal();
-            return true;
-        }
-        return false;
+        return orders.remove(order);
     }
 
     public void setTableNumber(String tableNumber) {
@@ -52,11 +41,11 @@ public class Ticket {
     }
 
     public double getSubtotal() {
-        return subtotal;
+        return orders.stream().mapToDouble(Order::getSubtotal).sum();
     }
 
     public double getTotal() {
-        return total;
+        return orders.stream().mapToDouble(Order::getTotal).sum();
     }
 
     public long getCreatedAt() {

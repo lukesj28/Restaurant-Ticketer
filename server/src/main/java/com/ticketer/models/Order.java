@@ -26,6 +26,15 @@ public class Order {
         total = subtotal * (1 + taxRate);
     }
 
+    public boolean removeItem(Item item) {
+        if (items.remove(item)) {
+            subtotal -= item.getPrice();
+            total = subtotal * (1 + taxRate);
+            return true;
+        }
+        return false;
+    }
+
     public void setTaxRate(double taxRate) {
         this.taxRate = taxRate;
         total = subtotal * (1 + taxRate);
