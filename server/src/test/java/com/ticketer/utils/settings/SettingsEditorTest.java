@@ -55,4 +55,22 @@ public class SettingsEditorTest {
     public void testConstructor() {
         new SettingsEditor();
     }
+
+    @Test
+    public void testSetTaxEmptyFile() throws IOException {
+        try (java.io.FileWriter writer = new java.io.FileWriter(TEST_SETTINGS_PATH)) {
+            writer.write("");
+        }
+        SettingsEditor.setTax(0.12);
+        assertEquals(0.12, SettingsReader.getTax(), 0.001);
+    }
+
+    @Test
+    public void testSetOpeningHoursEmptyFile() throws IOException {
+        try (java.io.FileWriter writer = new java.io.FileWriter(TEST_SETTINGS_PATH)) {
+            writer.write("");
+        }
+        SettingsEditor.setOpeningHours("Sat", "11:00 - 23:00");
+        assertEquals("11:00 - 23:00", SettingsReader.getOpeningHours("sat"));
+    }
 }

@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import com.ticketer.utils.menu.dto.ComplexItem;
 import com.ticketer.utils.menu.dto.Side;
 import com.ticketer.models.Item;
+import com.ticketer.models.Menu;
 import java.io.IOException;
 import java.util.Map;
 import java.util.HashMap;
@@ -20,7 +21,7 @@ public class MenuReaderTest {
 
         ComplexItem complexItem = new ComplexItem("Fish", 10.00, true, sides);
 
-        Item result = MenuReader.getItem(complexItem, "chips");
+        Item result = Menu.getItem(complexItem, "chips");
 
         assertNotNull(result);
         assertEquals("Fish", result.getName());
@@ -32,7 +33,7 @@ public class MenuReaderTest {
     public void testGetItemNoSides() {
         ComplexItem complexItem = new ComplexItem("Burger", 5.00, true, null);
 
-        Item result = MenuReader.getItem(complexItem, null);
+        Item result = Menu.getItem(complexItem, null);
 
         assertEquals(5.00, result.getPrice(), 0.001);
         assertNull(result.getSelectedSide());
@@ -44,7 +45,7 @@ public class MenuReaderTest {
         sides.put("chips", new Side());
         ComplexItem complexItem = new ComplexItem("Fish", 10.00, true, sides);
 
-        Item result = MenuReader.getItem(complexItem, null);
+        Item result = Menu.getItem(complexItem, null);
 
         assertEquals(10.00, result.getPrice(), 0.001);
         assertNull(result.getSelectedSide());
@@ -56,7 +57,7 @@ public class MenuReaderTest {
         sides.put("fries", new Side());
         ComplexItem complexItem = new ComplexItem("Fish", 10.00, true, sides);
 
-        MenuReader.getItem(complexItem, "lobster");
+        Menu.getItem(complexItem, "lobster");
     }
 
     @Test
@@ -69,7 +70,7 @@ public class MenuReaderTest {
         String originalPath = System.getProperty("menu.file");
         System.setProperty("menu.file", "invalid_path/missing.json");
         try {
-            MenuReader.getAllItems();
+            MenuReader.readMenu();
         } finally {
             if (originalPath != null)
                 System.setProperty("menu.file", originalPath);
@@ -83,7 +84,7 @@ public class MenuReaderTest {
         String originalPath = System.getProperty("menu.file");
         System.setProperty("menu.file", "invalid_path/missing.json");
         try {
-            MenuReader.getItemDetails("some_item");
+            MenuReader.readMenu();
         } finally {
             if (originalPath != null)
                 System.setProperty("menu.file", originalPath);
@@ -95,7 +96,7 @@ public class MenuReaderTest {
     @Test
     public void testLoadMenuIntegration() {
         try {
-            var items = MenuReader.getAllItems();
+            var items = MenuReader.readMenu().getAllItems();
             assertNotNull(items);
             assertFalse(items.isEmpty());
 
@@ -110,6 +111,22 @@ public class MenuReaderTest {
 
     @Test
     public void testGetItemDetailsNotFound() throws IOException {
-        assertNull(MenuReader.getItemDetails("non_existent"));
+        assertNull(MenuReader.readMenu().getItem("non_existent"));
+    }
+
+    @Test
+    public void testReadMenu() throws IOException {
+        Menu menu = MenuReader.readMenu();
+        assertNotNull(menu);
+        assertNotNull(menu.getCategories());
+        assertFalse(menu.getCategories().isEmpty());
+
+        assertTrue(menu.getCategories().containsKey("mains"));
+        java.util.List<ComplexItem> mains = menu.getCategories().get("mains");
+        assertFalse(mains.isEmpty());
+
+        ComplexItem halibut = mains.stream().filter(i -> i.name.equals("halibut")).findFirst().orElse(null);
+        assertNotNull(halibut);
+        assertTrue(halibut.hasSides());
     }
 }

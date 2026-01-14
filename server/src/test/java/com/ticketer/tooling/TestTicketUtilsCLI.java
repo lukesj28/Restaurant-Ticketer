@@ -1,5 +1,6 @@
 package com.ticketer.tooling;
 
+import com.ticketer.models.Menu;
 import com.ticketer.models.Item;
 import com.ticketer.models.Order;
 import com.ticketer.models.Ticket;
@@ -9,9 +10,17 @@ import com.ticketer.utils.ticket.TicketUtils;
 import java.io.IOException;
 import java.util.Scanner;
 
-public class TestTicketUtils {
+public class TestTicketUtilsCLI {
     public static void main(String[] args) {
         try (Scanner scanner = new Scanner(System.in)) {
+            Menu menu = null;
+            try {
+                menu = MenuReader.readMenu();
+            } catch (IOException e) {
+                System.err.println("Failed to load menu: " + e.getMessage());
+                return;
+            }
+
             int ticketId = 1;
 
             while (true) {
@@ -45,39 +54,34 @@ public class TestTicketUtils {
                             break;
                         }
 
-                        try {
-                            ComplexItem itemDetails = MenuReader.getItemDetails(input);
-                            if (itemDetails == null) {
-                                System.out.println("Item not found in menu.");
-                                continue;
-                            }
-
-                            if (!itemDetails.available) {
-                                System.out.println("Item validation failed: Not available.");
-                                continue;
-                            }
-
-                            String sideSelection = null;
-                            if (itemDetails.hasSides()) {
-                                System.out.println("Available sides: " + itemDetails.sideOptions.keySet());
-                                System.out.print("Select side: ");
-                                sideSelection = scanner.nextLine().trim();
-                            }
-
-                            Item item;
-                            try {
-                                item = MenuReader.getItem(itemDetails, sideSelection);
-                            } catch (IllegalArgumentException e) {
-                                System.out.println("Error adding item: " + e.getMessage());
-                                continue;
-                            }
-
-                            currentOrder.addItem(item);
-                            System.out.println("Item added: " + item);
-
-                        } catch (IOException e) {
-                            System.err.println("Error reading menu: " + e.getMessage());
+                        ComplexItem itemDetails = menu.getItem(input);
+                        if (itemDetails == null) {
+                            System.out.println("Item not found in menu.");
+                            continue;
                         }
+
+                        if (!itemDetails.available) {
+                            System.out.println("Item validation failed: Not available.");
+                            continue;
+                        }
+
+                        String sideSelection = null;
+                        if (itemDetails.hasSides()) {
+                            System.out.println("Available sides: " + itemDetails.sideOptions.keySet());
+                            System.out.print("Select side: ");
+                            sideSelection = scanner.nextLine().trim();
+                        }
+
+                        Item item;
+                        try {
+                            item = Menu.getItem(itemDetails, sideSelection);
+                        } catch (IllegalArgumentException e) {
+                            System.out.println("Error adding item: " + e.getMessage());
+                            continue;
+                        }
+
+                        currentOrder.addItem(item);
+                        System.out.println("Item added: " + item);
                     }
 
                     if (!currentOrder.getItems().isEmpty()) {

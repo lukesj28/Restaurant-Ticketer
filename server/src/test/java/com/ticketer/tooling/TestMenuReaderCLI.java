@@ -3,6 +3,7 @@ package com.ticketer.tooling;
 import com.ticketer.utils.menu.MenuReader;
 import com.ticketer.utils.menu.dto.*;
 import com.ticketer.models.Item;
+import com.ticketer.models.Menu;
 import java.util.List;
 import java.util.Scanner;
 
@@ -11,14 +12,15 @@ public class TestMenuReaderCLI {
         try (Scanner scanner = new Scanner(System.in)) {
             while (true) {
                 try {
-                    List<MenuItemView> items = MenuReader.getAllItems();
+                    Menu menu = MenuReader.readMenu();
+                    List<MenuItemView> items = menu.getAllItems();
                     for (MenuItemView item : items) {
                         System.out.println(item);
                     }
                     System.out.print("Item: ");
                     String input = scanner.nextLine().trim();
 
-                    ComplexItem item = MenuReader.getItemDetails(input);
+                    ComplexItem item = menu.getItem(input);
                     if (item == null) {
                         System.out.println("Not found.");
                         continue;
@@ -46,7 +48,7 @@ public class TestMenuReaderCLI {
 
                         if (matchedKey != null) {
                             try {
-                                Item order = MenuReader.getItem(item, matchedKey);
+                                Item order = Menu.getItem(item, matchedKey);
                                 System.out.println("Order: " + order);
                             } catch (IllegalArgumentException e) {
                                 System.out.println("Error: " + e.getMessage());
@@ -56,7 +58,7 @@ public class TestMenuReaderCLI {
                         }
 
                     } else {
-                        Item order = MenuReader.getItem(item, null);
+                        Item order = Menu.getItem(item, null);
                         System.out.println("Order: " + order);
                     }
                 } catch (java.io.IOException e) {

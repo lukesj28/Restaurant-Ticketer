@@ -4,14 +4,14 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import com.ticketer.utils.menu.dto.ComplexItem;
-import com.ticketer.utils.menu.dto.MenuItemView;
-import com.ticketer.models.Item;
 import com.ticketer.utils.menu.dto.Side;
+import com.ticketer.models.Menu;
 
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,59 +29,31 @@ public class MenuReader {
         }
     }
 
-    // List all
-    public static List<MenuItemView> getAllItems() throws IOException {
-        List<MenuItemView> list = new ArrayList<>();
-        JsonObject menu = loadMenu();
-        for (String category : menu.keySet()) {
-            JsonObject catObj = menu.getAsJsonObject(category);
-            for (String key : catObj.keySet()) {
-                JsonObject item = catObj.getAsJsonObject(key);
-                double price = item.get("price").getAsDouble();
-                boolean avail = item.has("available") && item.get("available").getAsBoolean();
-                list.add(new MenuItemView(key, price, avail, category));
-            }
-        }
-        return list;
-    }
+    public static Menu readMenu() throws IOException {
+        JsonObject json = loadMenu();
+        Map<String, List<ComplexItem>> categories = new HashMap<>();
 
-    // Get details
-    public static ComplexItem getItemDetails(String itemName) throws IOException {
-        JsonObject menu = loadMenu();
-        for (String category : menu.keySet()) {
-            JsonObject catObj = menu.getAsJsonObject(category);
-            if (catObj.has(itemName)) {
-                JsonObject item = catObj.getAsJsonObject(itemName);
-                double price = item.get("price").getAsDouble();
-                boolean avail = item.has("available") && item.get("available").getAsBoolean();
+        for (String categoryKey : json.keySet()) {
+            JsonObject categoryJson = json.getAsJsonObject(categoryKey);
+            List<ComplexItem> items = new ArrayList<>();
+
+            for (String itemKey : categoryJson.keySet()) {
+                JsonObject itemJson = categoryJson.getAsJsonObject(itemKey);
+                double price = itemJson.get("price").getAsDouble();
+                boolean avail = itemJson.has("available") && itemJson.get("available").getAsBoolean();
 
                 Map<String, Side> sides = null;
-                if (item.has("sides")) {
+                if (itemJson.has("sides")) {
                     Type sideType = new TypeToken<Map<String, Side>>() {
                     }.getType();
-                    sides = new Gson().fromJson(item.get("sides"), sideType);
+                    sides = gson.fromJson(itemJson.get("sides"), sideType);
                 }
-                return new ComplexItem(itemName, price, avail, sides);
-            }
-        }
-        return null;
-    }
 
-    // Get item
-    public static Item getItem(ComplexItem item, String sideName) {
-        if (!item.hasSides()) {
-            return new Item(item.name, null, item.basePrice);
-        }
-
-        if (sideName != null && item.sideOptions.containsKey(sideName)) {
-            Side side = item.sideOptions.get(sideName);
-            return new Item(item.name, sideName, item.basePrice + side.price);
-        } else {
-            if (sideName != null) {
-                throw new IllegalArgumentException("Invalid side selection: " + sideName);
+                items.add(new ComplexItem(itemKey, price, avail, sides));
             }
-            return new Item(item.name, null, item.basePrice);
+            categories.put(categoryKey, items);
         }
+        return new Menu(categories);
     }
 
     public static String findCategoryOfItem(JsonObject menu, String itemName) {

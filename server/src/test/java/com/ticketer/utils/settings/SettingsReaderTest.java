@@ -104,8 +104,25 @@ public class SettingsReaderTest {
         SettingsReader.getOpeningHours("mon");
     }
 
+    @Test(expected = IOException.class)
+    public void testEmptyFileGetTax() throws IOException {
+        try (FileWriter writer = new FileWriter(TEST_SETTINGS_PATH)) {
+            writer.write("");
+        }
+        SettingsReader.getTax();
+    }
+
     @Test
-    public void testMalformedTimeFormat() throws IOException {
+    public void testEmptyFileGetOpeningHours() throws IOException {
+        try (FileWriter writer = new FileWriter(TEST_SETTINGS_PATH)) {
+            writer.write("");
+        }
+        assertEquals("closed", SettingsReader.getOpeningHours("mon"));
+        assertTrue(SettingsReader.getOpeningHours().isEmpty());
+    }
+
+    @Test
+    public void testBrokenTimeFormat() throws IOException {
         String jsonContent = "{\n" +
                 "    \"tax\": 0.15,\n" +
                 "    \"hours\": {\n" +

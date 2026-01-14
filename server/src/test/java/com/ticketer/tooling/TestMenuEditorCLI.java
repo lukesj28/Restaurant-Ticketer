@@ -65,7 +65,7 @@ public class TestMenuEditorCLI {
         // List
         List<MenuItemView> allItems;
         try {
-            allItems = MenuReader.getAllItems();
+            allItems = MenuReader.readMenu().getAllItems();
         } catch (IOException e) {
             System.err.println("Error reading menu: " + e.getMessage());
             return;

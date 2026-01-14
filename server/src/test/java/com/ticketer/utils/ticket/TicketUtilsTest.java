@@ -64,15 +64,6 @@ public class TicketUtilsTest {
 
         assertEquals(2, (int) counts.get("Burger"));
         assertEquals(1, (int) counts.get("Soda"));
-        // counts for "Fries" as a main item + "Fries" as a side -> should sum to 2
-        // Wait, logic: counts.put(side, ...) -> if side name == main item name, they
-        // sum up.
-        // My test setup:
-        // 1. Burger + Fries (side)
-        // 2. Burger + none (side)
-        // 3. Soda (no side)
-        // 4. Fries (main item)
-        // Expected: Burger: 2, Fries: 2, Soda: 1.
 
         assertEquals(2, (int) counts.get("Fries"));
         assertFalse(counts.containsKey("none"));

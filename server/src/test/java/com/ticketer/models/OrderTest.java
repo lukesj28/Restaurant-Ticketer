@@ -40,9 +40,8 @@ public class OrderTest {
         order.addItem(item1);
 
         List<Item> retrievedItems = order.getItems();
-        retrievedItems.clear(); // Modified the returned list
+        retrievedItems.clear();
 
-        // Original order should remain unchanged
         assertEquals(1, order.getItems().size());
     }
 }
