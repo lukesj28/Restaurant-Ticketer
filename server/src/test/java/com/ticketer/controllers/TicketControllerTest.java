@@ -14,11 +14,33 @@ public class TicketControllerTest {
 
     private TicketController ticketController;
 
+    private static final String TEST_TICKETS_DIR = "target/test-tickets";
+
     @Before
-    public void setUp() {
+    public void setUp() throws IOException {
         ticketController = new TicketController();
         ticketController.resetTicketCounter();
-        new File("data/tickets").mkdirs();
+
+        File testDir = new File(TEST_TICKETS_DIR);
+        if (!testDir.exists()) {
+            testDir.mkdirs();
+        }
+        System.setProperty("tickets.dir", TEST_TICKETS_DIR);
+    }
+
+    @org.junit.After
+    public void tearDown() {
+        File testDir = new File(TEST_TICKETS_DIR);
+        if (testDir.exists()) {
+            File[] files = testDir.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    f.delete();
+                }
+            }
+            testDir.delete();
+        }
+        System.clearProperty("tickets.dir");
     }
 
     @Test
@@ -189,15 +211,13 @@ public class TicketControllerTest {
         ticketController.serializeClosedTickets();
 
         String date = new java.text.SimpleDateFormat("ddMMyyyy").format(new java.util.Date());
-        String filename = "data/tickets/" + date + ".json";
+        String filename = TEST_TICKETS_DIR + "/" + date + ".json";
         File file = new File(filename);
 
-        assertTrue(file.exists());
+        assertTrue("Ticket file should exist at " + filename, file.exists());
 
         String content = new String(Files.readAllBytes(file.toPath()));
         assertTrue(content.contains("T1"));
-
-        file.delete();
     }
 
     @Test

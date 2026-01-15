@@ -159,7 +159,13 @@ public class TicketController {
 
     public void serializeClosedTickets() {
         String date = new java.text.SimpleDateFormat("ddMMyyyy").format(new java.util.Date());
-        String filename = "data/tickets/" + date + ".json";
+        String dirPath = System.getProperty("tickets.dir", "data/tickets");
+        String filename = dirPath + "/" + date + ".json";
+
+        java.io.File directory = new java.io.File(dirPath);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
 
         try (java.io.FileWriter writer = new java.io.FileWriter(filename)) {
             writer.write(com.ticketer.utils.ticket.TicketUtils.serializeTickets(closedTickets));
@@ -173,5 +179,9 @@ public class TicketController {
         completedTickets.clear();
         closedTickets.clear();
         resetTicketCounter();
+    }
+
+    public boolean areAllTicketsClosed() {
+        return activeTickets.isEmpty() && completedTickets.isEmpty();
     }
 }

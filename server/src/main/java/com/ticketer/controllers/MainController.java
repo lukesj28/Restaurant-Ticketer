@@ -12,9 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Map;
 
-import com.ticketer.models.Menu;
 import com.ticketer.models.Item;
-import com.ticketer.models.Settings;
 import com.ticketer.models.Ticket;
 import com.ticketer.models.Order;
 import com.ticketer.utils.menu.dto.ComplexItem;
@@ -120,7 +118,7 @@ public class MainController {
         long checkInterval = 300000;
 
         while (System.currentTimeMillis() - startTime < maxWaitTime) {
-            if (areAllTicketsClosed()) {
+            if (ticketController.areAllTicketsClosed()) {
                 break;
             }
             try {
@@ -144,10 +142,6 @@ public class MainController {
 
     public void refreshMenu() {
         menuController.refreshMenu();
-    }
-
-    public Menu getMenu() {
-        return menuController.getMenu();
     }
 
     public ComplexItem getItem(String name) {
@@ -206,10 +200,6 @@ public class MainController {
         settingsController.refreshSettings();
     }
 
-    public Settings getSettings() {
-        return settingsController.getSettings();
-    }
-
     public double getTax() {
         return settingsController.getTax();
     }
@@ -236,10 +226,6 @@ public class MainController {
 
     public void setOpeningHours(String day, String hours) {
         settingsController.setOpeningHours(day, hours);
-    }
-
-    public void resetTicketCounter() {
-        ticketController.resetTicketCounter();
     }
 
     public Ticket createTicket(String tableNumber) {
@@ -296,23 +282,6 @@ public class MainController {
 
     public void removeTicket(int ticketId) {
         ticketController.removeTicket(ticketId);
-    }
-
-    public void moveAllToClosed() {
-        ticketController.moveAllToClosed();
-    }
-
-    public void serializeClosedTickets() {
-        ticketController.serializeClosedTickets();
-    }
-
-    public void clearAllTickets() {
-        ticketController.clearAllTickets();
-    }
-
-    private boolean areAllTicketsClosed() {
-        return ticketController.getActiveTickets().isEmpty() &&
-                ticketController.getCompletedTickets().isEmpty();
     }
 
     public void shutdown() {

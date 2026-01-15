@@ -85,8 +85,6 @@ public class MainControllerTest {
 
     @Test
     public void testInitialization() {
-        assertNotNull(mainController.getMenu());
-        assertNotNull(mainController.getSettings());
         assertNotNull(mainController.getActiveTickets());
     }
 
@@ -124,7 +122,6 @@ public class MainControllerTest {
     @Test
     public void testSettingsDelegations() {
         mainController.refreshSettings();
-        assertNotNull(mainController.getSettings());
 
         double originalTax = mainController.getTax();
         mainController.setTax(0.15);
@@ -134,7 +131,6 @@ public class MainControllerTest {
 
     @Test
     public void testTicketDelegations() {
-        mainController.clearAllTickets();
 
         Ticket t = mainController.createTicket("Table1");
         assertNotNull(t);
