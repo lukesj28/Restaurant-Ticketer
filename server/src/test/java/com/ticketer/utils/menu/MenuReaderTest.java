@@ -16,26 +16,26 @@ public class MenuReaderTest {
     public void testGetItemCalculation() {
         Map<String, Side> sides = new HashMap<>();
         Side chips = new Side();
-        chips.price = 2.00;
+        chips.price = 200;
         sides.put("chips", chips);
 
-        ComplexItem complexItem = new ComplexItem("Fish", 10.00, true, sides);
+        ComplexItem complexItem = new ComplexItem("Fish", 1000, true, sides);
 
         Item result = Menu.getItem(complexItem, "chips");
 
         assertNotNull(result);
         assertEquals("Fish", result.getName());
         assertEquals("chips", result.getSelectedSide());
-        assertEquals(12.00, result.getPrice(), 0.001);
+        assertEquals(1200, result.getPrice());
     }
 
     @Test
     public void testGetItemNoSides() {
-        ComplexItem complexItem = new ComplexItem("Burger", 5.00, true, null);
+        ComplexItem complexItem = new ComplexItem("Burger", 500, true, null);
 
         Item result = Menu.getItem(complexItem, null);
 
-        assertEquals(5.00, result.getPrice(), 0.001);
+        assertEquals(500, result.getPrice());
         assertNull(result.getSelectedSide());
     }
 
@@ -43,11 +43,11 @@ public class MenuReaderTest {
     public void testGetItemWithSidesButNullSelection() {
         Map<String, Side> sides = new HashMap<>();
         sides.put("chips", new Side());
-        ComplexItem complexItem = new ComplexItem("Fish", 10.00, true, sides);
+        ComplexItem complexItem = new ComplexItem("Fish", 1000, true, sides);
 
         Item result = Menu.getItem(complexItem, null);
 
-        assertEquals(10.00, result.getPrice(), 0.001);
+        assertEquals(1000, result.getPrice());
         assertNull(result.getSelectedSide());
     }
 
@@ -55,7 +55,7 @@ public class MenuReaderTest {
     public void testInvalidSideSelection() {
         Map<String, Side> sides = new HashMap<>();
         sides.put("fries", new Side());
-        ComplexItem complexItem = new ComplexItem("Fish", 10.00, true, sides);
+        ComplexItem complexItem = new ComplexItem("Fish", 1000, true, sides);
 
         Menu.getItem(complexItem, "lobster");
     }

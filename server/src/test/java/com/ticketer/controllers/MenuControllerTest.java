@@ -70,7 +70,7 @@ public class MenuControllerTest {
     @Test
     public void testRemoveItem() {
         if (controller.getAllItems().isEmpty()) {
-            controller.addItem("TempCat", "ToRemove", 10.0, null);
+            controller.addItem("TempCat", "ToRemove", 1000, null);
         }
 
         String nameToRemove = controller.getAllItems().get(0).name;
@@ -81,19 +81,19 @@ public class MenuControllerTest {
     @Test
     public void testRenameCategory() {
         String oldCat = "OldCat";
-        controller.addItem(oldCat, "ItemInCat", 10.0, null);
+        controller.addItem(oldCat, "ItemInCat", 1000, null);
 
         String newCat = "NewCat_Renamed";
         controller.renameCategory(oldCat, newCat);
 
-        assertNull("Old category should be gone", controller.getCategory(oldCat.toLowerCase()));
+        assertTrue("Old category should be gone", controller.getCategory(oldCat.toLowerCase()).isEmpty());
         assertNotNull("New category should exist", controller.getCategory(newCat.toLowerCase()));
     }
 
     @Test
     public void testGetItemObject() {
         if (controller.getAllItems().isEmpty()) {
-            controller.addItem("Cat", "Item", 10.0, null);
+            controller.addItem("Cat", "Item", 1000, null);
         }
 
         MenuItemView view = controller.getAllItems().get(0);
@@ -108,9 +108,9 @@ public class MenuControllerTest {
     @Test
     public void testGetItemWithSide() {
         String name = "ItemSideTest";
-        Map<String, Double> sides = new HashMap<>();
-        sides.put("Fries", 2.0);
-        controller.addItem("SideCat", name, 10.0, sides);
+        Map<String, Integer> sides = new HashMap<>();
+        sides.put("Fries", 200);
+        controller.addItem("SideCat", name, 1000, sides);
 
         ComplexItem complexItem = controller.getItem(name);
         com.ticketer.models.Item item = controller.getItem(complexItem, "Fries");
@@ -123,14 +123,14 @@ public class MenuControllerTest {
     public void testAddItem() {
         String cat = "TestCategory";
         String name = "TestItemAdd";
-        double price = 12.34;
+        int price = 1234;
 
         controller.addItem(cat, name, price, null);
 
         ComplexItem item = controller.getItem(name);
         assertNotNull(item);
         assertEquals(name, item.name);
-        assertEquals(price, item.basePrice, 0.001);
+        assertEquals(price, item.basePrice);
 
         List<ComplexItem> catItems = controller.getCategory(cat.toLowerCase());
         assertNotNull(catItems);
@@ -140,18 +140,18 @@ public class MenuControllerTest {
     @Test
     public void testEditItemPrice() {
         String name = "PriceItem";
-        controller.addItem("Cat", name, 10.0, null);
+        controller.addItem("Cat", name, 1000, null);
 
-        double newPrice = 99.99;
+        int newPrice = 9999;
         controller.editItemPrice(name, newPrice);
 
-        assertEquals(newPrice, controller.getItem(name).basePrice, 0.001);
+        assertEquals(newPrice, controller.getItem(name).basePrice);
     }
 
     @Test
     public void testEditItemAvailability() {
         String name = "AvailItem";
-        controller.addItem("Cat", name, 10.0, null);
+        controller.addItem("Cat", name, 1000, null);
 
         controller.editItemAvailability(name, false);
         assertFalse(controller.getItem(name).available);
@@ -163,7 +163,7 @@ public class MenuControllerTest {
     @Test
     public void testRenameItem() {
         String oldName = "OldNameItem";
-        controller.addItem("Cat", oldName, 10.0, null);
+        controller.addItem("Cat", oldName, 1000, null);
 
         String newName = "RenamedItem_" + System.currentTimeMillis();
         controller.renameItem(oldName, newName);
@@ -176,7 +176,7 @@ public class MenuControllerTest {
     public void testChangeCategory() {
         String name = "CatChangeItem";
         String oldCat = "Cat1";
-        controller.addItem(oldCat, name, 10.0, null);
+        controller.addItem(oldCat, name, 1000, null);
 
         String newCat = "Cat2_New";
         controller.changeCategory(name, newCat);
@@ -186,23 +186,21 @@ public class MenuControllerTest {
         assertTrue(catItems.stream().anyMatch(i -> i.name.equals(name)));
 
         List<ComplexItem> oldCatItems = controller.getCategory(oldCat.toLowerCase());
-        if (oldCatItems != null) {
-            assertFalse(oldCatItems.stream().anyMatch(i -> i.name.equals(name)));
-        }
+        assertFalse(oldCatItems.stream().anyMatch(i -> i.name.equals(name)));
     }
 
     @Test
     public void testUpdateSide() {
         String name = "ItemWithSide";
-        Map<String, Double> sides = new HashMap<>();
-        sides.put("Fries", 2.0);
-        controller.addItem("SideCat", name, 10.0, sides);
+        Map<String, Integer> sides = new HashMap<>();
+        sides.put("Fries", 200);
+        controller.addItem("SideCat", name, 1000, sides);
 
-        controller.updateSide(name, "Fries", 5.0);
+        controller.updateSide(name, "Fries", 500);
 
         ComplexItem item = controller.getItem(name);
         assertNotNull(item.sideOptions);
-        assertEquals(5.0, item.sideOptions.get("Fries").price, 0.001);
+        assertEquals(500, item.sideOptions.get("Fries").price);
     }
 
     @Test
@@ -212,7 +210,7 @@ public class MenuControllerTest {
         menuField.set(controller, null);
 
         assertNull(controller.getItem("any"));
-        assertNull(controller.getCategory("any"));
+        assertTrue(controller.getCategory("any").isEmpty());
         assertTrue(controller.getAllItems().isEmpty());
         assertTrue(controller.getCategories().isEmpty());
     }

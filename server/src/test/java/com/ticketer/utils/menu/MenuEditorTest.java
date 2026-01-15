@@ -38,10 +38,10 @@ public class MenuEditorTest {
 
     @Test
     public void testAddItem() throws IOException {
-        Map<String, Double> sides = new HashMap<>();
-        sides.put("test_side", 1.50);
+        Map<String, Integer> sides = new HashMap<>();
+        sides.put("test_side", 150);
 
-        MenuEditor.addItem("mains", "test_item", 9.99, sides);
+        MenuEditor.addItem("mains", "test_item", 999, sides);
 
         JsonObject menu = MenuReader.loadMenu();
         JsonObject item = menu.getAsJsonObject("mains").getAsJsonObject("test_item");
@@ -55,7 +55,7 @@ public class MenuEditorTest {
 
     @Test
     public void testAddItemNoSides() throws IOException {
-        MenuEditor.addItem("mains", "simple_item", 5.00, null);
+        MenuEditor.addItem("mains", "simple_item", 500, null);
 
         JsonObject menu = MenuReader.loadMenu();
         JsonObject item = menu.getAsJsonObject("mains").getAsJsonObject("simple_item");
@@ -67,7 +67,7 @@ public class MenuEditorTest {
 
     @Test
     public void testEditItemPrice() throws IOException {
-        MenuEditor.editItemPrice("haddock", 20.00);
+        MenuEditor.editItemPrice("haddock", 2000);
 
         JsonObject menu = MenuReader.loadMenu();
         double newPrice = menu.getAsJsonObject("mains").getAsJsonObject("haddock").get("price").getAsDouble();
@@ -92,7 +92,7 @@ public class MenuEditorTest {
 
     @Test
     public void testAddItemNewCategory() throws IOException {
-        MenuEditor.addItem("specials", "daily_special", 12.99, null);
+        MenuEditor.addItem("specials", "daily_special", 1299, null);
         JsonObject menu = MenuReader.loadMenu();
         assertTrue(menu.has("specials"));
         assertNotNull(menu.getAsJsonObject("specials").getAsJsonObject("daily_special"));
@@ -116,8 +116,8 @@ public class MenuEditorTest {
 
     @Test
     public void testUpdateSideNoSides() throws IOException {
-        MenuEditor.addItem("mains", "plain_fish", 10.00, null);
-        MenuEditor.updateSide("plain_fish", "lemon", 0.50);
+        MenuEditor.addItem("mains", "plain_fish", 1000, null);
+        MenuEditor.updateSide("plain_fish", "lemon", 50);
 
         JsonObject menu = MenuReader.loadMenu();
         JsonObject item = menu.getAsJsonObject("mains").getAsJsonObject("plain_fish");
@@ -149,7 +149,7 @@ public class MenuEditorTest {
 
     @Test
     public void testUpdateSide() throws IOException {
-        MenuEditor.updateSide("haddock", "chips", 5.00);
+        MenuEditor.updateSide("haddock", "chips", 500);
 
         JsonObject menu = MenuReader.loadMenu();
         double sidePrice = menu.getAsJsonObject("mains")
@@ -163,7 +163,7 @@ public class MenuEditorTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testEditItemPriceNotFound() throws IOException {
-        MenuEditor.editItemPrice("non_existent_item", 10.0);
+        MenuEditor.editItemPrice("non_existent_item", 1000);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -183,7 +183,7 @@ public class MenuEditorTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testUpdateSideNotFound() throws IOException {
-        MenuEditor.updateSide("non_existent_item", "side", 1.0);
+        MenuEditor.updateSide("non_existent_item", "side", 100);
     }
 
     @Test
@@ -209,7 +209,7 @@ public class MenuEditorTest {
 
     @Test
     public void testRenameCategoryMerge() throws IOException {
-        MenuEditor.addItem("seafood", "salmon", 18.00, null);
+        MenuEditor.addItem("seafood", "salmon", 1800, null);
 
         MenuEditor.renameCategory("seafood", "mains");
 

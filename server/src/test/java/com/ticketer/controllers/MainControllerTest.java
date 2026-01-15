@@ -98,7 +98,7 @@ public class MainControllerTest {
     @Test
     public void testItemManagementDelegations() {
         String testItem = "TestDelegationItem";
-        double price = 10.0;
+        int price = 1000;
 
         try {
             mainController.removeItem(testItem);
@@ -108,10 +108,10 @@ public class MainControllerTest {
         mainController.addItem("Entrees", testItem, price, Collections.emptyMap());
         ComplexItem item = mainController.getItem(testItem);
         assertNotNull(item);
-        assertEquals(price, item.basePrice, 0.001);
+        assertEquals(price, item.basePrice);
 
-        mainController.editItemPrice(testItem, 12.0);
-        assertEquals(12.0, mainController.getItem(testItem).basePrice, 0.001);
+        mainController.editItemPrice(testItem, 1200);
+        assertEquals(1200, mainController.getItem(testItem).basePrice);
 
         mainController.editItemAvailability(testItem, false);
         assertFalse(mainController.getItem(testItem).available);

@@ -1,6 +1,7 @@
 package com.ticketer.utils.menu;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import com.ticketer.utils.menu.dto.ComplexItem;
@@ -21,7 +22,21 @@ public class MenuReader {
         return System.getProperty("menu.file", "data/menu.json");
     }
 
-    private static final Gson gson = new Gson();
+    private static final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(com.ticketer.utils.menu.dto.Side.class,
+                    new com.google.gson.JsonDeserializer<com.ticketer.utils.menu.dto.Side>() {
+                        @Override
+                        public com.ticketer.utils.menu.dto.Side deserialize(com.google.gson.JsonElement json,
+                                Type typeOfT, com.google.gson.JsonDeserializationContext context)
+                                throws com.google.gson.JsonParseException {
+                            JsonObject jsonObj = json.getAsJsonObject();
+                            com.ticketer.utils.menu.dto.Side side = new com.ticketer.utils.menu.dto.Side();
+                            side.price = (int) Math.round(jsonObj.get("price").getAsDouble() * 100);
+                            side.available = jsonObj.get("available").getAsBoolean();
+                            return side;
+                        }
+                    })
+            .create();
 
     public static JsonObject loadMenu() {
         try (FileReader reader = new FileReader(getMenuFilePath())) {
@@ -41,7 +56,7 @@ public class MenuReader {
 
             for (String itemKey : categoryJson.keySet()) {
                 JsonObject itemJson = categoryJson.getAsJsonObject(itemKey);
-                double price = itemJson.get("price").getAsDouble();
+                int price = (int) Math.round(itemJson.get("price").getAsDouble() * 100);
                 boolean avail = itemJson.has("available") && itemJson.get("available").getAsBoolean();
 
                 Map<String, Side> sides = null;

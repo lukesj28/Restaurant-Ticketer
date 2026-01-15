@@ -13,7 +13,7 @@ public class MenuTest {
     public void testGetCategories() {
         Map<String, List<ComplexItem>> categories = new HashMap<>();
         List<ComplexItem> mains = new ArrayList<>();
-        mains.add(new ComplexItem("Burger", 10.0, true, null));
+        mains.add(new ComplexItem("Burger", 1000, true, null));
         categories.put("mains", mains);
 
         Menu menu = new Menu(categories);
@@ -27,7 +27,7 @@ public class MenuTest {
     public void testGetAllItems() {
         Map<String, List<ComplexItem>> categories = new HashMap<>();
         List<ComplexItem> mains = new ArrayList<>();
-        mains.add(new ComplexItem("Burger", 10.0, true, null));
+        mains.add(new ComplexItem("Burger", 1000, true, null));
         categories.put("mains", mains);
 
         Menu menu = new Menu(categories);
@@ -41,7 +41,7 @@ public class MenuTest {
     public void testGetItem() {
         Map<String, List<ComplexItem>> categories = new HashMap<>();
         List<ComplexItem> mains = new ArrayList<>();
-        mains.add(new ComplexItem("Burger", 10.0, true, null));
+        mains.add(new ComplexItem("Burger", 1000, true, null));
         categories.put("mains", mains);
 
         Menu menu = new Menu(categories);
@@ -53,22 +53,22 @@ public class MenuTest {
     public void testGetItemWithSides() {
         Map<String, Side> sides = new HashMap<>();
         Side chips = new Side();
-        chips.price = 2.0;
+        chips.price = 200;
         sides.put("chips", chips);
-        ComplexItem fish = new ComplexItem("Fish", 10.0, true, sides);
+        ComplexItem fish = new ComplexItem("Fish", 1000, true, sides);
 
         Item result = Menu.getItem(fish, "chips");
         assertEquals("Fish", result.getName());
         assertEquals("chips", result.getSelectedSide());
-        assertEquals(12.0, result.getPrice(), 0.001);
+        assertEquals(1200, result.getPrice());
     }
 
     @Test
     public void testGetItemWithoutSides() {
-        ComplexItem burger = new ComplexItem("Burger", 10.0, true, null);
+        ComplexItem burger = new ComplexItem("Burger", 1000, true, null);
         Item result = Menu.getItem(burger, null);
         assertEquals("Burger", result.getName());
-        assertEquals(10.0, result.getPrice(), 0.001);
+        assertEquals(1000, result.getPrice());
         assertNull(result.getSelectedSide());
     }
 
@@ -76,7 +76,7 @@ public class MenuTest {
     public void testGetItemInvalidSide() {
         Map<String, Side> sides = new HashMap<>();
         sides.put("fries", new Side());
-        ComplexItem fish = new ComplexItem("Fish", 10.0, true, sides);
+        ComplexItem fish = new ComplexItem("Fish", 1000, true, sides);
         Menu.getItem(fish, "invalid_side");
     }
 }

@@ -131,22 +131,22 @@ public class TicketControllerTest {
 
         assertEquals(1, ticket.getOrders().size());
 
-        Item item = new Item("Burger", "Fries", 10.0);
+        Item item = new Item("Burger", "Fries", 1000);
         ticketController.addItemToOrder(order, item);
 
-        assertEquals(10.0, order.getSubtotal(), 0.001);
-        assertEquals(11.0, order.getTotal(), 0.001);
-        assertEquals(10.0, ticket.getSubtotal(), 0.001);
-        assertEquals(11.0, ticket.getTotal(), 0.001);
+        assertEquals(1000, order.getSubtotal());
+        assertEquals(1100, order.getTotal());
+        assertEquals(1000, ticket.getSubtotal());
+        assertEquals(1100, ticket.getTotal());
 
         ticketController.removeItemFromOrder(order, item);
-        assertEquals(0.0, order.getTotal(), 0.001);
-        assertEquals(0.0, ticket.getTotal(), 0.001);
+        assertEquals(0, order.getTotal());
+        assertEquals(0, ticket.getTotal());
 
         ticketController.addItemToOrder(order, item);
         ticketController.removeOrderFromTicket(ticket.getId(), order);
         assertTrue(ticket.getOrders().isEmpty());
-        assertEquals(0.0, ticket.getTotal(), 0.001);
+        assertEquals(0, ticket.getTotal());
     }
 
     @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
@@ -168,6 +168,7 @@ public class TicketControllerTest {
     @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testRemoveItemFromOrderNotFound() {
         Order order = ticketController.createOrder(0.0);
+
         Item item = new Item("None", null, 0);
         ticketController.removeItemFromOrder(order, item);
     }
@@ -210,7 +211,7 @@ public class TicketControllerTest {
 
         ticketController.serializeClosedTickets();
 
-        String date = new java.text.SimpleDateFormat("ddMMyyyy").format(new java.util.Date());
+        String date = java.time.LocalDate.now().toString();
         String filename = TEST_TICKETS_DIR + "/" + date + ".json";
         File file = new File(filename);
 

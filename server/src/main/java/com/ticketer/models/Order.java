@@ -5,14 +5,14 @@ import java.util.List;
 
 public class Order {
     private List<Item> items;
-    private double subtotal;
-    private double total;
+    private int subtotal;
+    private int total;
     private double taxRate;
 
     public Order(double taxRate) {
         this.items = new ArrayList<>();
-        this.subtotal = 0.0;
-        this.total = 0.0;
+        this.subtotal = 0;
+        this.total = 0;
         this.taxRate = taxRate;
     }
 
@@ -23,13 +23,13 @@ public class Order {
     public void addItem(Item item) {
         items.add(item);
         subtotal += item.getPrice();
-        total = subtotal * (1 + taxRate);
+        total = (int) Math.round(subtotal * (1 + taxRate));
     }
 
     public boolean removeItem(Item item) {
         if (items.remove(item)) {
             subtotal -= item.getPrice();
-            total = subtotal * (1 + taxRate);
+            total = (int) Math.round(subtotal * (1 + taxRate));
             return true;
         }
         return false;
@@ -37,7 +37,7 @@ public class Order {
 
     public void setTaxRate(double taxRate) {
         this.taxRate = taxRate;
-        total = subtotal * (1 + taxRate);
+        total = (int) Math.round(subtotal * (1 + taxRate));
     }
 
     public double getTaxRate() {
@@ -48,11 +48,11 @@ public class Order {
         return new ArrayList<>(items);
     }
 
-    public double getSubtotal() {
+    public int getSubtotal() {
         return subtotal;
     }
 
-    public double getTotal() {
+    public int getTotal() {
         return total;
     }
 }

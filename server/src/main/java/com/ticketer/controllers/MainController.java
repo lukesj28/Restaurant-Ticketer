@@ -164,11 +164,11 @@ public class MainController {
         return menuController.getCategories();
     }
 
-    public void addItem(String category, String name, double price, Map<String, Double> sides) {
+    public void addItem(String category, String name, int price, Map<String, Integer> sides) {
         menuController.addItem(category, name, price, sides);
     }
 
-    public void editItemPrice(String itemName, double newPrice) {
+    public void editItemPrice(String itemName, int newPrice) {
         menuController.editItemPrice(itemName, newPrice);
     }
 
@@ -192,7 +192,7 @@ public class MainController {
         menuController.changeCategory(itemName, newCategory);
     }
 
-    public void updateSide(String itemName, String sideName, double newPrice) {
+    public void updateSide(String itemName, String sideName, int newPrice) {
         menuController.updateSide(itemName, sideName, newPrice);
     }
 

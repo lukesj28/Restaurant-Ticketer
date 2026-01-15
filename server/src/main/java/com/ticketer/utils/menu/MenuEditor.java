@@ -12,7 +12,7 @@ public class MenuEditor {
 
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    public static void addItem(String category, String name, double price, Map<String, Double> sides) {
+    public static void addItem(String category, String name, int price, Map<String, Integer> sides) {
         category = category.toLowerCase();
         JsonObject menu = MenuReader.loadMenu();
 
@@ -25,14 +25,14 @@ public class MenuEditor {
         }
 
         JsonObject itemObj = new JsonObject();
-        itemObj.addProperty("price", price);
+        itemObj.addProperty("price", price / 100.0);
         itemObj.addProperty("available", true);
 
         if (sides != null && !sides.isEmpty()) {
             JsonObject sidesObj = new JsonObject();
-            for (Map.Entry<String, Double> entry : sides.entrySet()) {
+            for (Map.Entry<String, Integer> entry : sides.entrySet()) {
                 JsonObject sideDetails = new JsonObject();
-                sideDetails.addProperty("price", entry.getValue());
+                sideDetails.addProperty("price", entry.getValue() / 100.0);
                 sideDetails.addProperty("available", true);
                 sidesObj.add(entry.getKey(), sideDetails);
             }
@@ -51,14 +51,14 @@ public class MenuEditor {
         }
     }
 
-    public static void editItemPrice(String itemName, double newPrice) {
+    public static void editItemPrice(String itemName, int newPrice) {
         JsonObject menu = MenuReader.loadMenu();
         String category = MenuReader.findCategoryOfItem(menu, itemName);
         if (category == null)
             throw new IllegalArgumentException("Item not found: " + itemName);
 
         JsonObject item = menu.getAsJsonObject(category).getAsJsonObject(itemName);
-        item.addProperty("price", newPrice);
+        item.addProperty("price", newPrice / 100.0);
         saveMenu(menu);
     }
 
@@ -112,7 +112,7 @@ public class MenuEditor {
         saveMenu(menu);
     }
 
-    public static void updateSide(String itemName, String sideName, double newPrice) {
+    public static void updateSide(String itemName, String sideName, int newPrice) {
         JsonObject menu = MenuReader.loadMenu();
         String category = MenuReader.findCategoryOfItem(menu, itemName);
         if (category == null)
@@ -128,7 +128,7 @@ public class MenuEditor {
         }
 
         JsonObject sideDetails = new JsonObject();
-        sideDetails.addProperty("price", newPrice);
+        sideDetails.addProperty("price", newPrice / 100.0);
         sideDetails.addProperty("available", true);
         sidesObj.add(sideName, sideDetails);
 

@@ -36,7 +36,11 @@ public class MenuController {
     }
 
     public List<ComplexItem> getCategory(String categoryName) {
-        return menu != null ? menu.getCategory(categoryName.toLowerCase()) : null;
+        if (menu == null) {
+            return java.util.Collections.emptyList();
+        }
+        List<ComplexItem> items = menu.getCategory(categoryName.toLowerCase());
+        return items != null ? items : java.util.Collections.emptyList();
     }
 
     public List<MenuItemView> getAllItems() {
@@ -47,7 +51,7 @@ public class MenuController {
         return menu != null ? menu.getCategories() : java.util.Collections.emptyMap();
     }
 
-    public void addItem(String category, String name, double price, Map<String, Double> sides) {
+    public void addItem(String category, String name, int price, Map<String, Integer> sides) {
         if (price < 0) {
             throw new ValidationException("Price cannot be negative");
         }
@@ -55,7 +59,7 @@ public class MenuController {
         refreshMenu();
     }
 
-    public void editItemPrice(String itemName, double newPrice) {
+    public void editItemPrice(String itemName, int newPrice) {
         if (getItem(itemName) == null) {
             throw new EntityNotFoundException("Item with name " + itemName + " not found");
         }
@@ -109,7 +113,7 @@ public class MenuController {
         refreshMenu();
     }
 
-    public void updateSide(String itemName, String sideName, double newPrice) {
+    public void updateSide(String itemName, String sideName, int newPrice) {
         if (getItem(itemName) == null) {
             throw new EntityNotFoundException("Item with name " + itemName + " not found");
         }

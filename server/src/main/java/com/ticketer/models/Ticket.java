@@ -7,13 +7,13 @@ public class Ticket {
     private int id;
     private String tableNumber;
     private List<Order> orders;
-    private long createdAt;
+    private String createdAt;
 
     public Ticket(int id) {
         this.id = id;
         this.tableNumber = "";
         this.orders = new ArrayList<>();
-        this.createdAt = System.currentTimeMillis();
+        this.createdAt = java.time.Instant.now().toString();
     }
 
     public void addOrder(Order order) {
@@ -40,15 +40,15 @@ public class Ticket {
         return new ArrayList<>(orders);
     }
 
-    public double getSubtotal() {
-        return orders.stream().mapToDouble(Order::getSubtotal).sum();
+    public int getSubtotal() {
+        return orders.stream().mapToInt(Order::getSubtotal).sum();
     }
 
-    public double getTotal() {
-        return orders.stream().mapToDouble(Order::getTotal).sum();
+    public int getTotal() {
+        return orders.stream().mapToInt(Order::getTotal).sum();
     }
 
-    public long getCreatedAt() {
+    public String getCreatedAt() {
         return createdAt;
     }
 }

@@ -158,7 +158,7 @@ public class TicketController {
     }
 
     public void serializeClosedTickets() {
-        String date = new java.text.SimpleDateFormat("ddMMyyyy").format(new java.util.Date());
+        String date = java.time.LocalDate.now().toString();
         String dirPath = System.getProperty("tickets.dir", "data/tickets");
         String filename = dirPath + "/" + date + ".json";
 

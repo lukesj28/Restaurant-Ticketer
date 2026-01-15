@@ -8,16 +8,19 @@ public class TicketTest {
 
     @Test
     public void testTicketInitialization() {
-        long before = System.currentTimeMillis();
         Ticket ticket = new Ticket(101);
-        long after = System.currentTimeMillis();
 
         assertEquals(101, ticket.getId());
         assertEquals("", ticket.getTableNumber());
-        assertEquals(0.0, ticket.getSubtotal(), 0.001);
-        assertEquals(0.0, ticket.getTotal(), 0.001);
+        assertEquals(0, ticket.getSubtotal());
+        assertEquals(0, ticket.getTotal());
         assertTrue(ticket.getOrders().isEmpty());
-        assertTrue("Created at should be current", ticket.getCreatedAt() >= before && ticket.getCreatedAt() <= after);
+        assertNotNull(ticket.getCreatedAt());
+        try {
+            java.time.Instant.parse(ticket.getCreatedAt());
+        } catch (java.time.format.DateTimeParseException e) {
+            fail("createdAt should be valid ISO-8601 timestamp");
+        }
     }
 
     @Test
@@ -32,18 +35,18 @@ public class TicketTest {
         Ticket ticket = new Ticket(1);
 
         Order order1 = new Order(0.1);
-        order1.addItem(new Item("A", null, 10.0));
+        order1.addItem(new Item("A", null, 1000));
 
         Order order2 = new Order(0.1);
-        order2.addItem(new Item("B", null, 5.0));
+        order2.addItem(new Item("B", null, 500));
 
         ticket.addOrder(order1);
-        assertEquals(10.0, ticket.getSubtotal(), 0.001);
-        assertEquals(11.0, ticket.getTotal(), 0.001);
+        assertEquals(1000, ticket.getSubtotal());
+        assertEquals(1100, ticket.getTotal());
 
         ticket.addOrder(order2);
-        assertEquals(15.0, ticket.getSubtotal(), 0.001);
-        assertEquals(16.5, ticket.getTotal(), 0.001);
+        assertEquals(1500, ticket.getSubtotal());
+        assertEquals(1650, ticket.getTotal());
 
         List<Order> orders = ticket.getOrders();
         assertEquals(2, orders.size());
@@ -67,29 +70,29 @@ public class TicketTest {
         Ticket ticket = new Ticket(1);
 
         Order orderZeroTax = new Order(0.0);
-        orderZeroTax.addItem(new Item("Item", null, 100.0));
+        orderZeroTax.addItem(new Item("Item", null, 10000));
         ticket.addOrder(orderZeroTax);
-        assertEquals(100.0, ticket.getTotal(), 0.001);
+        assertEquals(10000, ticket.getTotal());
 
         Order orderHighTax = new Order(0.25);
-        orderHighTax.addItem(new Item("Item", null, 100.0));
+        orderHighTax.addItem(new Item("Item", null, 10000));
         ticket.addOrder(orderHighTax);
 
-        assertEquals(225.0, ticket.getTotal(), 0.001);
+        assertEquals(22500, ticket.getTotal());
     }
 
     @Test
     public void testRemoveOrder() {
         Ticket ticket = new Ticket(1);
         Order order = new Order(0.1);
-        order.addItem(new Item("Item", null, 100.0));
+        order.addItem(new Item("Item", null, 10000));
 
         ticket.addOrder(order);
-        assertEquals(110.0, ticket.getTotal(), 0.001);
+        assertEquals(11000, ticket.getTotal());
 
         assertTrue(ticket.removeOrder(order));
-        assertEquals(0.0, ticket.getTotal(), 0.001);
-        assertEquals(0.0, ticket.getSubtotal(), 0.001);
+        assertEquals(0, ticket.getTotal());
+        assertEquals(0, ticket.getSubtotal());
         assertTrue(ticket.getOrders().isEmpty());
 
         assertFalse(ticket.removeOrder(order));

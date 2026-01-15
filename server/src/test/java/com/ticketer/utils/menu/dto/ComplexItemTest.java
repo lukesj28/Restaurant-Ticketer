@@ -7,7 +7,7 @@ public class ComplexItemTest {
 
     @Test
     public void testHasSides() {
-        ComplexItem cItem = new ComplexItem("Name", 1.0, true, null);
+        ComplexItem cItem = new ComplexItem("Name", 100, true, null);
         assertFalse(cItem.hasSides());
     }
 }

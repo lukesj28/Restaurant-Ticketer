@@ -9,13 +9,9 @@ import com.google.gson.JsonSerializer;
 import com.ticketer.models.Ticket;
 
 import java.lang.reflect.Type;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 
 public class TicketUtils {
-
-    private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm:ss");
 
     private static class TicketTypeAdapter implements JsonSerializer<Ticket> {
         @Override
@@ -30,17 +26,15 @@ public class TicketUtils {
             }
             json.add("orders", ordersJson);
 
-            json.addProperty("subtotal", round(ticket.getSubtotal()));
-            json.addProperty("total", round(ticket.getTotal()));
-            json.addProperty("createdAt", TIME_FORMAT.format(new Date(ticket.getCreatedAt())));
-            json.addProperty("closedAt", TIME_FORMAT.format(new Date()));
+            json.addProperty("subtotal", ticket.getSubtotal() / 100.0);
+            json.addProperty("total", ticket.getTotal() / 100.0);
+            json.addProperty("createdAt", ticket.getCreatedAt());
+            json.addProperty("closedAt", java.time.Instant.now().toString());
             return json;
         }
     }
 
-    private static double round(double value) {
-        return Math.round(value * 100.0) / 100.0;
-    }
+    // rounding helper removed
 
     private static class ItemTypeAdapter implements JsonSerializer<com.ticketer.models.Item> {
         @Override
@@ -50,7 +44,7 @@ public class TicketUtils {
             if (item.getSelectedSide() != null) {
                 json.addProperty("selectedSide", item.getSelectedSide());
             }
-            json.addProperty("price", round(item.getPrice()));
+            json.addProperty("price", item.getPrice() / 100.0);
             return json;
         }
     }
@@ -61,8 +55,8 @@ public class TicketUtils {
                 JsonSerializationContext context) {
             JsonObject json = new JsonObject();
             json.add("items", context.serialize(order.getItems()));
-            json.addProperty("subtotal", round(order.getSubtotal()));
-            json.addProperty("total", round(order.getTotal()));
+            json.addProperty("subtotal", order.getSubtotal() / 100.0);
+            json.addProperty("total", order.getTotal() / 100.0);
             return json;
         }
     }

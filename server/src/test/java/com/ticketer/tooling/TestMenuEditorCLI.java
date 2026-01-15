@@ -34,9 +34,9 @@ public class TestMenuEditorCLI {
         System.out.print("Name: ");
         String name = scanner.nextLine().trim();
 
-        double price = getDoubleInput(scanner, "Price: ");
+        int price = getIntInput(scanner, "Price (cents): ");
 
-        Map<String, Double> sides = new HashMap<>();
+        Map<String, Integer> sides = new HashMap<>();
         System.out.print("Sides? (y/n): ");
         if (scanner.nextLine().trim().equalsIgnoreCase("y")) {
             while (true) {
@@ -47,7 +47,7 @@ public class TestMenuEditorCLI {
                 if (sideName.isEmpty())
                     continue;
 
-                double sidePrice = getDoubleInput(scanner, "Side price: ");
+                int sidePrice = getIntInput(scanner, "Side price (cents): ");
                 sides.put(sideName, sidePrice);
             }
         }
@@ -84,7 +84,7 @@ public class TestMenuEditorCLI {
         try {
             switch (editOpt) {
                 case "1":
-                    double newPrice = getDoubleInput(scanner, "New price: ");
+                    int newPrice = getIntInput(scanner, "New price (cents): ");
                     MenuEditor.editItemPrice(itemName, newPrice);
                     break;
                 case "2":
@@ -105,7 +105,7 @@ public class TestMenuEditorCLI {
                 case "5":
                     System.out.print("Side name: ");
                     String sideName = scanner.nextLine().trim();
-                    double sidePrice = getDoubleInput(scanner, "Side price: ");
+                    int sidePrice = getIntInput(scanner, "Side price (cents): ");
                     MenuEditor.updateSide(itemName, sideName, sidePrice);
                     break;
                 default:
@@ -120,11 +120,11 @@ public class TestMenuEditorCLI {
         }
     }
 
-    private static double getDoubleInput(Scanner scanner, String prompt) {
+    private static int getIntInput(Scanner scanner, String prompt) {
         while (true) {
             System.out.print(prompt);
             try {
-                return Double.parseDouble(scanner.nextLine().trim());
+                return Integer.parseInt(scanner.nextLine().trim());
             } catch (NumberFormatException e) {
                 System.out.println("Invalid.");
             }
