@@ -62,17 +62,17 @@ public class TicketControllerTest {
         assertTrue(ticketController.getClosedTickets().contains(t));
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testMoveToCompletedInvalid() {
         ticketController.moveToCompleted(999);
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testMoveToClosedInvalid() {
         ticketController.moveToClosed(999);
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testMoveToActiveInvalid() {
         ticketController.moveToActive(999);
     }
@@ -95,7 +95,7 @@ public class TicketControllerTest {
         assertFalse(ticketController.getClosedTickets().contains(t3));
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testRemoveTicketNotFound() {
         ticketController.removeTicket(999);
     }
@@ -127,23 +127,23 @@ public class TicketControllerTest {
         assertEquals(0.0, ticket.getTotal(), 0.001);
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testAddOrderToTicketNotFound() {
         ticketController.addOrderToTicket(999, ticketController.createOrder(0));
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testRemoveOrderFromTicketNotFoundTicket() {
         ticketController.removeOrderFromTicket(999, ticketController.createOrder(0));
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testRemoveOrderFromTicketNotFoundOrder() {
         Ticket t = ticketController.createTicket("T1");
         ticketController.removeOrderFromTicket(t.getId(), ticketController.createOrder(0));
     }
 
-    @Test(expected = com.ticketer.exceptions.ResourceNotFoundException.class)
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testRemoveItemFromOrderNotFound() {
         Order order = ticketController.createOrder(0.0);
         Item item = new Item("None", null, 0);
@@ -214,7 +214,7 @@ public class TicketControllerTest {
         assertEquals(1, ticket.getOrders().size());
     }
 
-    @Test(expected = com.ticketer.exceptions.BadRequestException.class)
+    @Test(expected = com.ticketer.exceptions.InvalidStateException.class)
     public void testAddOrderToClosedTicket() {
         Ticket ticket = ticketController.createTicket("T2");
         int id = ticket.getId();

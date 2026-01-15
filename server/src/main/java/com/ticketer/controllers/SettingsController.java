@@ -3,7 +3,7 @@ package com.ticketer.controllers;
 import com.ticketer.models.Settings;
 import com.ticketer.utils.settings.SettingsEditor;
 import com.ticketer.utils.settings.SettingsReader;
-import com.ticketer.exceptions.BadRequestException;
+import com.ticketer.exceptions.*;
 
 public class SettingsController {
 
@@ -56,7 +56,7 @@ public class SettingsController {
 
     public void setTax(double tax) {
         if (tax < 0) {
-            throw new BadRequestException("Tax cannot be negative");
+            throw new ValidationException("Tax cannot be negative");
         }
         SettingsEditor.setTax(tax);
         refreshSettings();
