@@ -17,6 +17,11 @@ import com.ticketer.models.Ticket;
 import com.ticketer.models.Order;
 import com.ticketer.utils.menu.dto.ComplexItem;
 import com.ticketer.utils.menu.dto.MenuItemView;
+import com.ticketer.api.ApiResponse;
+import com.ticketer.dtos.*;
+import com.ticketer.exceptions.TicketerException;
+
+import java.util.stream.Collectors;
 
 public class MainController {
 
@@ -140,148 +145,447 @@ public class MainController {
         return isOpen;
     }
 
-    public void refreshMenu() {
-        menuController.refreshMenu();
+    private SettingsDto mapToSettingsDto(com.ticketer.models.Settings settings) {
+        if (settings == null)
+            return null;
+        return new SettingsDto(settings.getTax(), settings.getHours());
     }
 
-    public ComplexItem getItem(String name) {
-        return menuController.getItem(name);
+    private OrderItemDto mapToOrderItemDto(Item item) {
+        return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getPrice());
+    }
+
+    private Item mapFromOrderItemDto(OrderItemDto dto) {
+        return new Item(dto.name(), dto.selectedSide(), dto.price());
+    }
+
+    private OrderDto mapToOrderDto(Order order) {
+        List<OrderItemDto> items = order.getItems().stream()
+                .map(this::mapToOrderItemDto)
+                .collect(Collectors.toList());
+        return new OrderDto(items, order.getSubtotal(), order.getTotal(), order.getTaxRate());
+    }
+
+    private Order mapFromOrderDto(OrderDto dto) {
+        Order order = new Order(dto.taxRate());
+        if (dto.items() != null) {
+            for (OrderItemDto itemDto : dto.items()) {
+                order.addItem(mapFromOrderItemDto(itemDto));
+            }
+        }
+        return order;
+    }
+
+    private TicketDto mapToTicketDto(Ticket ticket) {
+        if (ticket == null)
+            return null;
+        List<OrderDto> orders = ticket.getOrders().stream()
+                .map(this::mapToOrderDto)
+                .collect(Collectors.toList());
+        return new TicketDto(
+                ticket.getId(),
+                ticket.getTableNumber(),
+                orders,
+                ticket.getSubtotal(),
+                ticket.getTotal(),
+                ticket.getCreatedAt());
+    }
+
+    private ItemDto mapToItemDto(ComplexItem item, String category) {
+        if (item == null)
+            return null;
+        Map<String, SideDto> sides = null;
+        if (item.sideOptions != null) {
+            sides = item.sideOptions.entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            e -> new SideDto(e.getValue().price, e.getValue().available)));
+        }
+        return new ItemDto(
+                item.name,
+                category,
+                item.basePrice,
+                item.available,
+                sides);
+    }
+
+    public ApiResponse<List<String>> refreshMenu() {
+        try {
+            menuController.refreshMenu();
+            return ApiResponse.success(java.util.Collections.emptyList());
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    public ApiResponse<ItemDto> getItem(String name) {
+        try {
+            ComplexItem item = menuController.getItem(name);
+            if (item == null) {
+                return ApiResponse.error("Item not found");
+            }
+            String category = menuController.getCategoryOfItem(name);
+            return ApiResponse.success(mapToItemDto(item, category));
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error retrieving item: " + e.getMessage());
+        }
     }
 
     public Item getItem(ComplexItem item, String sideName) {
         return menuController.getItem(item, sideName);
     }
 
-    public List<ComplexItem> getCategory(String categoryName) {
-        return menuController.getCategory(categoryName);
+    public ApiResponse<List<ItemDto>> getCategory(String categoryName) {
+        try {
+            List<ComplexItem> items = menuController.getCategory(categoryName);
+            List<ItemDto> dtos = items.stream()
+                    .map(i -> mapToItemDto(i, categoryName))
+                    .collect(Collectors.toList());
+            return ApiResponse.success(dtos);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error retrieving category: " + e.getMessage());
+        }
     }
 
-    public List<MenuItemView> getAllItems() {
-        return menuController.getAllItems();
+    public ApiResponse<List<ItemDto>> getAllItems() {
+        try {
+            List<MenuItemView> views = menuController.getAllItems();
+            List<ItemDto> dtos = views.stream()
+                    .map(v -> {
+                        ComplexItem full = menuController.getItem(v.name);
+                        return mapToItemDto(full, v.category);
+                    })
+                    .collect(Collectors.toList());
+            return ApiResponse.success(dtos);
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public Map<String, List<ComplexItem>> getCategories() {
-        return menuController.getCategories();
+    public ApiResponse<Map<String, List<ItemDto>>> getCategories() {
+        try {
+            Map<String, List<ComplexItem>> categories = menuController.getCategories();
+            Map<String, List<ItemDto>> dtos = categories.entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            entry -> entry.getValue().stream()
+                                    .map(i -> mapToItemDto(i, entry.getKey()))
+                                    .collect(Collectors.toList())));
+            return ApiResponse.success(dtos);
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void addItem(String category, String name, int price, Map<String, Integer> sides) {
-        menuController.addItem(category, name, price, sides);
+    public ApiResponse<ItemDto> addItem(String category, String name, int price, Map<String, Integer> sides) {
+        try {
+            menuController.addItem(category, name, price, sides);
+            return getItem(name); // Re-use getItem to return the DTO
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error adding item: " + e.getMessage());
+        }
     }
 
-    public void editItemPrice(String itemName, int newPrice) {
-        menuController.editItemPrice(itemName, newPrice);
+    public ApiResponse<ItemDto> editItemPrice(String itemName, int newPrice) {
+        try {
+            menuController.editItemPrice(itemName, newPrice);
+            return getItem(itemName);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error editing item price: " + e.getMessage());
+        }
     }
 
-    public void editItemAvailability(String itemName, boolean available) {
-        menuController.editItemAvailability(itemName, available);
+    public ApiResponse<ItemDto> editItemAvailability(String itemName, boolean available) {
+        try {
+            menuController.editItemAvailability(itemName, available);
+            return getItem(itemName);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error editing item availability: " + e.getMessage());
+        }
     }
 
-    public void renameItem(String oldName, String newName) {
-        menuController.renameItem(oldName, newName);
+    public ApiResponse<ItemDto> renameItem(String oldName, String newName) {
+        try {
+            menuController.renameItem(oldName, newName);
+            return getItem(newName);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error renaming item: " + e.getMessage());
+        }
     }
 
-    public void removeItem(String itemName) {
-        menuController.removeItem(itemName);
+    public ApiResponse<List<String>> removeItem(String itemName) {
+        try {
+            menuController.removeItem(itemName);
+            return ApiResponse.success(java.util.Collections.emptyList());
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error removing item: " + e.getMessage());
+        }
     }
 
-    public void renameCategory(String oldCategory, String newCategory) {
-        menuController.renameCategory(oldCategory, newCategory);
+    public ApiResponse<List<ItemDto>> renameCategory(String oldCategory, String newCategory) {
+        try {
+            menuController.renameCategory(oldCategory, newCategory);
+            return getCategory(newCategory);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error renaming category: " + e.getMessage());
+        }
     }
 
-    public void changeCategory(String itemName, String newCategory) {
-        menuController.changeCategory(itemName, newCategory);
+    public ApiResponse<ItemDto> changeCategory(String itemName, String newCategory) {
+        try {
+            menuController.changeCategory(itemName, newCategory);
+            return getItem(itemName);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error changing category: " + e.getMessage());
+        }
     }
 
-    public void updateSide(String itemName, String sideName, int newPrice) {
-        menuController.updateSide(itemName, sideName, newPrice);
+    public ApiResponse<ItemDto> updateSide(String itemName, String sideName, int newPrice) {
+        try {
+            menuController.updateSide(itemName, sideName, newPrice);
+            return getItem(itemName);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error updating side: " + e.getMessage());
+        }
     }
 
-    public void refreshSettings() {
-        settingsController.refreshSettings();
+    public ApiResponse<List<String>> refreshSettings() {
+        try {
+            settingsController.refreshSettings();
+            return ApiResponse.success(java.util.Collections.emptyList());
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public double getTax() {
-        return settingsController.getTax();
+    public ApiResponse<Double> getTax() {
+        try {
+            return ApiResponse.success(settingsController.getTax());
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public Map<String, String> getOpeningHours() {
-        return settingsController.getOpeningHours();
+    public ApiResponse<Map<String, String>> getOpeningHours() {
+        try {
+            return ApiResponse.success(settingsController.getOpeningHours());
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public String getOpeningHours(String day) {
-        return settingsController.getOpeningHours(day);
+    public ApiResponse<String> getOpeningHours(String day) {
+        try {
+            return ApiResponse.success(settingsController.getOpeningHours(day));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public String getOpenTime(String day) {
-        return settingsController.getOpenTime(day);
+    public ApiResponse<String> getOpenTime(String day) {
+        try {
+            return ApiResponse.success(settingsController.getOpenTime(day));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public String getCloseTime(String day) {
-        return settingsController.getCloseTime(day);
+    public ApiResponse<String> getCloseTime(String day) {
+        try {
+            return ApiResponse.success(settingsController.getCloseTime(day));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void setTax(double tax) {
-        settingsController.setTax(tax);
+    public ApiResponse<SettingsDto> setTax(double tax) {
+        try {
+            settingsController.setTax(tax);
+            return ApiResponse.success(mapToSettingsDto(settingsController.getSettings()));
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error setting tax: " + e.getMessage());
+        }
     }
 
-    public void setOpeningHours(String day, String hours) {
-        settingsController.setOpeningHours(day, hours);
+    public ApiResponse<SettingsDto> setOpeningHours(String day, String hours) {
+        try {
+            settingsController.setOpeningHours(day, hours);
+            return ApiResponse.success(mapToSettingsDto(settingsController.getSettings()));
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error setting opening hours: " + e.getMessage());
+        }
     }
 
-    public Ticket createTicket(String tableNumber) {
-        return ticketController.createTicket(tableNumber);
+    public ApiResponse<TicketDto> createTicket(String tableNumber) {
+        try {
+            Ticket ticket = ticketController.createTicket(tableNumber);
+            return ApiResponse.success(mapToTicketDto(ticket));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public Ticket getTicket(int ticketId) {
-        return ticketController.getTicket(ticketId);
+    public ApiResponse<TicketDto> getTicket(int ticketId) {
+        try {
+            Ticket ticket = ticketController.getTicket(ticketId);
+            if (ticket == null)
+                return ApiResponse.error("Ticket not found");
+            return ApiResponse.success(mapToTicketDto(ticket));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void addOrderToTicket(int ticketId, Order order) {
-        ticketController.addOrderToTicket(ticketId, order);
+    public ApiResponse<TicketDto> addOrderToTicket(int ticketId,
+            OrderDto orderDto) {
+        try {
+            Order order = mapFromOrderDto(orderDto);
+            ticketController.addOrderToTicket(ticketId, order);
+            return getTicket(ticketId);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error adding order: " + e.getMessage());
+        }
     }
 
-    public void removeOrderFromTicket(int ticketId, Order order) {
-        ticketController.removeOrderFromTicket(ticketId, order);
+    public ApiResponse<TicketDto> removeOrderFromTicket(int ticketId,
+            OrderDto orderDto) {
+        try {
+            Order target = mapFromOrderDto(orderDto);
+            ticketController.removeMatchingOrder(ticketId, target);
+            return getTicket(ticketId);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error removing order: " + e.getMessage());
+        }
     }
 
-    public Order createOrder(double taxRate) {
-        return ticketController.createOrder(taxRate);
+    public ApiResponse<OrderDto> createOrder(double taxRate) {
+        try {
+            Order order = ticketController.createOrder(taxRate);
+            return ApiResponse.success(mapToOrderDto(order));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void addItemToOrder(Order order, Item item) {
-        ticketController.addItemToOrder(order, item);
+    public ApiResponse<OrderDto> addItemToOrder(OrderDto orderDto,
+            OrderItemDto itemDto) {
+        try {
+            Order order = mapFromOrderDto(orderDto);
+            Item item = mapFromOrderItemDto(itemDto);
+            ticketController.addItemToOrder(order, item);
+            return ApiResponse.success(mapToOrderDto(order));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void removeItemFromOrder(Order order, Item item) {
-        ticketController.removeItemFromOrder(order, item);
+    public ApiResponse<OrderDto> removeItemFromOrder(OrderDto orderDto,
+            OrderItemDto itemDto) {
+        try {
+            Order order = mapFromOrderDto(orderDto);
+            Item target = mapFromOrderItemDto(itemDto);
+            ticketController.removeMatchingItem(order, target);
+            return ApiResponse.success(mapToOrderDto(order));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public List<Ticket> getActiveTickets() {
-        return ticketController.getActiveTickets();
+    public ApiResponse<List<TicketDto>> getActiveTickets() {
+        try {
+            return ApiResponse.success(
+                    ticketController.getActiveTickets().stream().map(this::mapToTicketDto)
+                            .collect(Collectors.toList()));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public List<Ticket> getCompletedTickets() {
-        return ticketController.getCompletedTickets();
+    public ApiResponse<List<TicketDto>> getCompletedTickets() {
+        try {
+            return ApiResponse.success(ticketController.getCompletedTickets().stream().map(this::mapToTicketDto)
+                    .collect(Collectors.toList()));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public List<Ticket> getClosedTickets() {
-        return ticketController.getClosedTickets();
+    public ApiResponse<List<TicketDto>> getClosedTickets() {
+        try {
+            return ApiResponse.success(
+                    ticketController.getClosedTickets().stream().map(this::mapToTicketDto)
+                            .collect(Collectors.toList()));
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void moveToCompleted(int ticketId) {
-        ticketController.moveToCompleted(ticketId);
+    public ApiResponse<TicketDto> moveToCompleted(int ticketId) {
+        try {
+            ticketController.moveToCompleted(ticketId);
+            Ticket t = ticketController.getCompletedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
+                    .orElse(null);
+            return ApiResponse.success(mapToTicketDto(t));
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void moveToClosed(int ticketId) {
-        ticketController.moveToClosed(ticketId);
+    public ApiResponse<TicketDto> moveToClosed(int ticketId) {
+        try {
+            ticketController.moveToClosed(ticketId);
+            Ticket t = ticketController.getClosedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
+                    .orElse(null);
+            return ApiResponse.success(mapToTicketDto(t));
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void moveToActive(int ticketId) {
-        ticketController.moveToActive(ticketId);
+    public ApiResponse<TicketDto> moveToActive(int ticketId) {
+        try {
+            ticketController.moveToActive(ticketId);
+            return getTicket(ticketId);
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
-    public void removeTicket(int ticketId) {
-        ticketController.removeTicket(ticketId);
+    public ApiResponse<List<String>> removeTicket(int ticketId) {
+        try {
+            ticketController.removeTicket(ticketId);
+            return ApiResponse.success(java.util.Collections.emptyList());
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     public void shutdown() {

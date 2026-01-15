@@ -78,6 +78,27 @@ public class TicketController {
         }
     }
 
+    public void removeMatchingOrder(int ticketId, Order templateOrder) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Active ticket with ID " + ticketId + " not found.");
+        }
+
+        Order orderToRemove = null;
+        for (Order o : ticket.getOrders()) {
+            if (o.getTotal() == templateOrder.getTotal() && o.getItems().size() == templateOrder.getItems().size()) {
+                orderToRemove = o;
+                break;
+            }
+        }
+
+        if (orderToRemove == null) {
+            throw new EntityNotFoundException("Order not found in ticket " + ticketId);
+        }
+
+        ticket.removeOrder(orderToRemove);
+    }
+
     public Order createOrder(double taxRate) {
         return new Order(taxRate);
     }
@@ -88,6 +109,25 @@ public class TicketController {
 
     public void removeItemFromOrder(Order order, Item item) {
         if (!order.removeItem(item)) {
+            throw new EntityNotFoundException("Item not found in order");
+        }
+    }
+
+    public void removeMatchingItem(Order order, Item templateItem) {
+        Item toRemove = null;
+        for (Item i : order.getItems()) {
+            if (i.getName().equals(templateItem.getName()) &&
+                    ((i.getSelectedSide() == null && templateItem.getSelectedSide() == null)
+                            || (i.getSelectedSide() != null
+                                    && i.getSelectedSide().equals(templateItem.getSelectedSide())))) {
+                toRemove = i;
+                break;
+            }
+        }
+
+        if (toRemove != null) {
+            order.removeItem(toRemove);
+        } else {
             throw new EntityNotFoundException("Item not found in order");
         }
     }

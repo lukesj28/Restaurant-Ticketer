@@ -123,4 +123,18 @@ public class MenuController {
         MenuEditor.updateSide(itemName, sideName, newPrice);
         refreshMenu();
     }
+
+    public String getCategoryOfItem(String itemName) {
+        if (menu == null) {
+            return null;
+        }
+        for (Map.Entry<String, List<ComplexItem>> entry : menu.getCategories().entrySet()) {
+            for (ComplexItem item : entry.getValue()) {
+                if (item.name.equalsIgnoreCase(itemName)) {
+                    return entry.getKey();
+                }
+            }
+        }
+        return null;
+    }
 }

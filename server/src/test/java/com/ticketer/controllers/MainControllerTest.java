@@ -7,9 +7,9 @@ import static org.junit.Assert.*;
 
 import java.util.Collections;
 
-import com.ticketer.models.Ticket;
-import com.ticketer.models.Order;
-import com.ticketer.utils.menu.dto.ComplexItem;
+import com.ticketer.api.ApiResponse;
+import com.ticketer.api.ApiStatus;
+import com.ticketer.dtos.*;
 
 public class MainControllerTest {
 
@@ -91,8 +91,8 @@ public class MainControllerTest {
     @Test
     public void testMenuDelegations() {
         mainController.refreshMenu();
-        assertNotNull(mainController.getAllItems());
-        assertNotNull(mainController.getCategories());
+        assertNotNull(mainController.getAllItems().payload());
+        assertNotNull(mainController.getCategories().payload());
     }
 
     @Test
@@ -106,44 +106,55 @@ public class MainControllerTest {
         }
 
         mainController.addItem("Entrees", testItem, price, Collections.emptyMap());
-        ComplexItem item = mainController.getItem(testItem);
-        assertNotNull(item);
-        assertEquals(price, item.basePrice);
+        ApiResponse<ItemDto> response = mainController.getItem(testItem);
+        assertNotNull(response.payload());
+        assertEquals(price, response.payload().price());
 
         mainController.editItemPrice(testItem, 1200);
-        assertEquals(1200, mainController.getItem(testItem).basePrice);
+        assertEquals(1200, mainController.getItem(testItem).payload().price());
 
         mainController.editItemAvailability(testItem, false);
-        assertFalse(mainController.getItem(testItem).available);
+        assertFalse(mainController.getItem(testItem).payload().available());
 
         mainController.removeItem(testItem);
+        // Verify removal by checking looking it up now returns error or null payload
+        ApiResponse<ItemDto> deletedResponse = mainController.getItem(testItem);
+        assertEquals(ApiStatus.ERROR, deletedResponse.status());
     }
 
     @Test
     public void testSettingsDelegations() {
         mainController.refreshSettings();
 
-        double originalTax = mainController.getTax();
+        Double taxPayload = mainController.getTax().payload();
+        double originalTax = taxPayload != null ? taxPayload : 0.0;
+
         mainController.setTax(0.15);
-        assertEquals(0.15, mainController.getTax(), 0.001);
+        Double newTaxPayload = mainController.getTax().payload();
+        assertNotNull(newTaxPayload);
+        assertEquals(0.15, newTaxPayload, 0.001);
+
         mainController.setTax(originalTax);
     }
 
     @Test
     public void testTicketDelegations() {
 
-        Ticket t = mainController.createTicket("Table1");
+        TicketDto t = mainController.createTicket("Table1").payload();
         assertNotNull(t);
-        assertEquals("Table1", t.getTableNumber());
+        assertEquals("Table1", t.tableNumber());
 
-        assertEquals(t, mainController.getTicket(t.getId()));
+        assertEquals(t.id(), mainController.getTicket(t.id()).payload().id());
 
-        Order o = mainController.createOrder(0.1);
-        mainController.addOrderToTicket(t.getId(), o);
-        assertEquals(1, t.getOrders().size());
+        OrderDto o = mainController.createOrder(0.1).payload();
+        mainController.addOrderToTicket(t.id(), o);
 
-        mainController.removeOrderFromTicket(t.getId(), o);
-        assertEquals(0, t.getOrders().size());
+        t = mainController.getTicket(t.id()).payload();
+        assertEquals(1, t.orders().size());
+
+        mainController.removeOrderFromTicket(t.id(), o);
+        t = mainController.getTicket(t.id()).payload();
+        assertEquals(0, t.orders().size());
     }
 
     @Test
