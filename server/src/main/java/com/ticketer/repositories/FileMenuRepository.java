@@ -21,6 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.stereotype.Repository;
+
+@Repository
 public class FileMenuRepository implements MenuRepository {
 
     private final String filePath;

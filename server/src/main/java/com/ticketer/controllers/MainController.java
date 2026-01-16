@@ -1,17 +1,11 @@
 package com.ticketer.controllers;
 
-import java.time.LocalTime;
-import java.time.format.DateTimeParseException;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.format.TextStyle;
-import java.util.Locale;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
 
 import com.ticketer.models.OrderItem;
 import com.ticketer.models.Menu;
@@ -24,139 +18,35 @@ import com.ticketer.api.ApiResponse;
 import com.ticketer.dtos.*;
 import com.ticketer.exceptions.TicketerException;
 
+import com.ticketer.dtos.Requests;
 import com.ticketer.services.MenuService;
 import com.ticketer.services.SettingsService;
 import com.ticketer.services.TicketService;
-import com.ticketer.repositories.FileMenuRepository;
-import com.ticketer.repositories.FileSettingsRepository;
-import com.ticketer.repositories.FileTicketRepository;
+import com.ticketer.services.RestaurantStateService;
 
+@RestController
+@RequestMapping("/api")
 public class MainController {
 
     private final MenuService menuService;
     private final SettingsService settingsService;
     private final TicketService ticketService;
+    private final RestaurantStateService restaurantStateService;
 
-    private final ScheduledExecutorService scheduler;
-    private boolean isOpen;
-
-    public MainController() {
-        this(new MenuService(new FileMenuRepository()),
-                new SettingsService(new FileSettingsRepository()),
-                new TicketService(new FileTicketRepository()));
-    }
-
-    public MainController(MenuService menuService, SettingsService settingsService, TicketService ticketService) {
+    @Autowired
+    public MainController(MenuService menuService,
+            SettingsService settingsService,
+            TicketService ticketService,
+            RestaurantStateService restaurantStateService) {
         this.menuService = menuService;
         this.settingsService = settingsService;
         this.ticketService = ticketService;
-
-        this.scheduler = Executors.newSingleThreadScheduledExecutor();
-        this.isOpen = false;
-
-        checkAndScheduleState();
+        this.restaurantStateService = restaurantStateService;
     }
 
-    private void checkAndScheduleState() {
-        LocalDate today = LocalDate.now();
-        DayOfWeek dayOfWeek = today.getDayOfWeek();
-        String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
-
-        String openTimeStr = settingsService.getOpenTime(dayName);
-        String closeTimeStr = settingsService.getCloseTime(dayName);
-
-        if (openTimeStr == null || closeTimeStr == null) {
-            setClosedState();
-            scheduleNextDayCheck();
-            return;
-        }
-
-        try {
-            LocalTime openTime = LocalTime.parse(openTimeStr);
-            LocalTime closeTime = LocalTime.parse(closeTimeStr);
-            LocalTime now = LocalTime.now();
-
-            if (now.isBefore(openTime)) {
-                setClosedState();
-                long delay = java.time.Duration.between(now, openTime).toMillis();
-                scheduler.schedule(this::handleOpening, delay, TimeUnit.MILLISECONDS);
-            } else if (now.isAfter(openTime) && now.isBefore(closeTime)) {
-                setOpenState();
-                long delay = java.time.Duration.between(now, closeTime).toMillis();
-                scheduler.schedule(this::handleClosing, delay, TimeUnit.MILLISECONDS);
-            } else {
-                if (isOpen) {
-                    handleClosing();
-                } else {
-                    setClosedState();
-                    scheduleNextDayCheck();
-                    runClosingSequence();
-                }
-            }
-
-        } catch (DateTimeParseException e) {
-            System.err.println("Error parsing time settings: " + e.getMessage());
-            setClosedState();
-            scheduleNextDayCheck();
-        }
-    }
-
-    private void scheduleNextDayCheck() {
-        LocalTime now = LocalTime.now();
-        LocalTime midnight = LocalTime.MAX;
-        long delay = java.time.Duration.between(now, midnight).toMillis() + 1000;
-        scheduler.schedule(this::checkAndScheduleState, delay, TimeUnit.MILLISECONDS);
-    }
-
-    private void setOpenState() {
-        this.isOpen = true;
-        System.out.println("Restaurant is now OPEN.");
-    }
-
-    private void setClosedState() {
-        this.isOpen = false;
-        System.out.println("Restaurant is now CLOSED.");
-    }
-
-    private void handleOpening() {
-        setOpenState();
-        checkAndScheduleState();
-    }
-
-    private void handleClosing() {
-        setClosedState();
-        scheduler.execute(this::runClosingSequence);
-        scheduleNextDayCheck();
-    }
-
-    private void runClosingSequence() {
-        System.out.println("Starting closing sequence...");
-
-        long startTime = System.currentTimeMillis();
-        long maxWaitTime = 3600000;
-        long checkInterval = 300000;
-
-        while (System.currentTimeMillis() - startTime < maxWaitTime) {
-            if (ticketService.areAllTicketsClosed()) {
-                break;
-            }
-            try {
-                Thread.sleep(checkInterval);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-
-        System.out.println("Finalizing closing sequence. Moving remaining tickets to closed.");
-        ticketService.moveAllToClosed();
-        ticketService.serializeClosedTickets();
-        ticketService.clearAllTickets();
-        System.out.println("Closing sequence completed.");
-    }
-
+    @GetMapping("/status")
     public boolean isOpen() {
-        return isOpen;
+        return restaurantStateService.isOpen();
     }
 
     private SettingsDto mapToSettingsDto(com.ticketer.models.Settings settings) {
@@ -223,6 +113,7 @@ public class MainController {
                 sides);
     }
 
+    @PostMapping("/menu/refresh")
     public ApiResponse<List<String>> refreshMenu() {
         try {
             menuService.refreshMenu();
@@ -232,7 +123,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<ItemDto> getItem(String name) {
+    @GetMapping("/menu/items/{name}")
+    public ApiResponse<ItemDto> getItem(@PathVariable String name) {
         try {
             MenuItem item = menuService.getItem(name);
             String category = menuService.getCategoryOfItem(name);
@@ -248,7 +140,8 @@ public class MainController {
         return Menu.getItem(item, sideName);
     }
 
-    public ApiResponse<List<ItemDto>> getCategory(String categoryName) {
+    @GetMapping("/menu/categories/{categoryName}")
+    public ApiResponse<List<ItemDto>> getCategory(@PathVariable String categoryName) {
         try {
             List<MenuItem> items = menuService.getCategory(categoryName);
             List<ItemDto> dtos = items.stream()
@@ -262,6 +155,7 @@ public class MainController {
         }
     }
 
+    @GetMapping("/menu/items")
     public ApiResponse<List<ItemDto>> getAllItems() {
         try {
             List<MenuItemView> views = menuService.getAllItems();
@@ -277,6 +171,7 @@ public class MainController {
         }
     }
 
+    @GetMapping("/menu/categories")
     public ApiResponse<Map<String, List<ItemDto>>> getCategories() {
         try {
             Map<String, List<MenuItem>> categories = menuService.getCategories();
@@ -292,10 +187,12 @@ public class MainController {
         }
     }
 
-    public ApiResponse<ItemDto> addItem(String category, String name, int price, Map<String, Integer> sides) {
+    @PostMapping("/menu/items")
+    public ApiResponse<ItemDto> addItem(@RequestBody Requests.ItemCreateRequest request) {
         try {
-            menuService.addItem(category, name, price, sides);
-            return getItem(name);
+            menuService.addItem(request.category(), request.name(), request.price(), request.sides());
+            MenuItem item = menuService.getItem(request.name());
+            return ApiResponse.success(mapToItemDto(item, request.category()));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -303,32 +200,44 @@ public class MainController {
         }
     }
 
-    public ApiResponse<ItemDto> editItemPrice(String itemName, int newPrice) {
+    @PutMapping("/menu/items/{itemName}/price")
+    public ApiResponse<ItemDto> editItemPrice(@PathVariable String itemName,
+            @RequestBody Requests.ItemPriceUpdateRequest request) {
         try {
-            menuService.editItemPrice(itemName, newPrice);
-            return getItem(itemName);
+            menuService.editItemPrice(itemName, request.newPrice());
+            MenuItem item = menuService.getItem(itemName);
+            String category = menuService.getCategoryOfItem(itemName);
+            return ApiResponse.success(mapToItemDto(item, category));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
-            return ApiResponse.error("Error editing item price: " + e.getMessage());
+            return ApiResponse.error("Error updating price: " + e.getMessage());
         }
     }
 
-    public ApiResponse<ItemDto> editItemAvailability(String itemName, boolean available) {
+    @PutMapping("/menu/items/{itemName}/availability")
+    public ApiResponse<ItemDto> editItemAvailability(@PathVariable String itemName,
+            @RequestBody Requests.ItemAvailabilityUpdateRequest request) {
         try {
-            menuService.editItemAvailability(itemName, available);
-            return getItem(itemName);
+            menuService.editItemAvailability(itemName, request.available());
+            MenuItem item = menuService.getItem(itemName);
+            String category = menuService.getCategoryOfItem(itemName);
+            return ApiResponse.success(mapToItemDto(item, category));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
-            return ApiResponse.error("Error editing item availability: " + e.getMessage());
+            return ApiResponse.error("Error updating availability: " + e.getMessage());
         }
     }
 
-    public ApiResponse<ItemDto> renameItem(String oldName, String newName) {
+    @PutMapping("/menu/items/{oldName}/rename")
+    public ApiResponse<ItemDto> renameItem(@PathVariable String oldName,
+            @RequestBody Requests.ItemRenameRequest request) {
         try {
-            menuService.renameItem(oldName, newName);
-            return getItem(newName);
+            menuService.renameItem(oldName, request.newName());
+            MenuItem item = menuService.getItem(request.newName());
+            String category = menuService.getCategoryOfItem(request.newName());
+            return ApiResponse.success(mapToItemDto(item, category));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -336,7 +245,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<List<String>> removeItem(String itemName) {
+    @DeleteMapping("/menu/items/{itemName}")
+    public ApiResponse<List<String>> removeItem(@PathVariable String itemName) {
         try {
             menuService.removeItem(itemName);
             return ApiResponse.success(java.util.Collections.emptyList());
@@ -347,10 +257,16 @@ public class MainController {
         }
     }
 
-    public ApiResponse<List<ItemDto>> renameCategory(String oldCategory, String newCategory) {
+    @PutMapping("/menu/categories/{oldCategory}/rename")
+    public ApiResponse<List<ItemDto>> renameCategory(@PathVariable String oldCategory,
+            @RequestBody Requests.CategoryRenameRequest request) {
         try {
-            menuService.renameCategory(oldCategory, newCategory);
-            return getCategory(newCategory);
+            menuService.renameCategory(oldCategory, request.newCategory());
+            List<MenuItem> items = menuService.getCategory(request.newCategory());
+            List<ItemDto> dtos = items.stream()
+                    .map(i -> mapToItemDto(i, request.newCategory()))
+                    .collect(Collectors.toList());
+            return ApiResponse.success(dtos);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -358,10 +274,13 @@ public class MainController {
         }
     }
 
-    public ApiResponse<ItemDto> changeCategory(String itemName, String newCategory) {
+    @PutMapping("/menu/items/{itemName}/category")
+    public ApiResponse<ItemDto> changeCategory(@PathVariable String itemName,
+            @RequestBody Requests.ItemCategoryUpdateRequest request) {
         try {
-            menuService.changeCategory(itemName, newCategory);
-            return getItem(itemName);
+            menuService.changeCategory(itemName, request.newCategory());
+            MenuItem item = menuService.getItem(itemName);
+            return ApiResponse.success(mapToItemDto(item, request.newCategory()));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -369,10 +288,14 @@ public class MainController {
         }
     }
 
-    public ApiResponse<ItemDto> updateSide(String itemName, String sideName, int newPrice) {
+    @PutMapping("/menu/items/{itemName}/sides/{sideName}")
+    public ApiResponse<ItemDto> updateSide(@PathVariable String itemName, @PathVariable String sideName,
+            @RequestBody Requests.SideUpdateRequest request) {
         try {
-            menuService.updateSide(itemName, sideName, newPrice);
-            return getItem(itemName);
+            menuService.updateSide(itemName, sideName, request.newPrice());
+            MenuItem item = menuService.getItem(itemName);
+            String category = menuService.getCategoryOfItem(itemName);
+            return ApiResponse.success(mapToItemDto(item, category));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -380,6 +303,7 @@ public class MainController {
         }
     }
 
+    @PostMapping("/settings/refresh")
     public ApiResponse<Settings> refreshSettings() {
         try {
             return ApiResponse.success(settingsService.getSettings());
@@ -388,6 +312,7 @@ public class MainController {
         }
     }
 
+    @GetMapping("/settings/tax")
     public ApiResponse<Double> getTax() {
         try {
             return ApiResponse.success(settingsService.getTax());
@@ -396,6 +321,7 @@ public class MainController {
         }
     }
 
+    @GetMapping("/settings/hours")
     public ApiResponse<Map<String, String>> getOpeningHours() {
         try {
             return ApiResponse.success(settingsService.getAllOpeningHours());
@@ -404,7 +330,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<String> getOpeningHours(String day) {
+    @GetMapping("/settings/hours/{day}")
+    public ApiResponse<String> getOpeningHours(@PathVariable String day) {
         try {
             return ApiResponse.success(settingsService.getOpeningHours(day));
         } catch (Exception e) {
@@ -412,7 +339,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<String> getOpenTime(String day) {
+    @GetMapping("/settings/hours/{day}/open")
+    public ApiResponse<String> getOpenTime(@PathVariable String day) {
         try {
             return ApiResponse.success(settingsService.getOpenTime(day));
         } catch (Exception e) {
@@ -420,7 +348,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<String> getCloseTime(String day) {
+    @GetMapping("/settings/hours/{day}/close")
+    public ApiResponse<String> getCloseTime(@PathVariable("day") String day) {
         try {
             return ApiResponse.success(settingsService.getCloseTime(day));
         } catch (Exception e) {
@@ -428,9 +357,10 @@ public class MainController {
         }
     }
 
-    public ApiResponse<SettingsDto> setTax(double tax) {
+    @PutMapping("/settings/tax")
+    public ApiResponse<SettingsDto> setTax(@RequestBody Requests.TaxUpdateRequest request) {
         try {
-            settingsService.setTax(tax);
+            settingsService.setTax(request.tax());
             return ApiResponse.success(mapToSettingsDto(settingsService.getSettings()));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -439,11 +369,13 @@ public class MainController {
         }
     }
 
-    public ApiResponse<SettingsDto> setOpeningHours(String day, String hours) {
+    @PutMapping("/settings/hours/{day}")
+    public ApiResponse<SettingsDto> setOpeningHours(@PathVariable("day") String day, @RequestBody String hours) {
         return ApiResponse.error("Operation not supported in this version (Refactoring in progress)");
     }
 
-    public ApiResponse<TicketDto> createTicket(String tableNumber) {
+    @PostMapping("/tickets")
+    public ApiResponse<TicketDto> createTicket(@RequestParam("tableNumber") String tableNumber) {
         try {
             Ticket ticket = ticketService.createTicket(tableNumber);
             return ApiResponse.success(mapToTicketDto(ticket));
@@ -452,7 +384,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<TicketDto> getTicket(int ticketId) {
+    @GetMapping("/tickets/{ticketId}")
+    public ApiResponse<TicketDto> getTicket(@PathVariable("ticketId") int ticketId) {
         try {
             Ticket ticket = ticketService.getTicket(ticketId);
             if (ticket == null)
@@ -463,8 +396,9 @@ public class MainController {
         }
     }
 
-    public ApiResponse<TicketDto> addOrderToTicket(int ticketId,
-            OrderDto orderDto) {
+    @PostMapping("/tickets/{ticketId}/orders")
+    public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId,
+            @RequestBody OrderDto orderDto) {
         try {
             Order order = mapFromOrderDto(orderDto);
             ticketService.addOrderToTicket(ticketId, order);
@@ -476,8 +410,9 @@ public class MainController {
         }
     }
 
-    public ApiResponse<TicketDto> removeOrderFromTicket(int ticketId,
-            OrderDto orderDto) {
+    @DeleteMapping("/tickets/{ticketId}/orders")
+    public ApiResponse<TicketDto> removeOrderFromTicket(@PathVariable("ticketId") int ticketId,
+            @RequestBody OrderDto orderDto) {
         try {
             Order target = mapFromOrderDto(orderDto);
             ticketService.removeMatchingOrder(ticketId, target);
@@ -489,7 +424,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<OrderDto> createOrder(double taxRate) {
+    @PostMapping("/orders")
+    public ApiResponse<OrderDto> createOrder(@RequestParam("taxRate") double taxRate) {
         try {
             Order order = new Order(taxRate);
             return ApiResponse.success(mapToOrderDto(order));
@@ -498,11 +434,14 @@ public class MainController {
         }
     }
 
-    public ApiResponse<OrderDto> addItemToOrder(OrderDto orderDto,
-            OrderItemDto itemDto) {
+    public record OrderItemOperationRequest(OrderDto order, OrderItemDto item) {
+    }
+
+    @PostMapping("/orders/items")
+    public ApiResponse<OrderDto> addItemToOrder(@RequestBody OrderItemOperationRequest request) {
         try {
-            Order order = mapFromOrderDto(orderDto);
-            OrderItem item = mapFromOrderItemDto(itemDto);
+            Order order = mapFromOrderDto(request.order());
+            OrderItem item = mapFromOrderItemDto(request.item());
             order.addItem(item);
             return ApiResponse.success(mapToOrderDto(order));
         } catch (Exception e) {
@@ -510,11 +449,11 @@ public class MainController {
         }
     }
 
-    public ApiResponse<OrderDto> removeItemFromOrder(OrderDto orderDto,
-            OrderItemDto itemDto) {
+    @PostMapping("/orders/items/remove")
+    public ApiResponse<OrderDto> removeItemFromOrder(@RequestBody OrderItemOperationRequest request) {
         try {
-            Order order = mapFromOrderDto(orderDto);
-            OrderItem target = mapFromOrderItemDto(itemDto);
+            Order order = mapFromOrderDto(request.order());
+            OrderItem target = mapFromOrderItemDto(request.item());
 
             OrderItem toRemove = null;
             for (OrderItem i : order.getItems()) {
@@ -538,6 +477,7 @@ public class MainController {
         }
     }
 
+    @GetMapping("/tickets/active")
     public ApiResponse<List<TicketDto>> getActiveTickets() {
         try {
             return ApiResponse.success(
@@ -548,6 +488,7 @@ public class MainController {
         }
     }
 
+    @GetMapping("/tickets/completed")
     public ApiResponse<List<TicketDto>> getCompletedTickets() {
         try {
             return ApiResponse.success(ticketService.getCompletedTickets().stream().map(this::mapToTicketDto)
@@ -557,6 +498,7 @@ public class MainController {
         }
     }
 
+    @GetMapping("/tickets/closed")
     public ApiResponse<List<TicketDto>> getClosedTickets() {
         try {
             return ApiResponse.success(
@@ -567,7 +509,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<TicketDto> moveToCompleted(int ticketId) {
+    @PutMapping("/tickets/{ticketId}/completed")
+    public ApiResponse<TicketDto> moveToCompleted(@PathVariable("ticketId") int ticketId) {
         try {
             ticketService.moveToCompleted(ticketId);
             Ticket t = ticketService.getCompletedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
@@ -578,7 +521,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<TicketDto> moveToClosed(int ticketId) {
+    @PutMapping("/tickets/{ticketId}/closed")
+    public ApiResponse<TicketDto> moveToClosed(@PathVariable("ticketId") int ticketId) {
         try {
             ticketService.moveToClosed(ticketId);
             Ticket t = ticketService.getClosedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
@@ -589,7 +533,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<TicketDto> moveToActive(int ticketId) {
+    @PutMapping("/tickets/{ticketId}/active")
+    public ApiResponse<TicketDto> moveToActive(@PathVariable("ticketId") int ticketId) {
         try {
             ticketService.moveToActive(ticketId);
             return getTicket(ticketId);
@@ -598,7 +543,8 @@ public class MainController {
         }
     }
 
-    public ApiResponse<List<String>> removeTicket(int ticketId) {
+    @DeleteMapping("/tickets/{ticketId}")
+    public ApiResponse<List<String>> removeTicket(@PathVariable("ticketId") int ticketId) {
         try {
             ticketService.removeTicket(ticketId);
             return ApiResponse.success(java.util.Collections.emptyList());
@@ -607,7 +553,8 @@ public class MainController {
         }
     }
 
+    @PostMapping("/shutdown")
     public void shutdown() {
-        scheduler.shutdownNow();
+        restaurantStateService.shutdown();
     }
 }

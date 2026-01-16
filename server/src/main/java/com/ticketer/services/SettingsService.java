@@ -7,10 +7,15 @@ import com.ticketer.exceptions.ValidationException;
 
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
 public class SettingsService {
 
     private final SettingsRepository settingsRepository;
 
+    @Autowired
     public SettingsService(SettingsRepository settingsRepository) {
         this.settingsRepository = settingsRepository;
     }

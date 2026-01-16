@@ -1,0 +1,145 @@
+package com.ticketer.services;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
+import java.time.format.TextStyle;
+import java.util.Locale;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class RestaurantStateService {
+
+    private final SettingsService settingsService;
+    private final TicketService ticketService;
+    private final ScheduledExecutorService scheduler;
+    private boolean isOpen;
+
+    @Autowired
+    public RestaurantStateService(SettingsService settingsService, TicketService ticketService) {
+        this.settingsService = settingsService;
+        this.ticketService = ticketService;
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.isOpen = false;
+    }
+
+    @PostConstruct
+    public void init() {
+        checkAndScheduleState();
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        scheduler.shutdownNow();
+    }
+
+    public boolean isOpen() {
+        return isOpen;
+    }
+
+    private void checkAndScheduleState() {
+        LocalDate today = LocalDate.now();
+        DayOfWeek dayOfWeek = today.getDayOfWeek();
+        String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
+
+        String openTimeStr = settingsService.getOpenTime(dayName);
+        String closeTimeStr = settingsService.getCloseTime(dayName);
+
+        if (openTimeStr == null || closeTimeStr == null) {
+            setClosedState();
+            scheduleNextDayCheck();
+            return;
+        }
+
+        try {
+            LocalTime openTime = LocalTime.parse(openTimeStr);
+            LocalTime closeTime = LocalTime.parse(closeTimeStr);
+            LocalTime now = LocalTime.now();
+
+            if (now.isBefore(openTime)) {
+                setClosedState();
+                long delay = java.time.Duration.between(now, openTime).toMillis();
+                scheduler.schedule(this::handleOpening, delay, TimeUnit.MILLISECONDS);
+            } else if (now.isAfter(openTime) && now.isBefore(closeTime)) {
+                setOpenState();
+                long delay = java.time.Duration.between(now, closeTime).toMillis();
+                scheduler.schedule(this::handleClosing, delay, TimeUnit.MILLISECONDS);
+            } else {
+                if (isOpen) {
+                    handleClosing();
+                } else {
+                    setClosedState();
+                    scheduleNextDayCheck();
+                    runClosingSequence();
+                }
+            }
+
+        } catch (DateTimeParseException e) {
+            System.err.println("Error parsing time settings: " + e.getMessage());
+            setClosedState();
+            scheduleNextDayCheck();
+        }
+    }
+
+    private void scheduleNextDayCheck() {
+        LocalTime now = LocalTime.now();
+        LocalTime midnight = LocalTime.MAX;
+        long delay = java.time.Duration.between(now, midnight).toMillis() + 1000;
+        scheduler.schedule(this::checkAndScheduleState, delay, TimeUnit.MILLISECONDS);
+    }
+
+    private void setOpenState() {
+        this.isOpen = true;
+        System.out.println("Restaurant is now OPEN.");
+    }
+
+    private void setClosedState() {
+        this.isOpen = false;
+        System.out.println("Restaurant is now CLOSED.");
+    }
+
+    private void handleOpening() {
+        setOpenState();
+        checkAndScheduleState();
+    }
+
+    private void handleClosing() {
+        setClosedState();
+        scheduler.execute(this::runClosingSequence);
+        scheduleNextDayCheck();
+    }
+
+    private void runClosingSequence() {
+        System.out.println("Starting closing sequence...");
+
+        long startTime = System.currentTimeMillis();
+        long maxWaitTime = 3600000;
+        long checkInterval = 300000;
+
+        while (System.currentTimeMillis() - startTime < maxWaitTime) {
+            if (ticketService.areAllTicketsClosed()) {
+                break;
+            }
+            try {
+                Thread.sleep(checkInterval);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+
+        System.out.println("Finalizing closing sequence. Moving remaining tickets to closed.");
+        ticketService.moveAllToClosed();
+        ticketService.serializeClosedTickets();
+        ticketService.clearAllTickets();
+        System.out.println("Closing sequence completed.");
+    }
+}

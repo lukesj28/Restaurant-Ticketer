@@ -26,6 +26,7 @@ public class MainControllerTest {
     private MockMenuService menuService;
     private MockSettingsService settingsService;
     private MockTicketService ticketService;
+    private MockRestaurantStateService restaurantStateService;
     private MainController mainController;
 
     @Before
@@ -33,7 +34,8 @@ public class MainControllerTest {
         menuService = new MockMenuService();
         settingsService = new MockSettingsService();
         ticketService = new MockTicketService();
-        mainController = new MainController(menuService, settingsService, ticketService);
+        restaurantStateService = new MockRestaurantStateService();
+        mainController = new MainController(menuService, settingsService, ticketService, restaurantStateService);
     }
 
     @Test
@@ -55,17 +57,17 @@ public class MainControllerTest {
         String testItem = "TestItem";
         int price = 1000;
 
-        mainController.addItem("Entrees", testItem, price, Collections.emptyMap());
+        mainController.addItem(new Requests.ItemCreateRequest("Entrees", testItem, price, Collections.emptyMap()));
         assertTrue(menuService.addItemCalled);
 
         ApiResponse<ItemDto> response = mainController.getItem(testItem);
         assertNotNull(response.payload());
         assertEquals(price, response.payload().price());
 
-        mainController.editItemPrice(testItem, 1200);
+        mainController.editItemPrice(testItem, new Requests.ItemPriceUpdateRequest(1200));
         assertTrue(menuService.editItemPriceCalled);
 
-        mainController.editItemAvailability(testItem, false);
+        mainController.editItemAvailability(testItem, new Requests.ItemAvailabilityUpdateRequest(false));
         assertTrue(menuService.editItemAvailabilityCalled);
 
         mainController.removeItem(testItem);
@@ -78,7 +80,7 @@ public class MainControllerTest {
         ApiResponse<Double> taxResponse = mainController.getTax();
         assertEquals(0.1, taxResponse.payload(), 0.001);
 
-        mainController.setTax(0.15);
+        mainController.setTax(new Requests.TaxUpdateRequest(0.15));
         assertTrue(settingsService.setTaxCalled);
     }
 
@@ -115,13 +117,12 @@ public class MainControllerTest {
 
     @Test
     public void testAdditionalDelegations() {
-        mainController.renameItem("OldName", "NewName");
-        mainController.renameCategory("OldCat", "NewCat");
-        mainController.changeCategory("Item", "NewCat");
-        mainController.updateSide("Item", "Side", 500);
+        mainController.renameItem("OldName", new Requests.ItemRenameRequest("NewName"));
+        mainController.renameCategory("OldCat", new Requests.CategoryRenameRequest("NewCat"));
+        mainController.changeCategory("Item", new Requests.ItemCategoryUpdateRequest("NewCat"));
+        mainController.updateSide("Item", "Side", new Requests.SideUpdateRequest(500));
         mainController.getCategory("Cat");
 
-        mainController.setOpeningHours("Monday", "09:00 - 17:00");
         mainController.getOpeningHours("Monday");
 
         mainController.moveToCompleted(1);
@@ -142,57 +143,27 @@ public class MainControllerTest {
 
         OrderDto orderDto = createResponse.payload();
         OrderItemDto itemDto = new OrderItemDto("Burger", "Fries", 1200);
-        ApiResponse<OrderDto> addResponse = mainController.addItemToOrder(orderDto, itemDto);
+        ApiResponse<OrderDto> addResponse = mainController
+                .addItemToOrder(new MainController.OrderItemOperationRequest(orderDto, itemDto));
         assertEquals(ApiStatus.SUCCESS, addResponse.status());
         assertEquals(1, addResponse.payload().items().size());
         assertEquals("Burger", addResponse.payload().items().get(0).name());
 
-        ApiResponse<OrderDto> removeResponse = mainController.removeItemFromOrder(addResponse.payload(), itemDto);
+        ApiResponse<OrderDto> removeResponse = mainController
+                .removeItemFromOrder(new MainController.OrderItemOperationRequest(addResponse.payload(), itemDto));
         assertEquals(ApiStatus.SUCCESS, removeResponse.status());
         assertTrue(removeResponse.payload().items().isEmpty());
     }
 
     @Test
     public void testOrderExceptions() {
-        ApiResponse<OrderDto> addResponse = mainController.addItemToOrder(null, null);
+        ApiResponse<OrderDto> addResponse = mainController
+                .addItemToOrder(new MainController.OrderItemOperationRequest(null, null));
         assertEquals(ApiStatus.ERROR, addResponse.status());
 
-        ApiResponse<OrderDto> removeResponse = mainController.removeItemFromOrder(null, null);
+        ApiResponse<OrderDto> removeResponse = mainController
+                .removeItemFromOrder(new MainController.OrderItemOperationRequest(null, null));
         assertEquals(ApiStatus.ERROR, removeResponse.status());
-    }
-
-    @Test
-    public void testDefaultConstructor() throws java.io.IOException {
-        String testDir = "target/test-default-ctor";
-        java.io.File dir = new java.io.File(testDir);
-        dir.mkdirs();
-
-        java.nio.file.Files.write(java.nio.file.Paths.get(testDir, "menu.json"),
-                "{}".getBytes());
-
-        java.nio.file.Files.write(java.nio.file.Paths.get(testDir, "settings.json"),
-                "{ \"tax\": 0.1, \"hours\": {} }".getBytes());
-
-        System.setProperty("tickets.dir", testDir + "/tickets");
-        System.setProperty("menu.file", testDir + "/menu.json");
-        System.setProperty("settings.file", testDir + "/settings.json");
-
-        try {
-            MainController mc = new MainController();
-            assertNotNull(mc);
-            mc.shutdown();
-        } finally {
-            System.clearProperty("tickets.dir");
-            System.clearProperty("menu.file");
-            System.clearProperty("settings.file");
-
-            try {
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(testDir, "menu.json"));
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(testDir, "settings.json"));
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(testDir));
-            } catch (Exception e) {
-            }
-        }
     }
 
     @Test
@@ -222,28 +193,40 @@ public class MainControllerTest {
         assertEquals(ApiStatus.ERROR, mainController.getCategory("Cat").status());
         assertEquals(ApiStatus.ERROR, mainController.getAllItems().status());
         assertEquals(ApiStatus.ERROR, mainController.getCategories().status());
-        assertEquals(ApiStatus.ERROR, mainController.addItem("C", "N", 100, null).status());
-        assertEquals(ApiStatus.ERROR, mainController.editItemPrice("Item", 100).status());
-        assertEquals(ApiStatus.ERROR, mainController.editItemAvailability("Item", true).status());
-        assertEquals(ApiStatus.ERROR, mainController.renameItem("Old", "New").status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.addItem(new Requests.ItemCreateRequest("C", "N", 100, null)).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.editItemPrice("Item", new Requests.ItemPriceUpdateRequest(100)).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.editItemAvailability("Item", new Requests.ItemAvailabilityUpdateRequest(true)).status());
+        assertEquals(ApiStatus.ERROR, mainController.renameItem("Old", new Requests.ItemRenameRequest("New")).status());
         assertEquals(ApiStatus.ERROR, mainController.removeItem("Item").status());
-        assertEquals(ApiStatus.ERROR, mainController.renameCategory("Old", "New").status());
-        assertEquals(ApiStatus.ERROR, mainController.changeCategory("Item", "New").status());
-        assertEquals(ApiStatus.ERROR, mainController.updateSide("Item", "Side", 100).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.renameCategory("Old", new Requests.CategoryRenameRequest("New")).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.changeCategory("Item", new Requests.ItemCategoryUpdateRequest("New")).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.updateSide("Item", "Side", new Requests.SideUpdateRequest(100)).status());
 
         menu.throwGenericException = false;
         menu.throwTicketerException = true;
 
         assertEquals(ApiStatus.ERROR, mainController.getItem("Item").status());
         assertEquals(ApiStatus.ERROR, mainController.getCategory("Cat").status());
-        assertEquals(ApiStatus.ERROR, mainController.addItem("C", "N", 100, null).status());
-        assertEquals(ApiStatus.ERROR, mainController.editItemPrice("Item", 100).status());
-        assertEquals(ApiStatus.ERROR, mainController.editItemAvailability("Item", true).status());
-        assertEquals(ApiStatus.ERROR, mainController.renameItem("Old", "New").status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.addItem(new Requests.ItemCreateRequest("C", "N", 100, null)).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.editItemPrice("Item", new Requests.ItemPriceUpdateRequest(100)).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.editItemAvailability("Item", new Requests.ItemAvailabilityUpdateRequest(true)).status());
+        assertEquals(ApiStatus.ERROR, mainController.renameItem("Old", new Requests.ItemRenameRequest("New")).status());
         assertEquals(ApiStatus.ERROR, mainController.removeItem("Item").status());
-        assertEquals(ApiStatus.ERROR, mainController.renameCategory("Old", "New").status());
-        assertEquals(ApiStatus.ERROR, mainController.changeCategory("Item", "New").status());
-        assertEquals(ApiStatus.ERROR, mainController.updateSide("Item", "Side", 100).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.renameCategory("Old", new Requests.CategoryRenameRequest("New")).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.changeCategory("Item", new Requests.ItemCategoryUpdateRequest("New")).status());
+        assertEquals(ApiStatus.ERROR,
+                mainController.updateSide("Item", "Side", new Requests.SideUpdateRequest(100)).status());
 
         MockSettingsService settings = (MockSettingsService) settingsService;
         settings.throwGenericException = true;
@@ -254,11 +237,11 @@ public class MainControllerTest {
         assertEquals(ApiStatus.ERROR, mainController.getOpeningHours("Mon").status());
         assertEquals(ApiStatus.ERROR, mainController.getOpenTime("Mon").status());
         assertEquals(ApiStatus.ERROR, mainController.getCloseTime("Mon").status());
-        assertEquals(ApiStatus.ERROR, mainController.setTax(0.5).status());
+        assertEquals(ApiStatus.ERROR, mainController.setTax(new Requests.TaxUpdateRequest(0.5)).status());
 
         settings.throwGenericException = false;
         settings.throwTicketerException = true;
-        assertEquals(ApiStatus.ERROR, mainController.setTax(0.5).status());
+        assertEquals(ApiStatus.ERROR, mainController.setTax(new Requests.TaxUpdateRequest(0.5)).status());
 
         MockTicketService ticket = (MockTicketService) ticketService;
         ticket.throwGenericException = true;
@@ -649,6 +632,21 @@ public class MainControllerTest {
         @Override
         public void removeTicket(int id) {
             checkExceptions();
+        }
+    }
+
+    private static class MockRestaurantStateService extends RestaurantStateService {
+        public MockRestaurantStateService() {
+            super(null, null);
+        }
+
+        @Override
+        public boolean isOpen() {
+            return true;
+        }
+
+        @Override
+        public void shutdown() {
         }
     }
 }

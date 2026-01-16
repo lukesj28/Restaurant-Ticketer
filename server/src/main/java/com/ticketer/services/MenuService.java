@@ -10,11 +10,16 @@ import com.ticketer.exceptions.EntityNotFoundException;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
 public class MenuService {
 
     private final MenuRepository menuRepository;
     private Menu currentMenu;
 
+    @Autowired
     public MenuService(MenuRepository menuRepository) {
         this.menuRepository = menuRepository;
         this.currentMenu = menuRepository.getMenu();
