@@ -1,6 +1,6 @@
 package com.ticketer.models;
 
-import com.ticketer.utils.menu.dto.ComplexItem;
+import com.ticketer.utils.menu.dto.MenuItem;
 import com.ticketer.utils.menu.dto.MenuItemView;
 import com.ticketer.utils.menu.dto.Side;
 
@@ -9,25 +9,25 @@ import java.util.List;
 import java.util.Map;
 
 public class Menu {
-    private Map<String, List<ComplexItem>> categories;
+    private Map<String, List<MenuItem>> categories;
 
-    public Menu(Map<String, List<ComplexItem>> categories) {
+    public Menu(Map<String, List<MenuItem>> categories) {
         this.categories = categories;
     }
 
-    public Map<String, List<ComplexItem>> getCategories() {
+    public Map<String, List<MenuItem>> getCategories() {
         return categories;
     }
 
-    public List<ComplexItem> getCategory(String categoryName) {
+    public List<MenuItem> getCategory(String categoryName) {
         return categories.get(categoryName);
     }
 
     public List<MenuItemView> getAllItems() {
         List<MenuItemView> list = new ArrayList<>();
         for (String category : categories.keySet()) {
-            List<ComplexItem> items = categories.get(category);
-            for (ComplexItem item : items) {
+            List<MenuItem> items = categories.get(category);
+            for (MenuItem item : items) {
                 list.add(new MenuItemView(
                         item.name,
                         item.basePrice,
@@ -38,9 +38,9 @@ public class Menu {
         return list;
     }
 
-    public ComplexItem getItem(String name) {
-        for (List<ComplexItem> items : categories.values()) {
-            for (ComplexItem item : items) {
+    public MenuItem getItem(String name) {
+        for (List<MenuItem> items : categories.values()) {
+            for (MenuItem item : items) {
                 if (item.name.equals(name)) {
                     return item;
                 }
@@ -49,19 +49,19 @@ public class Menu {
         return null;
     }
 
-    public static Item getItem(ComplexItem item, String sideName) {
+    public static OrderItem getItem(MenuItem item, String sideName) {
         if (!item.hasSides()) {
-            return new Item(item.name, null, item.basePrice);
+            return new OrderItem(item.name, null, item.basePrice);
         }
 
         if (sideName != null && item.sideOptions.containsKey(sideName)) {
             Side side = item.sideOptions.get(sideName);
-            return new Item(item.name, sideName, item.basePrice + side.price);
+            return new OrderItem(item.name, sideName, item.basePrice + side.price);
         } else {
             if (sideName != null) {
                 throw new IllegalArgumentException("Invalid side selection: " + sideName);
             }
-            return new Item(item.name, null, item.basePrice);
+            return new OrderItem(item.name, null, item.basePrice);
         }
     }
 }

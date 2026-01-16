@@ -11,31 +11,45 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import com.ticketer.models.Item;
+import com.ticketer.models.OrderItem;
+import com.ticketer.models.Menu;
+import com.ticketer.models.Settings;
 import com.ticketer.models.Ticket;
 import com.ticketer.models.Order;
-import com.ticketer.utils.menu.dto.ComplexItem;
+import com.ticketer.utils.menu.dto.MenuItem;
 import com.ticketer.utils.menu.dto.MenuItemView;
 import com.ticketer.api.ApiResponse;
 import com.ticketer.dtos.*;
 import com.ticketer.exceptions.TicketerException;
 
-import java.util.stream.Collectors;
+import com.ticketer.services.MenuService;
+import com.ticketer.services.SettingsService;
+import com.ticketer.services.TicketService;
+import com.ticketer.repositories.FileMenuRepository;
+import com.ticketer.repositories.FileSettingsRepository;
+import com.ticketer.repositories.FileTicketRepository;
 
 public class MainController {
 
-    private final MenuController menuController;
-    private final SettingsController settingsController;
-    private final TicketController ticketController;
+    private final MenuService menuService;
+    private final SettingsService settingsService;
+    private final TicketService ticketService;
 
     private final ScheduledExecutorService scheduler;
     private boolean isOpen;
 
     public MainController() {
-        this.menuController = new MenuController();
-        this.settingsController = new SettingsController();
-        this.ticketController = new TicketController();
+        this(new MenuService(new FileMenuRepository()),
+                new SettingsService(new FileSettingsRepository()),
+                new TicketService(new FileTicketRepository()));
+    }
+
+    public MainController(MenuService menuService, SettingsService settingsService, TicketService ticketService) {
+        this.menuService = menuService;
+        this.settingsService = settingsService;
+        this.ticketService = ticketService;
 
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
         this.isOpen = false;
@@ -48,8 +62,8 @@ public class MainController {
         DayOfWeek dayOfWeek = today.getDayOfWeek();
         String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
 
-        String openTimeStr = settingsController.getOpenTime(dayName);
-        String closeTimeStr = settingsController.getCloseTime(dayName);
+        String openTimeStr = settingsService.getOpenTime(dayName);
+        String closeTimeStr = settingsService.getCloseTime(dayName);
 
         if (openTimeStr == null || closeTimeStr == null) {
             setClosedState();
@@ -123,7 +137,7 @@ public class MainController {
         long checkInterval = 300000;
 
         while (System.currentTimeMillis() - startTime < maxWaitTime) {
-            if (ticketController.areAllTicketsClosed()) {
+            if (ticketService.areAllTicketsClosed()) {
                 break;
             }
             try {
@@ -135,9 +149,9 @@ public class MainController {
         }
 
         System.out.println("Finalizing closing sequence. Moving remaining tickets to closed.");
-        ticketController.moveAllToClosed();
-        ticketController.serializeClosedTickets();
-        ticketController.clearAllTickets();
+        ticketService.moveAllToClosed();
+        ticketService.serializeClosedTickets();
+        ticketService.clearAllTickets();
         System.out.println("Closing sequence completed.");
     }
 
@@ -151,12 +165,12 @@ public class MainController {
         return new SettingsDto(settings.getTax(), settings.getHours());
     }
 
-    private OrderItemDto mapToOrderItemDto(Item item) {
+    private OrderItemDto mapToOrderItemDto(OrderItem item) {
         return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getPrice());
     }
 
-    private Item mapFromOrderItemDto(OrderItemDto dto) {
-        return new Item(dto.name(), dto.selectedSide(), dto.price());
+    private OrderItem mapFromOrderItemDto(OrderItemDto dto) {
+        return new OrderItem(dto.name(), dto.selectedSide(), dto.price());
     }
 
     private OrderDto mapToOrderDto(Order order) {
@@ -191,7 +205,7 @@ public class MainController {
                 ticket.getCreatedAt());
     }
 
-    private ItemDto mapToItemDto(ComplexItem item, String category) {
+    private ItemDto mapToItemDto(MenuItem item, String category) {
         if (item == null)
             return null;
         Map<String, SideDto> sides = null;
@@ -211,7 +225,7 @@ public class MainController {
 
     public ApiResponse<List<String>> refreshMenu() {
         try {
-            menuController.refreshMenu();
+            menuService.refreshMenu();
             return ApiResponse.success(java.util.Collections.emptyList());
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
@@ -220,11 +234,8 @@ public class MainController {
 
     public ApiResponse<ItemDto> getItem(String name) {
         try {
-            ComplexItem item = menuController.getItem(name);
-            if (item == null) {
-                return ApiResponse.error("Item not found");
-            }
-            String category = menuController.getCategoryOfItem(name);
+            MenuItem item = menuService.getItem(name);
+            String category = menuService.getCategoryOfItem(name);
             return ApiResponse.success(mapToItemDto(item, category));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -233,13 +244,13 @@ public class MainController {
         }
     }
 
-    public Item getItem(ComplexItem item, String sideName) {
-        return menuController.getItem(item, sideName);
+    public static OrderItem getItem(MenuItem item, String sideName) {
+        return Menu.getItem(item, sideName);
     }
 
     public ApiResponse<List<ItemDto>> getCategory(String categoryName) {
         try {
-            List<ComplexItem> items = menuController.getCategory(categoryName);
+            List<MenuItem> items = menuService.getCategory(categoryName);
             List<ItemDto> dtos = items.stream()
                     .map(i -> mapToItemDto(i, categoryName))
                     .collect(Collectors.toList());
@@ -253,10 +264,10 @@ public class MainController {
 
     public ApiResponse<List<ItemDto>> getAllItems() {
         try {
-            List<MenuItemView> views = menuController.getAllItems();
+            List<MenuItemView> views = menuService.getAllItems();
             List<ItemDto> dtos = views.stream()
                     .map(v -> {
-                        ComplexItem full = menuController.getItem(v.name);
+                        MenuItem full = menuService.getItem(v.name);
                         return mapToItemDto(full, v.category);
                     })
                     .collect(Collectors.toList());
@@ -268,7 +279,7 @@ public class MainController {
 
     public ApiResponse<Map<String, List<ItemDto>>> getCategories() {
         try {
-            Map<String, List<ComplexItem>> categories = menuController.getCategories();
+            Map<String, List<MenuItem>> categories = menuService.getCategories();
             Map<String, List<ItemDto>> dtos = categories.entrySet().stream()
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
@@ -283,8 +294,8 @@ public class MainController {
 
     public ApiResponse<ItemDto> addItem(String category, String name, int price, Map<String, Integer> sides) {
         try {
-            menuController.addItem(category, name, price, sides);
-            return getItem(name); // Re-use getItem to return the DTO
+            menuService.addItem(category, name, price, sides);
+            return getItem(name);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -294,7 +305,7 @@ public class MainController {
 
     public ApiResponse<ItemDto> editItemPrice(String itemName, int newPrice) {
         try {
-            menuController.editItemPrice(itemName, newPrice);
+            menuService.editItemPrice(itemName, newPrice);
             return getItem(itemName);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -305,7 +316,7 @@ public class MainController {
 
     public ApiResponse<ItemDto> editItemAvailability(String itemName, boolean available) {
         try {
-            menuController.editItemAvailability(itemName, available);
+            menuService.editItemAvailability(itemName, available);
             return getItem(itemName);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -316,7 +327,7 @@ public class MainController {
 
     public ApiResponse<ItemDto> renameItem(String oldName, String newName) {
         try {
-            menuController.renameItem(oldName, newName);
+            menuService.renameItem(oldName, newName);
             return getItem(newName);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -327,7 +338,7 @@ public class MainController {
 
     public ApiResponse<List<String>> removeItem(String itemName) {
         try {
-            menuController.removeItem(itemName);
+            menuService.removeItem(itemName);
             return ApiResponse.success(java.util.Collections.emptyList());
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -338,7 +349,7 @@ public class MainController {
 
     public ApiResponse<List<ItemDto>> renameCategory(String oldCategory, String newCategory) {
         try {
-            menuController.renameCategory(oldCategory, newCategory);
+            menuService.renameCategory(oldCategory, newCategory);
             return getCategory(newCategory);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -349,7 +360,7 @@ public class MainController {
 
     public ApiResponse<ItemDto> changeCategory(String itemName, String newCategory) {
         try {
-            menuController.changeCategory(itemName, newCategory);
+            menuService.changeCategory(itemName, newCategory);
             return getItem(itemName);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -360,7 +371,7 @@ public class MainController {
 
     public ApiResponse<ItemDto> updateSide(String itemName, String sideName, int newPrice) {
         try {
-            menuController.updateSide(itemName, sideName, newPrice);
+            menuService.updateSide(itemName, sideName, newPrice);
             return getItem(itemName);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -369,10 +380,9 @@ public class MainController {
         }
     }
 
-    public ApiResponse<List<String>> refreshSettings() {
+    public ApiResponse<Settings> refreshSettings() {
         try {
-            settingsController.refreshSettings();
-            return ApiResponse.success(java.util.Collections.emptyList());
+            return ApiResponse.success(settingsService.getSettings());
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -380,7 +390,7 @@ public class MainController {
 
     public ApiResponse<Double> getTax() {
         try {
-            return ApiResponse.success(settingsController.getTax());
+            return ApiResponse.success(settingsService.getTax());
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -388,7 +398,7 @@ public class MainController {
 
     public ApiResponse<Map<String, String>> getOpeningHours() {
         try {
-            return ApiResponse.success(settingsController.getOpeningHours());
+            return ApiResponse.success(settingsService.getAllOpeningHours());
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -396,7 +406,7 @@ public class MainController {
 
     public ApiResponse<String> getOpeningHours(String day) {
         try {
-            return ApiResponse.success(settingsController.getOpeningHours(day));
+            return ApiResponse.success(settingsService.getOpeningHours(day));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -404,7 +414,7 @@ public class MainController {
 
     public ApiResponse<String> getOpenTime(String day) {
         try {
-            return ApiResponse.success(settingsController.getOpenTime(day));
+            return ApiResponse.success(settingsService.getOpenTime(day));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -412,7 +422,7 @@ public class MainController {
 
     public ApiResponse<String> getCloseTime(String day) {
         try {
-            return ApiResponse.success(settingsController.getCloseTime(day));
+            return ApiResponse.success(settingsService.getCloseTime(day));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -420,8 +430,8 @@ public class MainController {
 
     public ApiResponse<SettingsDto> setTax(double tax) {
         try {
-            settingsController.setTax(tax);
-            return ApiResponse.success(mapToSettingsDto(settingsController.getSettings()));
+            settingsService.setTax(tax);
+            return ApiResponse.success(mapToSettingsDto(settingsService.getSettings()));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -430,19 +440,12 @@ public class MainController {
     }
 
     public ApiResponse<SettingsDto> setOpeningHours(String day, String hours) {
-        try {
-            settingsController.setOpeningHours(day, hours);
-            return ApiResponse.success(mapToSettingsDto(settingsController.getSettings()));
-        } catch (TicketerException e) {
-            return ApiResponse.error(e.getMessage());
-        } catch (Exception e) {
-            return ApiResponse.error("Error setting opening hours: " + e.getMessage());
-        }
+        return ApiResponse.error("Operation not supported in this version (Refactoring in progress)");
     }
 
     public ApiResponse<TicketDto> createTicket(String tableNumber) {
         try {
-            Ticket ticket = ticketController.createTicket(tableNumber);
+            Ticket ticket = ticketService.createTicket(tableNumber);
             return ApiResponse.success(mapToTicketDto(ticket));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
@@ -451,7 +454,7 @@ public class MainController {
 
     public ApiResponse<TicketDto> getTicket(int ticketId) {
         try {
-            Ticket ticket = ticketController.getTicket(ticketId);
+            Ticket ticket = ticketService.getTicket(ticketId);
             if (ticket == null)
                 return ApiResponse.error("Ticket not found");
             return ApiResponse.success(mapToTicketDto(ticket));
@@ -464,7 +467,7 @@ public class MainController {
             OrderDto orderDto) {
         try {
             Order order = mapFromOrderDto(orderDto);
-            ticketController.addOrderToTicket(ticketId, order);
+            ticketService.addOrderToTicket(ticketId, order);
             return getTicket(ticketId);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -477,7 +480,7 @@ public class MainController {
             OrderDto orderDto) {
         try {
             Order target = mapFromOrderDto(orderDto);
-            ticketController.removeMatchingOrder(ticketId, target);
+            ticketService.removeMatchingOrder(ticketId, target);
             return getTicket(ticketId);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -488,7 +491,7 @@ public class MainController {
 
     public ApiResponse<OrderDto> createOrder(double taxRate) {
         try {
-            Order order = ticketController.createOrder(taxRate);
+            Order order = new Order(taxRate);
             return ApiResponse.success(mapToOrderDto(order));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
@@ -499,8 +502,8 @@ public class MainController {
             OrderItemDto itemDto) {
         try {
             Order order = mapFromOrderDto(orderDto);
-            Item item = mapFromOrderItemDto(itemDto);
-            ticketController.addItemToOrder(order, item);
+            OrderItem item = mapFromOrderItemDto(itemDto);
+            order.addItem(item);
             return ApiResponse.success(mapToOrderDto(order));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
@@ -511,9 +514,25 @@ public class MainController {
             OrderItemDto itemDto) {
         try {
             Order order = mapFromOrderDto(orderDto);
-            Item target = mapFromOrderItemDto(itemDto);
-            ticketController.removeMatchingItem(order, target);
-            return ApiResponse.success(mapToOrderDto(order));
+            OrderItem target = mapFromOrderItemDto(itemDto);
+
+            OrderItem toRemove = null;
+            for (OrderItem i : order.getItems()) {
+                if (i.getName().equals(target.getName()) &&
+                        ((i.getSelectedSide() == null && target.getSelectedSide() == null)
+                                || (i.getSelectedSide() != null
+                                        && i.getSelectedSide().equals(target.getSelectedSide())))) {
+                    toRemove = i;
+                    break;
+                }
+            }
+
+            if (toRemove != null) {
+                order.removeItem(toRemove);
+                return ApiResponse.success(mapToOrderDto(order));
+            } else {
+                return ApiResponse.error("Item not found in order");
+            }
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -522,7 +541,7 @@ public class MainController {
     public ApiResponse<List<TicketDto>> getActiveTickets() {
         try {
             return ApiResponse.success(
-                    ticketController.getActiveTickets().stream().map(this::mapToTicketDto)
+                    ticketService.getActiveTickets().stream().map(this::mapToTicketDto)
                             .collect(Collectors.toList()));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
@@ -531,7 +550,7 @@ public class MainController {
 
     public ApiResponse<List<TicketDto>> getCompletedTickets() {
         try {
-            return ApiResponse.success(ticketController.getCompletedTickets().stream().map(this::mapToTicketDto)
+            return ApiResponse.success(ticketService.getCompletedTickets().stream().map(this::mapToTicketDto)
                     .collect(Collectors.toList()));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
@@ -541,7 +560,7 @@ public class MainController {
     public ApiResponse<List<TicketDto>> getClosedTickets() {
         try {
             return ApiResponse.success(
-                    ticketController.getClosedTickets().stream().map(this::mapToTicketDto)
+                    ticketService.getClosedTickets().stream().map(this::mapToTicketDto)
                             .collect(Collectors.toList()));
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
@@ -550,8 +569,8 @@ public class MainController {
 
     public ApiResponse<TicketDto> moveToCompleted(int ticketId) {
         try {
-            ticketController.moveToCompleted(ticketId);
-            Ticket t = ticketController.getCompletedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
+            ticketService.moveToCompleted(ticketId);
+            Ticket t = ticketService.getCompletedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
                     .orElse(null);
             return ApiResponse.success(mapToTicketDto(t));
         } catch (TicketerException e) {
@@ -561,8 +580,8 @@ public class MainController {
 
     public ApiResponse<TicketDto> moveToClosed(int ticketId) {
         try {
-            ticketController.moveToClosed(ticketId);
-            Ticket t = ticketController.getClosedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
+            ticketService.moveToClosed(ticketId);
+            Ticket t = ticketService.getClosedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
                     .orElse(null);
             return ApiResponse.success(mapToTicketDto(t));
         } catch (TicketerException e) {
@@ -572,7 +591,7 @@ public class MainController {
 
     public ApiResponse<TicketDto> moveToActive(int ticketId) {
         try {
-            ticketController.moveToActive(ticketId);
+            ticketService.moveToActive(ticketId);
             return getTicket(ticketId);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -581,7 +600,7 @@ public class MainController {
 
     public ApiResponse<List<String>> removeTicket(int ticketId) {
         try {
-            ticketController.removeTicket(ticketId);
+            ticketService.removeTicket(ticketId);
             return ApiResponse.success(java.util.Collections.emptyList());
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());

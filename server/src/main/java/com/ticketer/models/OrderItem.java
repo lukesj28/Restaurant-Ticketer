@@ -1,11 +1,11 @@
 package com.ticketer.models;
 
-public class Item {
+public class OrderItem {
     private String name;
     private String selectedSide;
     private int price;
 
-    public Item(String name, String selectedSide, int price) {
+    public OrderItem(String name, String selectedSide, int price) {
         this.name = name;
         this.selectedSide = selectedSide;
         this.price = price;

@@ -3,11 +3,11 @@ package com.ticketer.utils.menu.dto;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class ComplexItemTest {
+public class MenuItemTest {
 
     @Test
     public void testHasSides() {
-        ComplexItem cItem = new ComplexItem("Name", 100, true, null);
+        MenuItem cItem = new MenuItem("Name", 100, true, null);
         assertFalse(cItem.hasSides());
     }
 }

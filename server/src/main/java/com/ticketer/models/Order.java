@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Order {
-    private List<Item> items;
+    private List<OrderItem> items;
     private int subtotal;
     private int total;
     private double taxRate;
@@ -20,13 +20,13 @@ public class Order {
         this(0.0);
     }
 
-    public void addItem(Item item) {
+    public void addItem(OrderItem item) {
         items.add(item);
         subtotal += item.getPrice();
         total = (int) Math.round(subtotal * (1 + taxRate));
     }
 
-    public boolean removeItem(Item item) {
+    public boolean removeItem(OrderItem item) {
         if (items.remove(item)) {
             subtotal -= item.getPrice();
             total = (int) Math.round(subtotal * (1 + taxRate));
@@ -44,7 +44,7 @@ public class Order {
         return taxRate;
     }
 
-    public List<Item> getItems() {
+    public List<OrderItem> getItems() {
         return new ArrayList<>(items);
     }
 

@@ -5,20 +5,20 @@ import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-                com.ticketer.utils.menu.MenuEditorTest.class,
-                com.ticketer.models.ItemTest.class,
-                com.ticketer.utils.menu.dto.ComplexItemTest.class,
-                com.ticketer.utils.menu.dto.MenuItemViewTest.class,
-                com.ticketer.utils.menu.dto.SideTest.class,
-                com.ticketer.utils.settings.SettingsReaderTest.class,
-                com.ticketer.utils.settings.SettingsEditorTest.class,
-                com.ticketer.models.SettingsTest.class,
-                com.ticketer.models.OrderTest.class,
-                com.ticketer.models.TicketTest.class,
-                com.ticketer.utils.ticket.TicketUtilsTest.class,
-                com.ticketer.controllers.SettingsControllerTest.class,
-                com.ticketer.controllers.MenuControllerTest.class,
-                com.ticketer.controllers.TicketControllerTest.class
+        com.ticketer.models.OrderItemTest.class,
+        com.ticketer.utils.menu.dto.MenuItemTest.class,
+        com.ticketer.utils.menu.dto.MenuItemViewTest.class,
+        com.ticketer.utils.menu.dto.SideTest.class,
+        com.ticketer.models.SettingsTest.class,
+        com.ticketer.models.OrderTest.class,
+        com.ticketer.models.TicketTest.class,
+        com.ticketer.utils.ticket.TicketUtilsTest.class,
+        com.ticketer.services.SettingsServiceTest.class,
+        com.ticketer.services.MenuServiceTest.class,
+        com.ticketer.services.TicketServiceTest.class,
+        com.ticketer.controllers.MainControllerTest.class,
+        com.ticketer.repositories.FileMenuRepositoryTest.class,
+        com.ticketer.repositories.FileSettingsRepositoryTest.class
 })
 public class ServerTestSuite {
 

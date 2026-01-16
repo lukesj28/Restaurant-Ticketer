@@ -34,11 +34,10 @@ public class TicketUtils {
         }
     }
 
-    // rounding helper removed
-
-    private static class ItemTypeAdapter implements JsonSerializer<com.ticketer.models.Item> {
+    private static class ItemTypeAdapter implements JsonSerializer<com.ticketer.models.OrderItem> {
         @Override
-        public JsonElement serialize(com.ticketer.models.Item item, Type typeOfSrc, JsonSerializationContext context) {
+        public JsonElement serialize(com.ticketer.models.OrderItem item, Type typeOfSrc,
+                JsonSerializationContext context) {
             JsonObject json = new JsonObject();
             json.addProperty("name", item.getName());
             if (item.getSelectedSide() != null) {
@@ -64,7 +63,7 @@ public class TicketUtils {
     private static final Gson gson = new GsonBuilder()
             .setPrettyPrinting()
             .registerTypeAdapter(Ticket.class, new TicketTypeAdapter())
-            .registerTypeAdapter(com.ticketer.models.Item.class, new ItemTypeAdapter())
+            .registerTypeAdapter(com.ticketer.models.OrderItem.class, new ItemTypeAdapter())
             .registerTypeAdapter(com.ticketer.models.Order.class, new OrderTypeAdapter())
             .create();
 
@@ -79,7 +78,7 @@ public class TicketUtils {
     public static java.util.Map<String, Integer> countItems(Ticket ticket) {
         java.util.Map<String, Integer> counts = new java.util.HashMap<>();
         for (com.ticketer.models.Order order : ticket.getOrders()) {
-            for (com.ticketer.models.Item item : order.getItems()) {
+            for (com.ticketer.models.OrderItem item : order.getItems()) {
                 counts.put(item.getName(), counts.getOrDefault(item.getName(), 0) + 1);
 
                 String side = item.getSelectedSide();
