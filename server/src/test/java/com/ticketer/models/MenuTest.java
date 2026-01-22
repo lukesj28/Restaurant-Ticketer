@@ -1,8 +1,5 @@
 package com.ticketer.models;
 
-import com.ticketer.utils.menu.dto.MenuItem;
-import com.ticketer.utils.menu.dto.MenuItemView;
-import com.ticketer.utils.menu.dto.Side;
 import org.junit.Test;
 import java.util.*;
 import static org.junit.Assert.*;

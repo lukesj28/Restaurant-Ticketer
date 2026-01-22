@@ -3,8 +3,9 @@ package com.ticketer.services;
 import com.ticketer.models.Menu;
 import com.ticketer.models.OrderItem;
 import com.ticketer.repositories.MenuRepository;
-import com.ticketer.utils.menu.dto.MenuItem;
-import com.ticketer.utils.menu.dto.MenuItemView;
+import com.ticketer.models.MenuItem;
+import com.ticketer.models.MenuItemView;
+import com.ticketer.models.Side;
 import com.ticketer.exceptions.EntityNotFoundException;
 
 import java.util.List;
@@ -79,11 +80,11 @@ public class MenuService {
             categories.put(category, items);
         }
 
-        Map<String, com.ticketer.utils.menu.dto.Side> sideObjects = null;
+        Map<String, Side> sideObjects = null;
         if (sides != null && !sides.isEmpty()) {
             sideObjects = new java.util.HashMap<>();
             for (Map.Entry<String, Integer> entry : sides.entrySet()) {
-                com.ticketer.utils.menu.dto.Side side = new com.ticketer.utils.menu.dto.Side();
+                Side side = new Side();
                 side.price = entry.getValue();
                 side.available = true;
                 sideObjects.put(entry.getKey(), side);
@@ -166,7 +167,7 @@ public class MenuService {
             item.sideOptions = new java.util.HashMap<>();
         }
 
-        com.ticketer.utils.menu.dto.Side side = new com.ticketer.utils.menu.dto.Side();
+        Side side = new Side();
         side.price = newPrice;
         side.available = true;
         item.sideOptions.put(sideName, side);

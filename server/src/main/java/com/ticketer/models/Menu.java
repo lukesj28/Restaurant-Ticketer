@@ -1,9 +1,5 @@
 package com.ticketer.models;
 
-import com.ticketer.utils.menu.dto.MenuItem;
-import com.ticketer.utils.menu.dto.MenuItemView;
-import com.ticketer.utils.menu.dto.Side;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

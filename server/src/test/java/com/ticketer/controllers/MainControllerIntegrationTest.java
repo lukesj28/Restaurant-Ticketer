@@ -12,6 +12,7 @@ import static org.hamcrest.Matchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@SuppressWarnings("null")
 public class MainControllerIntegrationTest {
 
     @Autowired

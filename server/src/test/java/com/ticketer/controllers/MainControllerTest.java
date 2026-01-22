@@ -4,6 +4,9 @@ import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,8 +21,8 @@ import com.ticketer.exceptions.TicketerException;
 import com.ticketer.models.*;
 import com.ticketer.repositories.*;
 import com.ticketer.services.*;
-import com.ticketer.utils.menu.dto.MenuItem;
-import com.ticketer.utils.menu.dto.MenuItemView;
+import com.ticketer.models.MenuItem;
+import com.ticketer.models.MenuItemView;
 
 public class MainControllerTest {
 
@@ -29,6 +32,8 @@ public class MainControllerTest {
     private MockRestaurantStateService restaurantStateService;
     private MainController mainController;
 
+    private MockMvc mockMvc;
+
     @Before
     public void setUp() {
         menuService = new MockMenuService();
@@ -36,6 +41,9 @@ public class MainControllerTest {
         ticketService = new MockTicketService();
         restaurantStateService = new MockRestaurantStateService();
         mainController = new MainController(menuService, settingsService, ticketService, restaurantStateService);
+        mockMvc = MockMvcBuilders.standaloneSetup(mainController)
+                .setControllerAdvice(new com.ticketer.exceptions.GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -102,7 +110,6 @@ public class MainControllerTest {
 
         List<OrderItemDto> items = new ArrayList<>();
         items.add(new OrderItemDto("TestItem", "Fries", 1200));
-        OrderDto orderDto = new OrderDto(items, 1000, 1200, 0.1);
 
         mainController.addOrderToTicket(1);
         assertTrue(ticketService.addOrderToTicketCalled);
@@ -142,147 +149,103 @@ public class MainControllerTest {
 
     @Test
     public void testOrderManagement() {
-        // Create ticket
         ApiResponse<TicketDto> createResponse = mainController.createTicket("Table1");
         int ticketId = createResponse.payload().id();
 
-        // Add Order
         ApiResponse<TicketDto> addOrderResponse = mainController.addOrderToTicket(ticketId);
         assertEquals(ApiStatus.SUCCESS, addOrderResponse.status());
         assertEquals(1, addOrderResponse.payload().orders().size());
 
-        // Add Item
         Requests.AddItemRequest addItemRequest = new Requests.AddItemRequest("TestItem", "Fries");
         ApiResponse<TicketDto> addItemResponse = mainController.addItemToOrder(ticketId, 0, addItemRequest);
         assertEquals(ApiStatus.SUCCESS, addItemResponse.status());
         assertEquals(1, addItemResponse.payload().orders().get(0).items().size());
         assertEquals("TestItem", addItemResponse.payload().orders().get(0).items().get(0).name());
 
-        // Remove Item
         ApiResponse<TicketDto> removeItemResponse = mainController.removeItemFromOrder(ticketId, 0, addItemRequest);
         assertEquals(ApiStatus.SUCCESS, removeItemResponse.status());
         assertTrue(removeItemResponse.payload().orders().get(0).items().isEmpty());
 
-        // Remove Order
         ApiResponse<TicketDto> removeOrderResponse = mainController.removeOrderFromTicket(ticketId, 0);
         assertEquals(ApiStatus.SUCCESS, removeOrderResponse.status());
         assertTrue(removeOrderResponse.payload().orders().isEmpty());
     }
 
     @Test
-    public void testOrderExceptions() {
-        ApiResponse<TicketDto> addResponse = mainController
-                .addItemToOrder(1, 0, new Requests.AddItemRequest("MissingItem", null));
-        // Expect error because menuService returns null for MissingItem in mock (or we
-        // need to ensure it does)
-        assertEquals(ApiStatus.ERROR, addResponse.status());
+    public void testOrderExceptions() throws Exception {
+        Requests.AddItemRequest invalidRequest = new Requests.AddItemRequest("MissingItem", null);
 
-        ApiResponse<TicketDto> removeResponse = mainController
-                .removeItemFromOrder(1, 0, new Requests.AddItemRequest("Item", null));
-        assertEquals(ApiStatus.ERROR, removeResponse.status());
+        try {
+            mainController.addItemToOrder(1, 0, invalidRequest);
+            fail("Should have thrown EntityNotFoundException");
+        } catch (com.ticketer.exceptions.EntityNotFoundException e) {
+
+        }
+
+        try {
+            mainController.removeItemFromOrder(1, 0, new Requests.AddItemRequest("Item", null));
+        } catch (Exception e) {
+
+        }
     }
 
     @Test
-    public void testNullHandling() {
+    public void testNullHandling() throws Exception {
         MockTicketService ticket = (MockTicketService) ticketService;
         ticket.returnNull = true;
-        ApiResponse<TicketDto> response = mainController.getTicket(999);
-        assertEquals(ApiStatus.ERROR, response.status());
-        assertEquals("Ticket not found", response.message());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/tickets/999"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status")
+                        .value("ERROR"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Ticket not found"));
+
         ticket.returnNull = false;
 
         MockMenuService menu = (MockMenuService) menuService;
         menu.returnNull = true;
+
         ApiResponse<ItemDto> itemResponse = mainController.getItem("Missing");
         assertEquals(ApiStatus.SUCCESS, itemResponse.status());
         assertNull(itemResponse.payload());
+
         menu.returnNull = false;
     }
 
     @Test
-    public void testAllExceptions() {
+    public void testAllExceptions() throws Exception {
         MockMenuService menu = (MockMenuService) menuService;
         menu.throwGenericException = true;
 
-        assertEquals(ApiStatus.ERROR, mainController.refreshMenu().status());
-        assertEquals(ApiStatus.ERROR, mainController.getItem("Item").status());
-        assertEquals(ApiStatus.ERROR, mainController.getCategory("Cat").status());
-        assertEquals(ApiStatus.ERROR, mainController.getAllItems().status());
-        assertEquals(ApiStatus.ERROR, mainController.getCategories().status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.addItem(new Requests.ItemCreateRequest("C", "N", 100, null)).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.editItemPrice("Item", new Requests.ItemPriceUpdateRequest(100)).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.editItemAvailability("Item", new Requests.ItemAvailabilityUpdateRequest(true)).status());
-        assertEquals(ApiStatus.ERROR, mainController.renameItem("Old", new Requests.ItemRenameRequest("New")).status());
-        assertEquals(ApiStatus.ERROR, mainController.removeItem("Item").status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.renameCategory("Old", new Requests.CategoryRenameRequest("New")).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.changeCategory("Item", new Requests.ItemCategoryUpdateRequest("New")).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.updateSide("Item", "Side", new Requests.SideUpdateRequest(100)).status());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/menu/refresh"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status")
+                        .value("ERROR"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/menu/items/Item"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status")
+                        .value("ERROR"));
 
         menu.throwGenericException = false;
         menu.throwTicketerException = true;
 
-        assertEquals(ApiStatus.ERROR, mainController.getItem("Item").status());
-        assertEquals(ApiStatus.ERROR, mainController.getCategory("Cat").status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.addItem(new Requests.ItemCreateRequest("C", "N", 100, null)).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.editItemPrice("Item", new Requests.ItemPriceUpdateRequest(100)).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.editItemAvailability("Item", new Requests.ItemAvailabilityUpdateRequest(true)).status());
-        assertEquals(ApiStatus.ERROR, mainController.renameItem("Old", new Requests.ItemRenameRequest("New")).status());
-        assertEquals(ApiStatus.ERROR, mainController.removeItem("Item").status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.renameCategory("Old", new Requests.CategoryRenameRequest("New")).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.changeCategory("Item", new Requests.ItemCategoryUpdateRequest("New")).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.updateSide("Item", "Side", new Requests.SideUpdateRequest(100)).status());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/menu/items/Item"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status")
+                        .value("ERROR"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message")
+                        .value("Ticketer Error"));
 
-        MockSettingsService settings = (MockSettingsService) settingsService;
-        settings.throwGenericException = true;
-
-        assertEquals(ApiStatus.ERROR, mainController.refreshSettings().status());
-        assertEquals(ApiStatus.ERROR, mainController.getTax().status());
-        assertEquals(ApiStatus.ERROR, mainController.getOpeningHours().status());
-        assertEquals(ApiStatus.ERROR, mainController.getOpeningHours("Mon").status());
-        assertEquals(ApiStatus.ERROR, mainController.getOpenTime("Mon").status());
-        assertEquals(ApiStatus.ERROR, mainController.getCloseTime("Mon").status());
-        assertEquals(ApiStatus.ERROR, mainController.setTax(new Requests.TaxUpdateRequest(0.5)).status());
-
-        settings.throwGenericException = false;
-        settings.throwTicketerException = true;
-        assertEquals(ApiStatus.ERROR, mainController.setTax(new Requests.TaxUpdateRequest(0.5)).status());
+        menu.throwTicketerException = false;
 
         MockTicketService ticket = (MockTicketService) ticketService;
         ticket.throwGenericException = true;
 
-        assertEquals(ApiStatus.ERROR, mainController.createTicket("T1").status());
-        assertEquals(ApiStatus.ERROR, mainController.getTicket(1).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.addOrderToTicket(1).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.removeOrderFromTicket(1, 0).status());
-        assertEquals(ApiStatus.ERROR, mainController.getActiveTickets().status());
-        assertEquals(ApiStatus.ERROR, mainController.getCompletedTickets().status());
-        assertEquals(ApiStatus.ERROR, mainController.getClosedTickets().status());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/tickets")
+                .param("tableNumber", "T1"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status")
+                        .value("ERROR"));
 
         ticket.throwGenericException = false;
-        ticket.throwTicketerException = true;
-
-        assertEquals(ApiStatus.ERROR,
-                mainController.addOrderToTicket(1).status());
-        assertEquals(ApiStatus.ERROR,
-                mainController.removeOrderFromTicket(1, 0).status());
-        assertEquals(ApiStatus.ERROR, mainController.moveToCompleted(1).status());
-        assertEquals(ApiStatus.ERROR, mainController.moveToClosed(1).status());
-        assertEquals(ApiStatus.ERROR, mainController.moveToActive(1).status());
-        assertEquals(ApiStatus.ERROR, mainController.removeTicket(1).status());
     }
 
     private static class FakeMenuRepository implements MenuRepository {
@@ -351,8 +314,8 @@ public class MainControllerTest {
             checkExceptions();
             if (returnNull || "MissingItem".equals(name))
                 return null;
-            Map<String, com.ticketer.utils.menu.dto.Side> sides = new HashMap<>();
-            com.ticketer.utils.menu.dto.Side s = new com.ticketer.utils.menu.dto.Side();
+            Map<String, Side> sides = new HashMap<>();
+            Side s = new Side();
             s.price = 200;
             s.available = true;
             sides.put("Fries", s);

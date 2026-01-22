@@ -16,11 +16,7 @@ public class TicketTest {
         assertEquals(0, ticket.getTotal());
         assertTrue(ticket.getOrders().isEmpty());
         assertNotNull(ticket.getCreatedAt());
-        try {
-            java.time.Instant.parse(ticket.getCreatedAt());
-        } catch (java.time.format.DateTimeParseException e) {
-            fail("createdAt should be valid ISO-8601 timestamp");
-        }
+        assertTrue(ticket.getCreatedAt().isAfter(java.time.Instant.now().minusSeconds(10)));
     }
 
     @Test

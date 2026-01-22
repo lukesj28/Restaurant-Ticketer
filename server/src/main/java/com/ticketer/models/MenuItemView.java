@@ -1,4 +1,4 @@
-package com.ticketer.utils.menu.dto;
+package com.ticketer.models;
 
 public class MenuItemView {
     public String name;

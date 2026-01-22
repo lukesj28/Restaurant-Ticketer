@@ -30,7 +30,8 @@ public class TicketUtilsTest {
         assertTrue(json.has("subtotal"));
         assertTrue(json.has("total"));
         assertTrue(json.has("createdAt"));
-        assertTrue(json.has("closedAt"));
+        assertTrue(json.has("createdAt"));
+        assertFalse(json.has("closedAt"));
 
         assertFalse(json.has("id"));
         assertFalse(json.has("taxRate"));
@@ -45,6 +46,11 @@ public class TicketUtilsTest {
         } catch (java.time.format.DateTimeParseException e) {
             fail("createdAt should be valid ISO-8601 timestamp");
         }
+
+        ticket.setClosedAt(java.time.Instant.now());
+        jsonString = TicketUtils.serializeTicket(ticket);
+        json = JsonParser.parseString(jsonString).getAsJsonObject();
+        assertTrue(json.has("closedAt"));
 
         String closedAt = json.get("closedAt").getAsString();
         try {

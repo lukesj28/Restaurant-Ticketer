@@ -28,8 +28,10 @@ public class TicketUtils {
 
             json.addProperty("subtotal", ticket.getSubtotal() / 100.0);
             json.addProperty("total", ticket.getTotal() / 100.0);
-            json.addProperty("createdAt", ticket.getCreatedAt());
-            json.addProperty("closedAt", java.time.Instant.now().toString());
+            json.addProperty("createdAt", ticket.getCreatedAt().toString());
+            if (ticket.getClosedAt() != null) {
+                json.addProperty("closedAt", ticket.getClosedAt().toString());
+            }
             return json;
         }
     }

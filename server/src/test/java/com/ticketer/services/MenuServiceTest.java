@@ -1,7 +1,7 @@
 package com.ticketer.services;
 
-import com.ticketer.utils.menu.dto.MenuItem;
-import com.ticketer.utils.menu.dto.MenuItemView;
+import com.ticketer.models.MenuItem;
+import com.ticketer.models.MenuItemView;
 import com.ticketer.repositories.FileMenuRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
 import org.junit.After;

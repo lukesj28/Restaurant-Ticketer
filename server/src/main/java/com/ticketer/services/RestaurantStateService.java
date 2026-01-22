@@ -21,6 +21,7 @@ public class RestaurantStateService {
     private final SettingsService settingsService;
     private final TicketService ticketService;
     private final ScheduledExecutorService scheduler;
+    private final java.util.concurrent.ExecutorService closingExecutor;
     private final java.time.Clock clock;
     private boolean isOpen;
 
@@ -33,6 +34,7 @@ public class RestaurantStateService {
         this.settingsService = settingsService;
         this.ticketService = ticketService;
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.closingExecutor = Executors.newSingleThreadExecutor();
         this.clock = clock;
         this.isOpen = false;
     }
@@ -45,6 +47,7 @@ public class RestaurantStateService {
     @PreDestroy
     public void shutdown() {
         scheduler.shutdownNow();
+        closingExecutor.shutdownNow();
     }
 
     public boolean isOpen() {
@@ -84,7 +87,7 @@ public class RestaurantStateService {
                 } else {
                     setClosedState();
                     scheduleNextDayCheck();
-                    scheduler.execute(this::runClosingSequence);
+                    closingExecutor.execute(this::runClosingSequence);
                 }
             }
 
@@ -119,7 +122,7 @@ public class RestaurantStateService {
 
     private void handleClosing() {
         setClosedState();
-        scheduler.execute(this::runClosingSequence);
+        closingExecutor.execute(this::runClosingSequence);
         scheduleNextDayCheck();
     }
 

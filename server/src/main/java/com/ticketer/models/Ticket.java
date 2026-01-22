@@ -1,5 +1,6 @@
 package com.ticketer.models;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,13 +8,15 @@ public class Ticket {
     private int id;
     private String tableNumber;
     private List<Order> orders;
-    private String createdAt;
+    private Instant createdAt;
+    private Instant closedAt;
 
     public Ticket(int id) {
         this.id = id;
         this.tableNumber = "";
         this.orders = new ArrayList<>();
-        this.createdAt = java.time.Instant.now().toString();
+        this.createdAt = Instant.now();
+        this.closedAt = null;
     }
 
     public void addOrder(Order order) {
@@ -48,7 +51,15 @@ public class Ticket {
         return orders.stream().mapToInt(Order::getTotal).sum();
     }
 
-    public String getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(Instant closedAt) {
+        this.closedAt = closedAt;
     }
 }

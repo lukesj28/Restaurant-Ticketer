@@ -15,18 +15,18 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class FileTicketRepository implements TicketRepository {
 
-    private final List<Ticket> activeTickets = new ArrayList<>();
-    private final List<Ticket> completedTickets = new ArrayList<>();
-    private final List<Ticket> closedTickets = new ArrayList<>();
+    private final List<Ticket> activeTickets = new CopyOnWriteArrayList<>();
+    private final List<Ticket> completedTickets = new CopyOnWriteArrayList<>();
+    private final List<Ticket> closedTickets = new CopyOnWriteArrayList<>();
 
     private final String ticketsDir;
     private final Gson gson;
@@ -117,6 +117,7 @@ public class FileTicketRepository implements TicketRepository {
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             activeTickets.remove(ticket);
+            ticket.setClosedAt(null);
             completedTickets.add(ticket);
         }
     }
@@ -127,6 +128,7 @@ public class FileTicketRepository implements TicketRepository {
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             completedTickets.remove(ticket);
+            ticket.setClosedAt(java.time.Instant.now());
             closedTickets.add(ticket);
         }
     }
@@ -137,6 +139,7 @@ public class FileTicketRepository implements TicketRepository {
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             completedTickets.remove(ticket);
+            ticket.setClosedAt(null);
             activeTickets.add(ticket);
         }
     }
@@ -156,8 +159,10 @@ public class FileTicketRepository implements TicketRepository {
 
             json.addProperty("subtotal", ticket.getSubtotal() / 100.0);
             json.addProperty("total", ticket.getTotal() / 100.0);
-            json.addProperty("createdAt", ticket.getCreatedAt());
-            json.addProperty("closedAt", java.time.Instant.now().toString());
+            json.addProperty("createdAt", ticket.getCreatedAt().toString());
+            if (ticket.getClosedAt() != null) {
+                json.addProperty("closedAt", ticket.getClosedAt().toString());
+            }
             return json;
         }
     }

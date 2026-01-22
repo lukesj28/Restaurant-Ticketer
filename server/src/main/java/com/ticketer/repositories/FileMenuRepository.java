@@ -9,8 +9,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import com.ticketer.models.Menu;
-import com.ticketer.utils.menu.dto.MenuItem;
-import com.ticketer.utils.menu.dto.Side;
+import com.ticketer.models.MenuItem;
+import com.ticketer.models.Side;
 
 import java.io.FileReader;
 import java.io.FileWriter;
