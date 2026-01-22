@@ -6,9 +6,9 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         com.ticketer.models.OrderItemTest.class,
-        com.ticketer.utils.menu.dto.MenuItemTest.class,
-        com.ticketer.utils.menu.dto.MenuItemViewTest.class,
-        com.ticketer.utils.menu.dto.SideTest.class,
+        com.ticketer.models.MenuItemTest.class,
+        com.ticketer.models.MenuItemViewTest.class,
+        com.ticketer.models.SideTest.class,
         com.ticketer.models.SettingsTest.class,
         com.ticketer.models.OrderTest.class,
         com.ticketer.models.TicketTest.class,
@@ -16,7 +16,10 @@ import org.junit.runners.Suite;
         com.ticketer.services.SettingsServiceTest.class,
         com.ticketer.services.MenuServiceTest.class,
         com.ticketer.services.TicketServiceTest.class,
-        com.ticketer.controllers.MainControllerTest.class,
+        com.ticketer.controllers.SystemControllerTest.class,
+        com.ticketer.controllers.MenuControllerTest.class,
+        com.ticketer.controllers.SettingsControllerTest.class,
+        com.ticketer.controllers.TicketControllerTest.class,
         com.ticketer.repositories.FileMenuRepositoryTest.class,
         com.ticketer.repositories.FileSettingsRepositoryTest.class
 })

@@ -1,0 +1,137 @@
+package com.ticketer.controllers;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import com.ticketer.api.ApiResponse;
+import com.ticketer.dtos.*;
+import com.ticketer.models.MenuItem;
+import com.ticketer.models.Order;
+import com.ticketer.models.OrderItem;
+import com.ticketer.models.Ticket;
+import com.ticketer.services.MenuService;
+import com.ticketer.services.SettingsService;
+import com.ticketer.services.TicketService;
+
+@RestController
+@RequestMapping("/api/tickets")
+public class TicketController {
+
+    private final TicketService ticketService;
+    private final MenuService menuService;
+    private final SettingsService settingsService;
+
+    @Autowired
+    public TicketController(TicketService ticketService, MenuService menuService, SettingsService settingsService) {
+        this.ticketService = ticketService;
+        this.menuService = menuService;
+        this.settingsService = settingsService;
+    }
+
+    @PostMapping("")
+    public ApiResponse<TicketDto> createTicket(@RequestParam("tableNumber") String tableNumber) {
+        Ticket ticket = ticketService.createTicket(tableNumber);
+        return ApiResponse.success(DtoMapper.toTicketDto(ticket));
+    }
+
+    @GetMapping("/{ticketId}")
+    public ApiResponse<TicketDto> getTicket(@PathVariable("ticketId") int ticketId) {
+        Ticket ticket = ticketService.getTicket(ticketId);
+        if (ticket == null)
+            throw new com.ticketer.exceptions.EntityNotFoundException("Ticket not found");
+        return ApiResponse.success(DtoMapper.toTicketDto(ticket));
+    }
+
+    @PostMapping("/{ticketId}/orders")
+    public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId) {
+        ticketService.addOrderToTicket(ticketId, new Order(settingsService.getTax()));
+        return getTicket(ticketId);
+    }
+
+    @DeleteMapping("/{ticketId}/orders/{orderIndex}")
+    public ApiResponse<TicketDto> removeOrderFromTicket(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex) {
+        ticketService.removeOrder(ticketId, orderIndex);
+        return getTicket(ticketId);
+    }
+
+    @PostMapping("/{ticketId}/orders/{orderIndex}/items")
+    public ApiResponse<TicketDto> addItemToOrder(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @RequestBody Requests.AddItemRequest request) {
+        MenuItem menuItem = menuService.getItem(request.name());
+        if (menuItem == null) {
+            throw new com.ticketer.exceptions.EntityNotFoundException("Item not found: " + request.name());
+        }
+        int price = menuItem.basePrice;
+        if (request.selectedSide() != null && menuItem.sideOptions != null) {
+            var side = menuItem.sideOptions.get(request.selectedSide());
+            if (side != null) {
+                price += side.price;
+            }
+        }
+        OrderItem item = new OrderItem(request.name(), request.selectedSide(), price);
+        ticketService.addItemToOrder(ticketId, orderIndex, item);
+        return getTicket(ticketId);
+    }
+
+    @DeleteMapping("/{ticketId}/orders/{orderIndex}/items")
+    public ApiResponse<TicketDto> removeItemFromOrder(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @RequestBody Requests.AddItemRequest request) {
+        OrderItem item = new OrderItem(request.name(), request.selectedSide(), 0);
+        ticketService.removeItemFromOrder(ticketId, orderIndex, item);
+        return getTicket(ticketId);
+    }
+
+    @GetMapping("/active")
+    public ApiResponse<List<TicketDto>> getActiveTickets() {
+        return ApiResponse.success(
+                ticketService.getActiveTickets().stream().map(DtoMapper::toTicketDto)
+                        .collect(Collectors.toList()));
+    }
+
+    @GetMapping("/completed")
+    public ApiResponse<List<TicketDto>> getCompletedTickets() {
+        return ApiResponse.success(ticketService.getCompletedTickets().stream().map(DtoMapper::toTicketDto)
+                .collect(Collectors.toList()));
+    }
+
+    @GetMapping("/closed")
+    public ApiResponse<List<TicketDto>> getClosedTickets() {
+        return ApiResponse.success(
+                ticketService.getClosedTickets().stream().map(DtoMapper::toTicketDto)
+                        .collect(Collectors.toList()));
+    }
+
+    @PutMapping("/{ticketId}/completed")
+    public ApiResponse<TicketDto> moveToCompleted(@PathVariable("ticketId") int ticketId) {
+        ticketService.moveToCompleted(ticketId);
+        Ticket t = ticketService.getCompletedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
+                .orElse(null);
+        return ApiResponse.success(DtoMapper.toTicketDto(t));
+    }
+
+    @PutMapping("/{ticketId}/closed")
+    public ApiResponse<TicketDto> moveToClosed(@PathVariable("ticketId") int ticketId) {
+        ticketService.moveToClosed(ticketId);
+        Ticket t = ticketService.getClosedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
+                .orElse(null);
+        return ApiResponse.success(DtoMapper.toTicketDto(t));
+    }
+
+    @PutMapping("/{ticketId}/active")
+    public ApiResponse<TicketDto> moveToActive(@PathVariable("ticketId") int ticketId) {
+        ticketService.moveToActive(ticketId);
+        return getTicket(ticketId);
+    }
+
+    @DeleteMapping("/{ticketId}")
+    public ApiResponse<List<String>> removeTicket(@PathVariable("ticketId") int ticketId) {
+        ticketService.removeTicket(ticketId);
+        return ApiResponse.success(java.util.Collections.emptyList());
+    }
+}
