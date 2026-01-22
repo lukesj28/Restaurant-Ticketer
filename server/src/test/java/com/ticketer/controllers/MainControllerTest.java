@@ -75,6 +75,12 @@ public class MainControllerTest {
     }
 
     @Test
+    public void testSetOpeningHours() {
+        mainController.setOpeningHours("Monday", new Requests.OpeningHoursUpdateRequest("10:00 - 20:00"));
+        assertTrue(restaurantStateService.checkAndScheduleStateCalled);
+    }
+
+    @Test
     public void testSettingsDelegations() {
         mainController.refreshSettings();
         ApiResponse<Double> taxResponse = mainController.getTax();
@@ -98,11 +104,11 @@ public class MainControllerTest {
         items.add(new OrderItemDto("TestItem", "Fries", 1200));
         OrderDto orderDto = new OrderDto(items, 1000, 1200, 0.1);
 
-        mainController.addOrderToTicket(1, orderDto);
+        mainController.addOrderToTicket(1);
         assertTrue(ticketService.addOrderToTicketCalled);
 
-        mainController.removeOrderFromTicket(1, orderDto);
-        assertTrue(ticketService.removeMatchingOrderCalled);
+        mainController.removeOrderFromTicket(1, 0);
+        assertTrue(ticketService.removeOrderCalled);
     }
 
     @Test
@@ -136,33 +142,43 @@ public class MainControllerTest {
 
     @Test
     public void testOrderManagement() {
-        ApiResponse<OrderDto> createResponse = mainController.createOrder(0.1);
-        assertEquals(ApiStatus.SUCCESS, createResponse.status());
-        assertNotNull(createResponse.payload());
-        assertEquals(0.1, createResponse.payload().taxRate(), 0.001);
+        // Create ticket
+        ApiResponse<TicketDto> createResponse = mainController.createTicket("Table1");
+        int ticketId = createResponse.payload().id();
 
-        OrderDto orderDto = createResponse.payload();
-        OrderItemDto itemDto = new OrderItemDto("Burger", "Fries", 1200);
-        ApiResponse<OrderDto> addResponse = mainController
-                .addItemToOrder(new MainController.OrderItemOperationRequest(orderDto, itemDto));
-        assertEquals(ApiStatus.SUCCESS, addResponse.status());
-        assertEquals(1, addResponse.payload().items().size());
-        assertEquals("Burger", addResponse.payload().items().get(0).name());
+        // Add Order
+        ApiResponse<TicketDto> addOrderResponse = mainController.addOrderToTicket(ticketId);
+        assertEquals(ApiStatus.SUCCESS, addOrderResponse.status());
+        assertEquals(1, addOrderResponse.payload().orders().size());
 
-        ApiResponse<OrderDto> removeResponse = mainController
-                .removeItemFromOrder(new MainController.OrderItemOperationRequest(addResponse.payload(), itemDto));
-        assertEquals(ApiStatus.SUCCESS, removeResponse.status());
-        assertTrue(removeResponse.payload().items().isEmpty());
+        // Add Item
+        Requests.AddItemRequest addItemRequest = new Requests.AddItemRequest("TestItem", "Fries");
+        ApiResponse<TicketDto> addItemResponse = mainController.addItemToOrder(ticketId, 0, addItemRequest);
+        assertEquals(ApiStatus.SUCCESS, addItemResponse.status());
+        assertEquals(1, addItemResponse.payload().orders().get(0).items().size());
+        assertEquals("TestItem", addItemResponse.payload().orders().get(0).items().get(0).name());
+
+        // Remove Item
+        ApiResponse<TicketDto> removeItemResponse = mainController.removeItemFromOrder(ticketId, 0, addItemRequest);
+        assertEquals(ApiStatus.SUCCESS, removeItemResponse.status());
+        assertTrue(removeItemResponse.payload().orders().get(0).items().isEmpty());
+
+        // Remove Order
+        ApiResponse<TicketDto> removeOrderResponse = mainController.removeOrderFromTicket(ticketId, 0);
+        assertEquals(ApiStatus.SUCCESS, removeOrderResponse.status());
+        assertTrue(removeOrderResponse.payload().orders().isEmpty());
     }
 
     @Test
     public void testOrderExceptions() {
-        ApiResponse<OrderDto> addResponse = mainController
-                .addItemToOrder(new MainController.OrderItemOperationRequest(null, null));
+        ApiResponse<TicketDto> addResponse = mainController
+                .addItemToOrder(1, 0, new Requests.AddItemRequest("MissingItem", null));
+        // Expect error because menuService returns null for MissingItem in mock (or we
+        // need to ensure it does)
         assertEquals(ApiStatus.ERROR, addResponse.status());
 
-        ApiResponse<OrderDto> removeResponse = mainController
-                .removeItemFromOrder(new MainController.OrderItemOperationRequest(null, null));
+        ApiResponse<TicketDto> removeResponse = mainController
+                .removeItemFromOrder(1, 0, new Requests.AddItemRequest("Item", null));
         assertEquals(ApiStatus.ERROR, removeResponse.status());
     }
 
@@ -249,9 +265,9 @@ public class MainControllerTest {
         assertEquals(ApiStatus.ERROR, mainController.createTicket("T1").status());
         assertEquals(ApiStatus.ERROR, mainController.getTicket(1).status());
         assertEquals(ApiStatus.ERROR,
-                mainController.addOrderToTicket(1, new OrderDto(Collections.emptyList(), 0, 0, 0)).status());
+                mainController.addOrderToTicket(1).status());
         assertEquals(ApiStatus.ERROR,
-                mainController.removeOrderFromTicket(1, new OrderDto(Collections.emptyList(), 0, 0, 0)).status());
+                mainController.removeOrderFromTicket(1, 0).status());
         assertEquals(ApiStatus.ERROR, mainController.getActiveTickets().status());
         assertEquals(ApiStatus.ERROR, mainController.getCompletedTickets().status());
         assertEquals(ApiStatus.ERROR, mainController.getClosedTickets().status());
@@ -260,9 +276,9 @@ public class MainControllerTest {
         ticket.throwTicketerException = true;
 
         assertEquals(ApiStatus.ERROR,
-                mainController.addOrderToTicket(1, new OrderDto(Collections.emptyList(), 0, 0, 0)).status());
+                mainController.addOrderToTicket(1).status());
         assertEquals(ApiStatus.ERROR,
-                mainController.removeOrderFromTicket(1, new OrderDto(Collections.emptyList(), 0, 0, 0)).status());
+                mainController.removeOrderFromTicket(1, 0).status());
         assertEquals(ApiStatus.ERROR, mainController.moveToCompleted(1).status());
         assertEquals(ApiStatus.ERROR, mainController.moveToClosed(1).status());
         assertEquals(ApiStatus.ERROR, mainController.moveToActive(1).status());
@@ -314,7 +330,7 @@ public class MainControllerTest {
             if (returnNull)
                 return null;
             List<MenuItemView> list = new ArrayList<>();
-            list.add(new MenuItemView("TestItem", 1000, true, "Entrees"));
+            list.add(new MenuItemView("TestItem", 1000, true));
             return list;
         }
 
@@ -333,7 +349,7 @@ public class MainControllerTest {
         @Override
         public MenuItem getItem(String name) {
             checkExceptions();
-            if (returnNull)
+            if (returnNull || "MissingItem".equals(name))
                 return null;
             Map<String, com.ticketer.utils.menu.dto.Side> sides = new HashMap<>();
             com.ticketer.utils.menu.dto.Side s = new com.ticketer.utils.menu.dto.Side();
@@ -531,7 +547,7 @@ public class MainControllerTest {
     private static class MockTicketService extends TicketService {
         boolean createTicketCalled = false;
         boolean addOrderToTicketCalled = false;
-        boolean removeMatchingOrderCalled = false;
+        boolean removeOrderCalled = false;
 
         boolean throwGenericException = false;
         boolean throwTicketerException = false;
@@ -583,11 +599,27 @@ public class MainControllerTest {
         }
 
         @Override
-        public void removeMatchingOrder(int id, Order order) {
+        public void addItemToOrder(int ticketId, int orderIndex, OrderItem item) {
             checkExceptions();
-            removeMatchingOrderCalled = true;
+            Ticket t = getTicket(ticketId);
+            t.getOrders().get(orderIndex).addItem(item);
+        }
+
+        @Override
+        public void removeItemFromOrder(int ticketId, int orderIndex, OrderItem item) {
+            checkExceptions();
+            Ticket t = getTicket(ticketId);
+            t.getOrders().get(orderIndex).removeItem(item);
+        }
+
+        @Override
+        public void removeOrder(int id, int index) {
+            checkExceptions();
+            removeOrderCalled = true;
             Ticket t = getTicket(id);
-            t.getOrders().clear();
+            if (!t.getOrders().isEmpty()) {
+                t.removeOrder(t.getOrders().get(0));
+            }
         }
 
         @Override
@@ -636,8 +668,15 @@ public class MainControllerTest {
     }
 
     private static class MockRestaurantStateService extends RestaurantStateService {
+        boolean checkAndScheduleStateCalled = false;
+
         public MockRestaurantStateService() {
             super(null, null);
+        }
+
+        @Override
+        public void checkAndScheduleState() {
+            checkAndScheduleStateCalled = true;
         }
 
         @Override

@@ -26,4 +26,10 @@ public class Requests {
 
     public record TaxUpdateRequest(double tax) {
     }
+
+    public record OpeningHoursUpdateRequest(String hours) {
+    }
+
+    public record AddItemRequest(String name, String selectedSide) {
+    }
 }

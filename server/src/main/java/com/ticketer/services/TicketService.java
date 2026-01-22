@@ -59,37 +59,42 @@ public class TicketService {
         ticketRepository.save(ticket);
     }
 
-    public void removeOrderFromTicket(int ticketId, Order order) {
-        Ticket ticket = getTicket(ticketId);
-        if (ticket != null) {
-            if (!ticket.removeOrder(order)) {
-                throw new EntityNotFoundException("Order not found in ticket " + ticketId);
-            }
-            ticketRepository.save(ticket);
-        } else {
-            throw new EntityNotFoundException("Active ticket with ID " + ticketId + " not found.");
-        }
-    }
-
-    public void removeMatchingOrder(int ticketId, Order templateOrder) {
+    public void addItemToOrder(int ticketId, int orderIndex, com.ticketer.models.OrderItem item) {
         Ticket ticket = getTicket(ticketId);
         if (ticket == null) {
-            throw new EntityNotFoundException("Active ticket with ID " + ticketId + " not found.");
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
         }
-
-        Order orderToRemove = null;
-        for (Order o : ticket.getOrders()) {
-            if (o.getTotal() == templateOrder.getTotal() && o.getItems().size() == templateOrder.getItems().size()) {
-                orderToRemove = o;
-                break;
-            }
+        if (orderIndex < 0 || orderIndex >= ticket.getOrders().size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
         }
+        ticket.getOrders().get(orderIndex).addItem(item);
+        ticketRepository.save(ticket);
+    }
 
-        if (orderToRemove == null) {
-            throw new EntityNotFoundException("Order not found in ticket " + ticketId);
+    public void removeItemFromOrder(int ticketId, int orderIndex, com.ticketer.models.OrderItem item) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
         }
+        if (orderIndex < 0 || orderIndex >= ticket.getOrders().size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
+        }
+        if (!ticket.getOrders().get(orderIndex).removeItem(item)) {
+            throw new EntityNotFoundException("Item not found in order " + orderIndex);
+        }
+        ticketRepository.save(ticket);
+    }
 
-        ticket.removeOrder(orderToRemove);
+    public void removeOrder(int ticketId, int orderIndex) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        List<Order> orders = ticket.getOrders();
+        if (orderIndex < 0 || orderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
+        }
+        ticket.removeOrder(orders.get(orderIndex));
         ticketRepository.save(ticket);
     }
 

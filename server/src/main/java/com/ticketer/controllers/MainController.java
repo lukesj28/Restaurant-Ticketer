@@ -95,7 +95,7 @@ public class MainController {
                 ticket.getCreatedAt());
     }
 
-    private ItemDto mapToItemDto(MenuItem item, String category) {
+    private ItemDto mapToItemDto(MenuItem item) {
         if (item == null)
             return null;
         Map<String, SideDto> sides = null;
@@ -107,7 +107,6 @@ public class MainController {
         }
         return new ItemDto(
                 item.name,
-                category,
                 item.basePrice,
                 item.available,
                 sides);
@@ -127,8 +126,7 @@ public class MainController {
     public ApiResponse<ItemDto> getItem(@PathVariable String name) {
         try {
             MenuItem item = menuService.getItem(name);
-            String category = menuService.getCategoryOfItem(name);
-            return ApiResponse.success(mapToItemDto(item, category));
+            return ApiResponse.success(mapToItemDto(item));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -145,7 +143,7 @@ public class MainController {
         try {
             List<MenuItem> items = menuService.getCategory(categoryName);
             List<ItemDto> dtos = items.stream()
-                    .map(i -> mapToItemDto(i, categoryName))
+                    .map(this::mapToItemDto)
                     .collect(Collectors.toList());
             return ApiResponse.success(dtos);
         } catch (TicketerException e) {
@@ -162,7 +160,7 @@ public class MainController {
             List<ItemDto> dtos = views.stream()
                     .map(v -> {
                         MenuItem full = menuService.getItem(v.name);
-                        return mapToItemDto(full, v.category);
+                        return mapToItemDto(full);
                     })
                     .collect(Collectors.toList());
             return ApiResponse.success(dtos);
@@ -179,7 +177,7 @@ public class MainController {
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
                             entry -> entry.getValue().stream()
-                                    .map(i -> mapToItemDto(i, entry.getKey()))
+                                    .map(this::mapToItemDto)
                                     .collect(Collectors.toList())));
             return ApiResponse.success(dtos);
         } catch (Exception e) {
@@ -192,7 +190,7 @@ public class MainController {
         try {
             menuService.addItem(request.category(), request.name(), request.price(), request.sides());
             MenuItem item = menuService.getItem(request.name());
-            return ApiResponse.success(mapToItemDto(item, request.category()));
+            return ApiResponse.success(mapToItemDto(item));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -206,8 +204,7 @@ public class MainController {
         try {
             menuService.editItemPrice(itemName, request.newPrice());
             MenuItem item = menuService.getItem(itemName);
-            String category = menuService.getCategoryOfItem(itemName);
-            return ApiResponse.success(mapToItemDto(item, category));
+            return ApiResponse.success(mapToItemDto(item));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -221,8 +218,7 @@ public class MainController {
         try {
             menuService.editItemAvailability(itemName, request.available());
             MenuItem item = menuService.getItem(itemName);
-            String category = menuService.getCategoryOfItem(itemName);
-            return ApiResponse.success(mapToItemDto(item, category));
+            return ApiResponse.success(mapToItemDto(item));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -236,8 +232,7 @@ public class MainController {
         try {
             menuService.renameItem(oldName, request.newName());
             MenuItem item = menuService.getItem(request.newName());
-            String category = menuService.getCategoryOfItem(request.newName());
-            return ApiResponse.success(mapToItemDto(item, category));
+            return ApiResponse.success(mapToItemDto(item));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -264,7 +259,7 @@ public class MainController {
             menuService.renameCategory(oldCategory, request.newCategory());
             List<MenuItem> items = menuService.getCategory(request.newCategory());
             List<ItemDto> dtos = items.stream()
-                    .map(i -> mapToItemDto(i, request.newCategory()))
+                    .map(this::mapToItemDto)
                     .collect(Collectors.toList());
             return ApiResponse.success(dtos);
         } catch (TicketerException e) {
@@ -280,7 +275,7 @@ public class MainController {
         try {
             menuService.changeCategory(itemName, request.newCategory());
             MenuItem item = menuService.getItem(itemName);
-            return ApiResponse.success(mapToItemDto(item, request.newCategory()));
+            return ApiResponse.success(mapToItemDto(item));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -294,8 +289,7 @@ public class MainController {
         try {
             menuService.updateSide(itemName, sideName, request.newPrice());
             MenuItem item = menuService.getItem(itemName);
-            String category = menuService.getCategoryOfItem(itemName);
-            return ApiResponse.success(mapToItemDto(item, category));
+            return ApiResponse.success(mapToItemDto(item));
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
         } catch (Exception e) {
@@ -370,8 +364,17 @@ public class MainController {
     }
 
     @PutMapping("/settings/hours/{day}")
-    public ApiResponse<SettingsDto> setOpeningHours(@PathVariable("day") String day, @RequestBody String hours) {
-        return ApiResponse.error("Operation not supported in this version (Refactoring in progress)");
+    public ApiResponse<SettingsDto> setOpeningHours(@PathVariable("day") String day,
+            @RequestBody Requests.OpeningHoursUpdateRequest request) {
+        try {
+            settingsService.setOpeningHours(day, request.hours());
+            restaurantStateService.checkAndScheduleState();
+            return ApiResponse.success(mapToSettingsDto(settingsService.getSettings()));
+        } catch (TicketerException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("Error setting opening hours: " + e.getMessage());
+        }
     }
 
     @PostMapping("/tickets")
@@ -397,11 +400,9 @@ public class MainController {
     }
 
     @PostMapping("/tickets/{ticketId}/orders")
-    public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId,
-            @RequestBody OrderDto orderDto) {
+    public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId) {
         try {
-            Order order = mapFromOrderDto(orderDto);
-            ticketService.addOrderToTicket(ticketId, order);
+            ticketService.addOrderToTicket(ticketId, new Order(settingsService.getTax()));
             return getTicket(ticketId);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -410,12 +411,11 @@ public class MainController {
         }
     }
 
-    @DeleteMapping("/tickets/{ticketId}/orders")
+    @DeleteMapping("/tickets/{ticketId}/orders/{orderIndex}")
     public ApiResponse<TicketDto> removeOrderFromTicket(@PathVariable("ticketId") int ticketId,
-            @RequestBody OrderDto orderDto) {
+            @PathVariable("orderIndex") int orderIndex) {
         try {
-            Order target = mapFromOrderDto(orderDto);
-            ticketService.removeMatchingOrder(ticketId, target);
+            ticketService.removeOrder(ticketId, orderIndex);
             return getTicket(ticketId);
         } catch (TicketerException e) {
             return ApiResponse.error(e.getMessage());
@@ -424,56 +424,40 @@ public class MainController {
         }
     }
 
-    @PostMapping("/orders")
-    public ApiResponse<OrderDto> createOrder(@RequestParam("taxRate") double taxRate) {
+    @PostMapping("/tickets/{ticketId}/orders/{orderIndex}/items")
+    public ApiResponse<TicketDto> addItemToOrder(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @RequestBody Requests.AddItemRequest request) {
         try {
-            Order order = new Order(taxRate);
-            return ApiResponse.success(mapToOrderDto(order));
-        } catch (Exception e) {
-            return ApiResponse.error(e.getMessage());
-        }
-    }
-
-    public record OrderItemOperationRequest(OrderDto order, OrderItemDto item) {
-    }
-
-    @PostMapping("/orders/items")
-    public ApiResponse<OrderDto> addItemToOrder(@RequestBody OrderItemOperationRequest request) {
-        try {
-            Order order = mapFromOrderDto(request.order());
-            OrderItem item = mapFromOrderItemDto(request.item());
-            order.addItem(item);
-            return ApiResponse.success(mapToOrderDto(order));
-        } catch (Exception e) {
-            return ApiResponse.error(e.getMessage());
-        }
-    }
-
-    @PostMapping("/orders/items/remove")
-    public ApiResponse<OrderDto> removeItemFromOrder(@RequestBody OrderItemOperationRequest request) {
-        try {
-            Order order = mapFromOrderDto(request.order());
-            OrderItem target = mapFromOrderItemDto(request.item());
-
-            OrderItem toRemove = null;
-            for (OrderItem i : order.getItems()) {
-                if (i.getName().equals(target.getName()) &&
-                        ((i.getSelectedSide() == null && target.getSelectedSide() == null)
-                                || (i.getSelectedSide() != null
-                                        && i.getSelectedSide().equals(target.getSelectedSide())))) {
-                    toRemove = i;
-                    break;
+            MenuItem menuItem = menuService.getItem(request.name());
+            if (menuItem == null) {
+                return ApiResponse.error("Item not found: " + request.name());
+            }
+            int price = menuItem.basePrice;
+            if (request.selectedSide() != null && menuItem.sideOptions != null) {
+                var side = menuItem.sideOptions.get(request.selectedSide());
+                if (side != null) {
+                    price += side.price;
                 }
             }
-
-            if (toRemove != null) {
-                order.removeItem(toRemove);
-                return ApiResponse.success(mapToOrderDto(order));
-            } else {
-                return ApiResponse.error("Item not found in order");
-            }
+            OrderItem item = new OrderItem(request.name(), request.selectedSide(), price);
+            ticketService.addItemToOrder(ticketId, orderIndex, item);
+            return getTicket(ticketId);
         } catch (Exception e) {
-            return ApiResponse.error(e.getMessage());
+            return ApiResponse.error("Error adding item: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/tickets/{ticketId}/orders/{orderIndex}/items")
+    public ApiResponse<TicketDto> removeItemFromOrder(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @RequestBody Requests.AddItemRequest request) {
+        try {
+            OrderItem item = new OrderItem(request.name(), request.selectedSide(), 0);
+            ticketService.removeItemFromOrder(ticketId, orderIndex, item);
+            return getTicket(ticketId);
+        } catch (Exception e) {
+            return ApiResponse.error("Error removing item: " + e.getMessage());
         }
     }
 

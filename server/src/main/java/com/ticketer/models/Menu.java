@@ -31,8 +31,7 @@ public class Menu {
                 list.add(new MenuItemView(
                         item.name,
                         item.basePrice,
-                        item.available,
-                        category));
+                        item.available));
             }
         }
         return list;

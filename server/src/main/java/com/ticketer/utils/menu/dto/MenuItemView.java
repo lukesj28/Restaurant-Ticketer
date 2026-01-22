@@ -4,13 +4,11 @@ public class MenuItemView {
     public String name;
     public int price;
     public boolean available;
-    public String category;
 
-    public MenuItemView(String name, int price, boolean available, String category) {
+    public MenuItemView(String name, int price, boolean available) {
         this.name = name;
         this.price = price;
         this.available = available;
-        this.category = category;
     }
 
     @Override

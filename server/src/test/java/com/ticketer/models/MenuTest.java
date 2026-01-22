@@ -34,7 +34,7 @@ public class MenuTest {
         List<MenuItemView> items = menu.getAllItems();
         assertEquals(1, items.size());
         assertEquals("Burger", items.get(0).name);
-        assertEquals("mains", items.get(0).category);
+
     }
 
     @Test

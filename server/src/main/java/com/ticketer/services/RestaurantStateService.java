@@ -45,7 +45,7 @@ public class RestaurantStateService {
         return isOpen;
     }
 
-    private void checkAndScheduleState() {
+    public void checkAndScheduleState() {
         LocalDate today = LocalDate.now();
         DayOfWeek dayOfWeek = today.getDayOfWeek();
         String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
@@ -78,7 +78,7 @@ public class RestaurantStateService {
                 } else {
                     setClosedState();
                     scheduleNextDayCheck();
-                    runClosingSequence();
+                    scheduler.execute(this::runClosingSequence);
                 }
             }
 
@@ -132,7 +132,8 @@ public class RestaurantStateService {
                 Thread.sleep(checkInterval);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                return;
+                System.out.println("Closing sequence interrupted. Proceeding to immediate cleanup.");
+                break;
             }
         }
 

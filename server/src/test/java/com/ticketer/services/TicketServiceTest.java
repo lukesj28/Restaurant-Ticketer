@@ -141,7 +141,9 @@ public class TicketServiceTest {
         assertEquals(1000, ticket.getSubtotal());
         assertEquals(1100, ticket.getTotal());
 
-        service.removeMatchingOrder(ticket.getId(), order);
+        assertEquals(1100, ticket.getTotal());
+
+        service.removeOrder(ticket.getId(), 0);
         assertTrue(ticket.getOrders().isEmpty());
         assertEquals(0, ticket.getTotal());
     }
@@ -152,14 +154,14 @@ public class TicketServiceTest {
     }
 
     @Test(expected = EntityNotFoundException.class)
-    public void testRemoveOrderFromTicketNotFoundTicket() {
-        service.removeOrderFromTicket(999, new Order(0));
+    public void testRemoveOrderNotFoundTicket() {
+        service.removeOrder(999, 0);
     }
 
     @Test(expected = EntityNotFoundException.class)
-    public void testRemoveOrderFromTicketNotFoundOrder() {
+    public void testRemoveOrderInvalidIndex() {
         Ticket t = service.createTicket("T1");
-        service.removeOrderFromTicket(t.getId(), new Order(0));
+        service.removeOrder(t.getId(), 999);
     }
 
     @Test
