@@ -101,4 +101,22 @@ public class SettingsServiceTest {
             assertTrue("Close time should match HH:MM format", close.matches("^\\d{2}:\\d{2}$"));
         }
     }
+
+    @Test(expected = com.ticketer.exceptions.ValidationException.class)
+    public void testSetTaxInvalid() {
+        service.setTax(-1);
+    }
+
+    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
+    public void testGetSettingsNotFound() {
+        SettingsService errorService = new SettingsService(new com.ticketer.repositories.SettingsRepository() {
+            public Settings getSettings() {
+                return null;
+            }
+
+            public void saveSettings(Settings s) {
+            }
+        });
+        errorService.getSettings();
+    }
 }

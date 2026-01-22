@@ -21,13 +21,19 @@ public class RestaurantStateService {
     private final SettingsService settingsService;
     private final TicketService ticketService;
     private final ScheduledExecutorService scheduler;
+    private final java.time.Clock clock;
     private boolean isOpen;
 
     @Autowired
     public RestaurantStateService(SettingsService settingsService, TicketService ticketService) {
+        this(settingsService, ticketService, java.time.Clock.systemDefaultZone());
+    }
+
+    public RestaurantStateService(SettingsService settingsService, TicketService ticketService, java.time.Clock clock) {
         this.settingsService = settingsService;
         this.ticketService = ticketService;
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.clock = clock;
         this.isOpen = false;
     }
 
@@ -46,7 +52,7 @@ public class RestaurantStateService {
     }
 
     public void checkAndScheduleState() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         DayOfWeek dayOfWeek = today.getDayOfWeek();
         String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
 
@@ -62,7 +68,7 @@ public class RestaurantStateService {
         try {
             LocalTime openTime = LocalTime.parse(openTimeStr);
             LocalTime closeTime = LocalTime.parse(closeTimeStr);
-            LocalTime now = LocalTime.now();
+            LocalTime now = LocalTime.now(clock);
 
             if (now.isBefore(openTime)) {
                 setClosedState();
@@ -90,7 +96,7 @@ public class RestaurantStateService {
     }
 
     private void scheduleNextDayCheck() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(clock);
         LocalTime midnight = LocalTime.MAX;
         long delay = java.time.Duration.between(now, midnight).toMillis() + 1000;
         scheduler.schedule(this::checkAndScheduleState, delay, TimeUnit.MILLISECONDS);

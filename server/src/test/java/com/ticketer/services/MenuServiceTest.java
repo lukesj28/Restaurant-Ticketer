@@ -209,4 +209,39 @@ public class MenuServiceTest {
         assertNotNull(item.sideOptions);
         assertEquals(500, item.sideOptions.get("Fries").price);
     }
+
+    @Test
+    public void testChangeCategorySameCategory() {
+        String name = "SameCatItem";
+        String cat = "SameCat";
+        service.addItem(cat, name, 1000, null);
+
+        service.changeCategory(name, cat);
+
+        assertEquals(cat.toLowerCase(), service.getCategoryOfItem(name));
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testRenameCategoryNotFound() {
+        service.renameCategory("NonExistentCat", "NewCat");
+    }
+
+    @Test
+    public void testGetCategoryOfItemFound() {
+        String name = "FindMe";
+        String cat = "Hideout";
+        service.addItem(cat, name, 1000, null);
+
+        assertEquals(cat.toLowerCase(), service.getCategoryOfItem(name));
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testGetCategoryOfItemNotFound() {
+        service.getCategoryOfItem("InvisibleItem");
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testGetCategoryNotFound() {
+        service.getCategory("GhostCategory");
+    }
 }

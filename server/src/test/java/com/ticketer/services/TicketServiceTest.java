@@ -241,4 +241,78 @@ public class TicketServiceTest {
         TicketService badService = new TicketService(new FileTicketRepository());
         badService.serializeClosedTickets();
     }
+
+    @Test
+    public void testMoveAllToClosedEmpty() {
+        service.clearAllTickets();
+        service.moveAllToClosed();
+        assertTrue(service.getClosedTickets().isEmpty());
+    }
+
+    @Test
+    public void testAreAllTicketsClosed() {
+        assertTrue(service.areAllTicketsClosed());
+
+        Ticket t1 = service.createTicket("T1");
+        assertFalse(service.areAllTicketsClosed());
+
+        service.moveToCompleted(t1.getId());
+        assertFalse(service.areAllTicketsClosed());
+
+        service.moveToClosed(t1.getId());
+        assertTrue(service.areAllTicketsClosed());
+    }
+
+    @Test
+    public void testAddItemToOrder() {
+        Ticket t = service.createTicket("T1");
+        service.addOrderToTicket(t.getId(), new Order(0));
+
+        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100);
+        service.addItemToOrder(t.getId(), 0, item);
+
+        assertEquals(1, t.getOrders().get(0).getItems().size());
+        assertEquals(item, t.getOrders().get(0).getItems().get(0));
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testAddItemToOrderTicketNotFound() {
+        service.addItemToOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100));
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testAddItemToOrderInvalidIndex() {
+        Ticket t = service.createTicket("T1");
+        service.addItemToOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
+    }
+
+    @Test
+    public void testRemoveItemFromOrder() {
+        Ticket t = service.createTicket("T1");
+        Order o = new Order(0);
+        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100);
+        o.addItem(item);
+        service.addOrderToTicket(t.getId(), o);
+
+        service.removeItemFromOrder(t.getId(), 0, item);
+        assertTrue(t.getOrders().get(0).getItems().isEmpty());
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testRemoveItemFromOrderTicketNotFound() {
+        service.removeItemFromOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100));
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testRemoveItemFromOrderInvalidIndex() {
+        Ticket t = service.createTicket("T1");
+        service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
+    }
+
+    @Test(expected = EntityNotFoundException.class)
+    public void testRemoveItemFromOrderNotFound() {
+        Ticket t = service.createTicket("T1");
+        service.addOrderToTicket(t.getId(), new Order(0));
+        service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
+    }
 }

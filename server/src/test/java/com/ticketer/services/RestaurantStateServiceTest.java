@@ -7,10 +7,12 @@ import com.ticketer.models.Ticket;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.time.*;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class RestaurantStateServiceTest {
@@ -18,18 +20,86 @@ public class RestaurantStateServiceTest {
     private MockSettingsService settingsService;
     private MockTicketService ticketService;
     private RestaurantStateService restaurantStateService;
+    private Clock fixedClock;
 
     @Before
     public void setUp() {
         settingsService = new MockSettingsService();
         ticketService = new MockTicketService();
-        restaurantStateService = new RestaurantStateService(settingsService, ticketService);
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T12:00:00Z"), ZoneId.of("UTC"));
+    }
+
+    private void initService() {
+        restaurantStateService = new RestaurantStateService(settingsService, ticketService, fixedClock);
+    }
+
+    @Test
+    public void testClosedWhenNoHours() {
+        settingsService.setHours(null);
+        initService();
+        restaurantStateService.init();
+        assertFalse(restaurantStateService.isOpen());
+    }
+
+    @Test
+    public void testClosedBeforeOpenTime() {
+        settingsService.setHours("09:00 - 17:00");
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T08:00:00Z"), ZoneId.of("UTC"));
+        initService();
+
+        restaurantStateService.checkAndScheduleState();
+        assertFalse(restaurantStateService.isOpen());
+    }
+
+    @Test
+    public void testOpenDuringHours() {
+        settingsService.setHours("09:00 - 17:00");
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T12:00:00Z"), ZoneId.of("UTC"));
+        initService();
+
+        restaurantStateService.checkAndScheduleState();
+        assertTrue(restaurantStateService.isOpen());
+    }
+
+    @Test
+    public void testClosedAfterHours() {
+        settingsService.setHours("09:00 - 17:00");
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T18:00:00Z"), ZoneId.of("UTC"));
+        initService();
+
+        restaurantStateService.checkAndScheduleState();
+
+        assertFalse(restaurantStateService.isOpen());
+    }
+
+    @Test
+    public void testTransitionsFromOpenToClosed() {
+        settingsService.setHours("09:00 - 17:00");
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T18:00:00Z"), ZoneId.of("UTC"));
+        initService();
+
+        restaurantStateService.checkAndScheduleState();
+        assertFalse(restaurantStateService.isOpen());
+    }
+
+    @Test
+    public void testParseError() {
+        settingsService.setHours("invalid-time");
+        initService();
+
+        restaurantStateService.checkAndScheduleState();
+        assertFalse(restaurantStateService.isOpen());
+    }
+
+    @Test
+    public void testShutdown() {
+        initService();
+        restaurantStateService.shutdown();
     }
 
     @Test
     public void testClosingSequenceInterruptionCleanUp() throws InterruptedException {
-        // Arrange
-        // Simulate active tickets existing
+        initService();
         ticketService.allClosed = false;
 
         Thread thread = new Thread(() -> {
@@ -38,29 +108,38 @@ public class RestaurantStateServiceTest {
                 method.setAccessible(true);
                 method.invoke(restaurantStateService);
             } catch (Exception e) {
-                // Unexpected, but let's print
                 e.printStackTrace();
             }
         });
 
         thread.start();
-
-        // Give it a moment to enter the loop
         Thread.sleep(200);
 
-        // Act: Interrupt
         thread.interrupt();
         thread.join(1000);
 
-        // Assert
         assertTrue("moveAllToClosed should be called", ticketService.moveAllToClosedCalled);
         assertTrue("serializeClosedTickets should be called", ticketService.serializeClosedTicketsCalled);
         assertTrue("clearAllTickets should be called", ticketService.clearAllTicketsCalled);
     }
 
-    // Manual Mocks
+    @Test
+    public void testClosingSequenceCompletesWhenAllClosed() throws Exception {
+        initService();
+        ticketService.allClosed = true;
+
+        java.lang.reflect.Method method = RestaurantStateService.class.getDeclaredMethod("runClosingSequence");
+        method.setAccessible(true);
+        method.invoke(restaurantStateService);
+
+        assertTrue("moveAllToClosed should be called", ticketService.moveAllToClosedCalled);
+        assertTrue("serializeClosedTickets should be called", ticketService.serializeClosedTicketsCalled);
+        assertTrue("clearAllTickets should be called", ticketService.clearAllTicketsCalled);
+    }
 
     private static class MockSettingsService extends SettingsService {
+        private String hours = "09:00 - 17:00";
+
         public MockSettingsService() {
             super(new SettingsRepository() {
                 public Settings getSettings() {
@@ -70,6 +149,32 @@ public class RestaurantStateServiceTest {
                 public void saveSettings(Settings s) {
                 }
             });
+        }
+
+        public void setHours(String h) {
+            this.hours = h;
+        }
+
+        @Override
+        public String getOpenTime(String day) {
+            if (hours == null || "closed".equals(hours))
+                return null;
+            try {
+                return hours.split(" - ")[0];
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        @Override
+        public String getCloseTime(String day) {
+            if (hours == null || "closed".equals(hours))
+                return null;
+            try {
+                return hours.split(" - ")[1];
+            } catch (Exception e) {
+                return null;
+            }
         }
     }
 

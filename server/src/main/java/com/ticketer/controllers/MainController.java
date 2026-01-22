@@ -59,25 +59,11 @@ public class MainController {
         return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getPrice());
     }
 
-    private OrderItem mapFromOrderItemDto(OrderItemDto dto) {
-        return new OrderItem(dto.name(), dto.selectedSide(), dto.price());
-    }
-
     private OrderDto mapToOrderDto(Order order) {
         List<OrderItemDto> items = order.getItems().stream()
                 .map(this::mapToOrderItemDto)
                 .collect(Collectors.toList());
         return new OrderDto(items, order.getSubtotal(), order.getTotal(), order.getTaxRate());
-    }
-
-    private Order mapFromOrderDto(OrderDto dto) {
-        Order order = new Order(dto.taxRate());
-        if (dto.items() != null) {
-            for (OrderItemDto itemDto : dto.items()) {
-                order.addItem(mapFromOrderItemDto(itemDto));
-            }
-        }
-        return order;
     }
 
     private TicketDto mapToTicketDto(Ticket ticket) {
