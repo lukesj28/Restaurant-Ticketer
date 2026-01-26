@@ -14,18 +14,25 @@ import org.springframework.stereotype.Service;
 public class SettingsService {
 
     private final SettingsRepository settingsRepository;
+    private Settings currentSettings;
 
     @Autowired
     public SettingsService(SettingsRepository settingsRepository) {
         this.settingsRepository = settingsRepository;
+        this.currentSettings = settingsRepository.getSettings();
+    }
+
+    public void refreshSettings() {
+        this.currentSettings = settingsRepository.getSettings();
     }
 
     public Settings getSettings() {
-        Settings settings = settingsRepository.getSettings();
-        if (settings == null) {
+        if (currentSettings == null) {
+            // Should not happen if repo handles missing file correctly,
+            // but just in case of race condition or null return
             throw new EntityNotFoundException("Settings not found");
         }
-        return settings;
+        return currentSettings;
     }
 
     public double getTax() {
@@ -69,6 +76,7 @@ public class SettingsService {
         }
         Settings settings = getSettings();
         Settings newSettings = new Settings(tax, settings.getHours());
+        this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }
 
@@ -84,6 +92,7 @@ public class SettingsService {
         newHours.put(day, hours);
 
         Settings newSettings = new Settings(settings.getTax(), newHours);
+        this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }
 }

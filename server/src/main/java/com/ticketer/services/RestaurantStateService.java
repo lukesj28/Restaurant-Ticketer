@@ -87,7 +87,9 @@ public class RestaurantStateService {
                 } else {
                     setClosedState();
                     scheduleNextDayCheck();
-                    closingExecutor.execute(this::runClosingSequence);
+                    if (ticketService.hasActiveTickets()) {
+                        closingExecutor.execute(this::runClosingSequence);
+                    }
                 }
             }
 
@@ -106,13 +108,19 @@ public class RestaurantStateService {
     }
 
     private void setOpenState() {
-        this.isOpen = true;
-        System.out.println("Restaurant is now OPEN.");
+        if (!this.isOpen) {
+            this.isOpen = true;
+            System.out.println("Restaurant is now OPEN.");
+        }
     }
 
     private void setClosedState() {
-        this.isOpen = false;
-        System.out.println("Restaurant is now CLOSED.");
+        if (this.isOpen) {
+            this.isOpen = false;
+            System.out.println("Restaurant is now CLOSED (New tickets disabled).");
+        } else {
+            this.isOpen = false;
+        }
     }
 
     private void handleOpening() {
@@ -130,8 +138,8 @@ public class RestaurantStateService {
         System.out.println("Starting closing sequence...");
 
         long startTime = System.currentTimeMillis();
-        long maxWaitTime = 3600000;
-        long checkInterval = 300000;
+        long maxWaitTime = 60000;
+        long checkInterval = 30000;
 
         while (System.currentTimeMillis() - startTime < maxWaitTime) {
             if (ticketService.areAllTicketsClosed()) {

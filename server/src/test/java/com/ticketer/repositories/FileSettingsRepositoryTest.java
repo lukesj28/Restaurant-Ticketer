@@ -25,15 +25,12 @@ public class FileSettingsRepositoryTest {
 
     @Test
     public void testGetSettingsFileNotFound() {
-        new FileMenuRepository(TEST_FILE);
-
         FileSettingsRepository settingsRepo = new FileSettingsRepository(TEST_FILE);
-        try {
-            settingsRepo.getSettings();
-            fail("Should throw exception if file missing");
-        } catch (RuntimeException e) {
-
-        }
+        Settings settings = settingsRepo.getSettings();
+        assertNotNull(settings);
+        assertEquals(0.0, settings.getTax(), 0.001);
+        assertNotNull(settings.getHours());
+        assertTrue(settings.getHours().isEmpty());
     }
 
     @Test

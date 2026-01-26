@@ -47,7 +47,12 @@ public class FileMenuRepository implements MenuRepository {
 
     @Override
     public Menu getMenu() {
-        try (FileReader reader = new FileReader(filePath)) {
+        java.io.File file = new java.io.File(filePath);
+        if (!file.exists()) {
+            return new Menu(new HashMap<>());
+        }
+
+        try (FileReader reader = new FileReader(file)) {
             JsonObject json = gson.fromJson(reader, JsonObject.class);
             if (json == null) {
                 return new Menu(new HashMap<>());

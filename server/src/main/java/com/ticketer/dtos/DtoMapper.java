@@ -35,14 +35,18 @@ public class DtoMapper {
         List<OrderDto> orders = ticket.getOrders().stream()
                 .map(DtoMapper::toOrderDto)
                 .collect(Collectors.toList());
+
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+        java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+
         return new TicketDto(
                 ticket.getId(),
                 ticket.getTableNumber(),
                 orders,
                 ticket.getSubtotal(),
                 ticket.getTotal(),
-                ticket.getCreatedAt() != null ? ticket.getCreatedAt().toString() : null,
-                ticket.getClosedAt() != null ? ticket.getClosedAt().toString() : null);
+                ticket.getCreatedAt() != null ? ticket.getCreatedAt().atZone(zone).format(formatter) : null,
+                ticket.getClosedAt() != null ? ticket.getClosedAt().atZone(zone).format(formatter) : null);
     }
 
     public static ItemDto toItemDto(MenuItem item) {

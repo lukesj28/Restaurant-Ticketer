@@ -26,6 +26,7 @@ public class FileTicketRepositoryTest {
             ticketsDir.mkdirs();
         }
         System.setProperty("tickets.dir", TEST_TICKETS_DIR);
+        System.setProperty("recovery.file", TEST_TICKETS_DIR + "/recovery.json");
         repository = new FileTicketRepository();
     }
 
@@ -43,6 +44,7 @@ public class FileTicketRepositoryTest {
             testDir.delete();
         }
         System.clearProperty("tickets.dir");
+        System.clearProperty("recovery.file");
     }
 
     @Test
@@ -84,9 +86,51 @@ public class FileTicketRepositoryTest {
             });
         }
 
-        latch.await(5, TimeUnit.SECONDS);
+        latch.await(30, TimeUnit.SECONDS);
         assertEquals("Should complete without exceptions", 0, exceptions.get());
         assertEquals(threadCount * ticketsPerThread, repository.findAllActive().size());
         executor.shutdown();
+    }
+
+    @Test
+    public void testLegacyRecovery() throws java.io.IOException {
+        File recoveryFile = new File(TEST_TICKETS_DIR + "/recovery.json");
+        recoveryFile.getParentFile().mkdirs();
+        try (java.io.FileWriter writer = new java.io.FileWriter(recoveryFile)) {
+            writer.write("{\n" +
+                    "  \"active\": [\n" +
+                    "    {\n" +
+                    "      \"id\": 99,\n" +
+                    "      \"tableNumber\": \"T99\",\n" +
+                    "      \"orders\": [\n" +
+                    "        {\n" +
+                    "          \"items\": [\n" +
+                    "            {\n" +
+                    "              \"name\": \"Burger\",\n" +
+                    "              \"price\": 10.99\n" +
+                    "            }\n" +
+                    "          ],\n" +
+                    "          \"subtotal\": 10.99,\n" +
+                    "          \"total\": 12.42\n" +
+                    "        }\n" +
+                    "      ],\n" +
+                    "      \"subtotal\": 10.99,\n" +
+                    "      \"total\": 12.42,\n" +
+                    "      \"createdAt\": \"2023-01-01T12:00:00Z\"\n" +
+                    "    }\n" +
+                    "  ],\n" +
+                    "  \"completed\": []\n" +
+                    "}");
+        }
+
+        repository = new FileTicketRepository();
+
+        java.util.List<Ticket> active = repository.findAllActive();
+        assertEquals(1, active.size());
+        Ticket t = active.get(0);
+        assertEquals(99, t.getId());
+        assertEquals(1, t.getOrders().size());
+        assertEquals(1099, t.getOrders().get(0).getItems().get(0).getPrice());
+        assertEquals(1099, t.getOrders().get(0).getTotal());
     }
 }

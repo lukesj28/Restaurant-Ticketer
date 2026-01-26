@@ -23,10 +23,12 @@ public class FileMenuRepositoryTest {
         new File(TEST_FILE).delete();
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testGetMenuFileNotFound() {
         FileMenuRepository repo = new FileMenuRepository(TEST_FILE);
-        repo.getMenu();
+        Menu menu = repo.getMenu();
+        assertNotNull(menu);
+        assertTrue(menu.getCategories().isEmpty());
     }
 
     @Test

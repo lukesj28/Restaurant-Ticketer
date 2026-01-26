@@ -25,5 +25,7 @@ public interface TicketRepository {
 
     void moveToClosed(int id);
 
-    void moveToActive(int id);
+    void moveToActive(int ticketId);
+
+    void clearRecoveryFile();
 }

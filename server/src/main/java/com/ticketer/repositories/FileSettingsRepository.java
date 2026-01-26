@@ -28,10 +28,15 @@ public class FileSettingsRepository implements SettingsRepository {
 
     @Override
     public Settings getSettings() {
-        try (FileReader reader = new FileReader(filePath)) {
+        java.io.File file = new java.io.File(filePath);
+        if (!file.exists()) {
+            return new Settings(0.0, new java.util.HashMap<>());
+        }
+
+        try (FileReader reader = new FileReader(file)) {
             Settings settings = gson.fromJson(reader, Settings.class);
             if (settings == null) {
-                return null;
+                return new Settings(0.0, new java.util.HashMap<>());
             }
             return settings;
         } catch (IOException e) {

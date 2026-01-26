@@ -224,12 +224,20 @@ public class RestaurantStateServiceTest {
 
                 public void moveToActive(int id) {
                 }
+
+                public void clearRecoveryFile() {
+                }
             });
         }
 
         @Override
         public boolean areAllTicketsClosed() {
             return allClosed;
+        }
+
+        @Override
+        public boolean hasActiveTickets() {
+            return !allClosed;
         }
 
         @Override

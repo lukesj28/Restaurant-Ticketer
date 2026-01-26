@@ -19,7 +19,20 @@ public class TicketService {
     @Autowired
     public TicketService(TicketRepository ticketRepository) {
         this.ticketRepository = ticketRepository;
-        ticketIdCounter = 0;
+        initializeTicketCounter();
+    }
+
+    private void initializeTicketCounter() {
+        int maxId = 0;
+        for (Ticket t : ticketRepository.findAllActive()) {
+            if (t.getId() > maxId)
+                maxId = t.getId();
+        }
+        for (Ticket t : ticketRepository.findAllCompleted()) {
+            if (t.getId() > maxId)
+                maxId = t.getId();
+        }
+        this.ticketIdCounter = maxId;
     }
 
     public Ticket createTicket(String tableNumber) {
@@ -144,11 +157,16 @@ public class TicketService {
 
     public void clearAllTickets() {
         ticketRepository.deleteAll();
+        ticketRepository.clearRecoveryFile();
         resetTicketCounter();
     }
 
     public boolean areAllTicketsClosed() {
         return ticketRepository.findAllActive().isEmpty() && ticketRepository.findAllCompleted().isEmpty();
+    }
+
+    public boolean hasActiveTickets() {
+        return !ticketRepository.findAllActive().isEmpty();
     }
 
     public List<Ticket> getActiveTickets() {

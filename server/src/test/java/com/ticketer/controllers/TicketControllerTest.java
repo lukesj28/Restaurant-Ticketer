@@ -183,6 +183,10 @@ public class TicketControllerTest {
         @Override
         public void moveToActive(int id) {
         }
+
+        @Override
+        public void clearRecoveryFile() {
+        }
     }
 
     private static class MockTicketService extends TicketService {
