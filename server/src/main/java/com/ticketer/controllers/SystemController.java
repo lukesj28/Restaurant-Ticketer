@@ -21,8 +21,13 @@ public class SystemController {
         return restaurantStateService.isOpen();
     }
 
+    @PostMapping("/open")
+    public void open() {
+        restaurantStateService.forceOpen();
+    }
+
     @PostMapping("/shutdown")
     public void shutdown() {
-        restaurantStateService.shutdown();
+        restaurantStateService.forceClose();
     }
 }

@@ -92,9 +92,42 @@ public class RestaurantStateServiceTest {
     }
 
     @Test
-    public void testShutdown() {
+    public void testCleanup() {
         initService();
-        restaurantStateService.shutdown();
+        restaurantStateService.cleanup();
+    }
+
+    @Test
+    public void testForceClose() {
+        settingsService.setHours("09:00 - 17:00");
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T12:00:00Z"), ZoneId.of("UTC"));
+        initService();
+
+        restaurantStateService.checkAndScheduleState();
+        assertTrue(restaurantStateService.isOpen());
+
+        restaurantStateService.forceClose();
+        assertFalse(restaurantStateService.isOpen());
+
+        // Verify it stays closed
+        restaurantStateService.checkAndScheduleState();
+        assertFalse(restaurantStateService.isOpen());
+    }
+
+    @Test
+    public void testForceOpen() {
+        settingsService.setHours("09:00 - 17:00");
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T19:00:00Z"), ZoneId.of("UTC")); // Closed time
+        initService();
+
+        restaurantStateService.checkAndScheduleState();
+        assertFalse(restaurantStateService.isOpen());
+
+        restaurantStateService.forceOpen();
+        assertTrue(restaurantStateService.isOpen());
+
+        restaurantStateService.checkAndScheduleState();
+        assertTrue(restaurantStateService.isOpen());
     }
 
     @Test

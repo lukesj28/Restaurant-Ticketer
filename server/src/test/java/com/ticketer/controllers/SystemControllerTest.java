@@ -36,11 +36,21 @@ public class SystemControllerTest {
     }
 
     @Test
-    public void testShutdown() {
+    public void testForceClose() {
         systemController.shutdown();
+        assertTrue(restaurantStateService.forceCloseCalled);
+    }
+
+    @Test
+    public void testForceOpen() {
+        systemController.open();
+        assertTrue(restaurantStateService.forceOpenCalled);
     }
 
     private static class MockRestaurantStateService extends RestaurantStateService {
+        boolean forceCloseCalled = false;
+        boolean forceOpenCalled = false;
+
         public MockRestaurantStateService() {
             super(null, null);
         }
@@ -51,7 +61,13 @@ public class SystemControllerTest {
         }
 
         @Override
-        public void shutdown() {
+        public void forceClose() {
+            forceCloseCalled = true;
+        }
+
+        @Override
+        public void forceOpen() {
+            forceOpenCalled = true;
         }
     }
 }

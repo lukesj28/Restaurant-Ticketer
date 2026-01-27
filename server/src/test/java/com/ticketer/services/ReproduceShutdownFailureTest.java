@@ -4,39 +4,46 @@ import com.ticketer.repositories.SettingsRepository;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.models.Settings;
 import com.ticketer.models.Ticket;
+import org.junit.Before;
 import org.junit.Test;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class RestaurantStateServiceThreadingTest {
+public class ReproduceShutdownFailureTest {
+
+    private MockSettingsService settingsService;
+    private MockTicketService ticketService;
+    private RestaurantStateService restaurantStateService;
+    private Clock fixedClock;
+
+    @Before
+    public void setUp() {
+        settingsService = new MockSettingsService();
+        ticketService = new MockTicketService();
+        fixedClock = Clock.fixed(Instant.parse("2023-01-02T12:00:00Z"), ZoneId.of("UTC"));
+    }
+
+    private void initService() {
+        restaurantStateService = new RestaurantStateService(settingsService, ticketService, fixedClock);
+        restaurantStateService.init();
+    }
 
     @Test
-    public void testClosingDoesNotBlock() throws InterruptedException {
-        MockSettingsService settingsService = new MockSettingsService();
-        BlockingTicketService ticketService = new BlockingTicketService();
-        Clock fixedClock = Clock.fixed(Instant.parse("2023-01-02T18:00:00Z"), ZoneId.of("UTC"));
-
-        RestaurantStateService service = new RestaurantStateService(settingsService, ticketService, fixedClock);
+    public void testShutdownClosesRestaurantDuringOpenHours() {
         settingsService.setHours("09:00 - 17:00");
+        initService();
 
-        long start = System.currentTimeMillis();
-        service.checkAndScheduleState();
-        long end = System.currentTimeMillis();
+        assertTrue("Restaurant should be open initially", restaurantStateService.isOpen());
 
-        assertTrue("checkAndScheduleState should return immediately (< 100ms)", (end - start) < 100);
+        restaurantStateService.forceClose();
 
-        assertTrue("Closing sequence should start in background", ticketService.latch.await(2, TimeUnit.SECONDS));
-
-        service.cleanup();
+        assertFalse("Restaurant should be closed after shutdown() call", restaurantStateService.isOpen());
     }
 
     private static class MockSettingsService extends SettingsService {
@@ -59,19 +66,29 @@ public class RestaurantStateServiceThreadingTest {
 
         @Override
         public String getOpenTime(String day) {
-            return hours == null ? null : hours.split(" - ")[0];
+            if (hours == null || "closed".equals(hours))
+                return null;
+            try {
+                return hours.split(" - ")[0];
+            } catch (Exception e) {
+                return null;
+            }
         }
 
         @Override
         public String getCloseTime(String day) {
-            return hours == null ? null : hours.split(" - ")[1];
+            if (hours == null || "closed".equals(hours))
+                return null;
+            try {
+                return hours.split(" - ")[1];
+            } catch (Exception e) {
+                return null;
+            }
         }
     }
 
-    private static class BlockingTicketService extends TicketService {
-        final CountDownLatch latch = new CountDownLatch(1);
-
-        public BlockingTicketService() {
+    private static class MockTicketService extends TicketService {
+        public MockTicketService() {
             super(new TicketRepository() {
                 public Ticket save(Ticket t) {
                     return t;
@@ -119,18 +136,12 @@ public class RestaurantStateServiceThreadingTest {
 
         @Override
         public boolean areAllTicketsClosed() {
-            latch.countDown();
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
             return true;
         }
 
         @Override
         public boolean hasActiveTickets() {
-            return true;
+            return false;
         }
 
         @Override

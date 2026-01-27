@@ -24,6 +24,8 @@ public class RestaurantStateService {
     private final java.util.concurrent.ExecutorService closingExecutor;
     private final java.time.Clock clock;
     private boolean isOpen;
+    private boolean forcedOpen;
+    private LocalDate forcedClosedDate;
 
     @Autowired
     public RestaurantStateService(SettingsService settingsService, TicketService ticketService) {
@@ -37,6 +39,8 @@ public class RestaurantStateService {
         this.closingExecutor = Executors.newSingleThreadExecutor();
         this.clock = clock;
         this.isOpen = false;
+        this.forcedOpen = false;
+        this.forcedClosedDate = null;
     }
 
     @PostConstruct
@@ -45,7 +49,7 @@ public class RestaurantStateService {
     }
 
     @PreDestroy
-    public void shutdown() {
+    public void cleanup() {
         scheduler.shutdownNow();
         closingExecutor.shutdownNow();
     }
@@ -54,8 +58,36 @@ public class RestaurantStateService {
         return isOpen;
     }
 
+    public void forceOpen() {
+        forcedOpen = true;
+        forcedClosedDate = null;
+        setOpenState();
+        checkAndScheduleState();
+    }
+
+    public void forceClose() {
+        forcedOpen = false;
+        forcedClosedDate = LocalDate.now(clock);
+        handleClosing();
+    }
+
     public void checkAndScheduleState() {
         LocalDate today = LocalDate.now(clock);
+
+        if (forcedClosedDate != null) {
+            if (forcedClosedDate.equals(today)) {
+                if (isOpen) {
+                    handleClosing();
+                } else {
+                    setClosedState();
+                }
+                scheduleNextDayCheck();
+                return;
+            } else {
+                forcedClosedDate = null;
+            }
+        }
+
         DayOfWeek dayOfWeek = today.getDayOfWeek();
         String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
 
@@ -63,8 +95,13 @@ public class RestaurantStateService {
         String closeTimeStr = settingsService.getCloseTime(dayName);
 
         if (openTimeStr == null || closeTimeStr == null) {
-            setClosedState();
-            scheduleNextDayCheck();
+            if (forcedOpen) {
+                setOpenState();
+                scheduleNextDayCheck();
+            } else {
+                setClosedState();
+                scheduleNextDayCheck();
+            }
             return;
         }
 
@@ -74,21 +111,35 @@ public class RestaurantStateService {
             LocalTime now = LocalTime.now(clock);
 
             if (now.isBefore(openTime)) {
-                setClosedState();
-                long delay = java.time.Duration.between(now, openTime).toMillis();
-                scheduler.schedule(this::handleOpening, delay, TimeUnit.MILLISECONDS);
+                if (forcedOpen) {
+                    setOpenState();
+                    long delay = java.time.Duration.between(now, openTime).toMillis();
+                    scheduler.schedule(this::checkAndScheduleState, delay, TimeUnit.MILLISECONDS);
+                } else {
+                    setClosedState();
+                    long delay = java.time.Duration.between(now, openTime).toMillis();
+                    scheduler.schedule(this::handleOpening, delay, TimeUnit.MILLISECONDS);
+                }
             } else if (now.isAfter(openTime) && now.isBefore(closeTime)) {
+                if (forcedOpen) {
+                    forcedOpen = false;
+                }
                 setOpenState();
                 long delay = java.time.Duration.between(now, closeTime).toMillis();
                 scheduler.schedule(this::handleClosing, delay, TimeUnit.MILLISECONDS);
             } else {
-                if (isOpen) {
-                    handleClosing();
-                } else {
-                    setClosedState();
+                if (forcedOpen) {
+                    setOpenState();
                     scheduleNextDayCheck();
-                    if (ticketService.hasActiveTickets()) {
-                        closingExecutor.execute(this::runClosingSequence);
+                } else {
+                    if (isOpen) {
+                        handleClosing();
+                    } else {
+                        setClosedState();
+                        scheduleNextDayCheck();
+                        if (ticketService.hasActiveTickets()) {
+                            closingExecutor.execute(this::runClosingSequence);
+                        }
                     }
                 }
             }
@@ -142,6 +193,11 @@ public class RestaurantStateService {
         long checkInterval = 30000;
 
         while (System.currentTimeMillis() - startTime < maxWaitTime) {
+            if (forcedClosedDate != null) {
+                System.out.println("Forced shutdown detected. Skipping wait period.");
+                break;
+            }
+
             if (ticketService.areAllTicketsClosed()) {
                 break;
             }

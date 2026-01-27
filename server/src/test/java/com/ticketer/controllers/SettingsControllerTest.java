@@ -178,8 +178,5 @@ public class SettingsControllerTest {
             return true;
         }
 
-        @Override
-        public void shutdown() {
-        }
     }
 }

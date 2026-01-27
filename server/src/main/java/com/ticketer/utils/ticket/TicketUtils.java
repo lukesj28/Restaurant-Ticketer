@@ -13,6 +13,9 @@ import java.util.List;
 
 public class TicketUtils {
 
+    private static final java.time.format.DateTimeFormatter DATE_FORMATTER = java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+            .withZone(java.time.ZoneId.systemDefault());
+
     private static class TicketTypeAdapter implements JsonSerializer<Ticket> {
         @Override
         public JsonElement serialize(Ticket ticket, Type typeOfSrc, JsonSerializationContext context) {
@@ -28,9 +31,9 @@ public class TicketUtils {
 
             json.addProperty("subtotal", ticket.getSubtotal() / 100.0);
             json.addProperty("total", ticket.getTotal() / 100.0);
-            json.addProperty("createdAt", ticket.getCreatedAt().toString());
+            json.addProperty("createdAt", DATE_FORMATTER.format(ticket.getCreatedAt()));
             if (ticket.getClosedAt() != null) {
-                json.addProperty("closedAt", ticket.getClosedAt().toString());
+                json.addProperty("closedAt", DATE_FORMATTER.format(ticket.getClosedAt()));
             }
             return json;
         }
