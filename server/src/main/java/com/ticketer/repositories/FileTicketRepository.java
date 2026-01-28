@@ -1,25 +1,18 @@
 package com.ticketer.repositories;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import com.ticketer.models.Order;
-import com.ticketer.models.OrderItem;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticketer.models.Ticket;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -31,33 +24,22 @@ public class FileTicketRepository implements TicketRepository {
 
     private final String ticketsDir;
     private final String recoveryFilePath;
-    private final Gson gson;
+    private final ObjectMapper objectMapper;
     private final Object fileLock = new Object();
 
-    public FileTicketRepository() {
+    @Autowired
+    public FileTicketRepository(ObjectMapper objectMapper) {
         this.ticketsDir = System.getProperty("tickets.dir", "data/tickets");
         this.recoveryFilePath = System.getProperty("recovery.file", "data/recovery.json");
-        this.gson = new GsonBuilder()
-                .setPrettyPrinting()
-                .registerTypeAdapter(Ticket.class, new TicketTypeAdapter())
-                .registerTypeAdapter(OrderItem.class, new ItemTypeAdapter())
-                .registerTypeAdapter(Order.class, new OrderTypeAdapter())
-                .registerTypeAdapter(java.time.Instant.class, new InstantTypeAdapter())
-                .create();
+        this.objectMapper = objectMapper;
 
         loadStateFromRecoveryFile();
     }
 
-    public FileTicketRepository(String ticketsDir, String recoveryFilePath) {
+    public FileTicketRepository(String ticketsDir, String recoveryFilePath, ObjectMapper objectMapper) {
         this.ticketsDir = ticketsDir;
         this.recoveryFilePath = recoveryFilePath;
-        this.gson = new GsonBuilder()
-                .setPrettyPrinting()
-                .registerTypeAdapter(Ticket.class, new TicketTypeAdapter())
-                .registerTypeAdapter(OrderItem.class, new ItemTypeAdapter())
-                .registerTypeAdapter(Order.class, new OrderTypeAdapter())
-                .registerTypeAdapter(java.time.Instant.class, new InstantTypeAdapter())
-                .create();
+        this.objectMapper = objectMapper;
 
         loadStateFromRecoveryFile();
     }
@@ -132,12 +114,15 @@ public class FileTicketRepository implements TicketRepository {
 
         File directory = new File(ticketsDir);
         if (!directory.exists()) {
-            directory.mkdirs();
+            boolean created = directory.mkdirs();
+            if (!created && !directory.exists()) {
+                throw new RuntimeException("Failed to create directory: " + ticketsDir);
+            }
         }
 
         synchronized (fileLock) {
             try (FileWriter writer = new FileWriter(filename)) {
-                gson.toJson(closedTickets, writer);
+                objectMapper.writeValue(writer, closedTickets);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to serialize closed tickets", e);
             }
@@ -183,11 +168,14 @@ public class FileTicketRepository implements TicketRepository {
     private void saveStateToRecoveryFile() {
         RecoverableState state = new RecoverableState(activeTickets, completedTickets);
         File file = new File(recoveryFilePath);
-        file.getParentFile().mkdirs();
+        File parent = file.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
 
         synchronized (fileLock) {
             try (FileWriter writer = new FileWriter(file)) {
-                gson.toJson(state, writer);
+                objectMapper.writeValue(writer, state);
             } catch (IOException e) {
                 System.err.println("Failed to save recovery state: " + e.getMessage());
             }
@@ -202,7 +190,7 @@ public class FileTicketRepository implements TicketRepository {
 
         synchronized (fileLock) {
             try (FileReader reader = new FileReader(file)) {
-                RecoverableState state = gson.fromJson(reader, RecoverableState.class);
+                RecoverableState state = objectMapper.readValue(reader, RecoverableState.class);
                 if (state != null) {
                     if (state.active != null)
                         activeTickets.addAll(state.active);
@@ -226,99 +214,16 @@ public class FileTicketRepository implements TicketRepository {
     }
 
     private static class RecoverableState {
-        List<Ticket> active;
-        List<Ticket> completed;
+        public List<Ticket> active;
+        public List<Ticket> completed;
 
-        RecoverableState(List<Ticket> active, List<Ticket> completed) {
+        @SuppressWarnings("unused")
+        public RecoverableState() {
+        }
+
+        public RecoverableState(List<Ticket> active, List<Ticket> completed) {
             this.active = active;
             this.completed = completed;
-        }
-    }
-
-    private static class TicketTypeAdapter implements JsonSerializer<Ticket> {
-        @Override
-        public JsonElement serialize(Ticket ticket, Type typeOfSrc, JsonSerializationContext context) {
-            JsonObject json = new JsonObject();
-            json.addProperty("id", ticket.getId());
-            json.addProperty("tableNumber", ticket.getTableNumber());
-
-            json.add("orders", context.serialize(ticket.getOrders()));
-
-            json.addProperty("subtotal", ticket.getSubtotal() / 100.0);
-            json.addProperty("total", ticket.getTotal() / 100.0);
-            json.addProperty("createdAt", ticket.getCreatedAt().toString());
-            if (ticket.getClosedAt() != null) {
-                json.addProperty("closedAt", ticket.getClosedAt().toString());
-            }
-            return json;
-        }
-    }
-
-    private static class ItemTypeAdapter
-            implements JsonSerializer<OrderItem>, com.google.gson.JsonDeserializer<OrderItem> {
-        @Override
-        public JsonElement serialize(OrderItem item, Type typeOfSrc, JsonSerializationContext context) {
-            JsonObject json = new JsonObject();
-            json.addProperty("name", item.getName());
-            if (item.getSelectedSide() != null) {
-                json.addProperty("selectedSide", item.getSelectedSide());
-            }
-            json.addProperty("price", item.getPrice() / 100.0);
-            return json;
-        }
-
-        @Override
-        public OrderItem deserialize(JsonElement json, Type typeOfT, com.google.gson.JsonDeserializationContext context)
-                throws com.google.gson.JsonParseException {
-            JsonObject obj = json.getAsJsonObject();
-            String name = obj.get("name").getAsString();
-            String selectedSide = null;
-            if (obj.has("selectedSide") && !obj.get("selectedSide").isJsonNull()) {
-                selectedSide = obj.get("selectedSide").getAsString();
-            }
-            double priceDouble = obj.get("price").getAsDouble();
-            int price = (int) Math.round(priceDouble * 100);
-            return new OrderItem(name, selectedSide, price);
-        }
-    }
-
-    private static class OrderTypeAdapter implements JsonSerializer<Order>, com.google.gson.JsonDeserializer<Order> {
-        @Override
-        public JsonElement serialize(Order order, Type typeOfSrc, JsonSerializationContext context) {
-            JsonObject json = new JsonObject();
-            json.add("items", context.serialize(order.getItems()));
-            json.addProperty("subtotal", order.getSubtotal() / 100.0);
-            json.addProperty("total", order.getTotal() / 100.0);
-            return json;
-        }
-
-        @Override
-        public Order deserialize(JsonElement json, Type typeOfT, com.google.gson.JsonDeserializationContext context)
-                throws com.google.gson.JsonParseException {
-            JsonObject obj = json.getAsJsonObject();
-            Order order = new Order();
-            if (obj.has("items")) {
-                com.google.gson.JsonArray itemsArray = obj.getAsJsonArray("items");
-                for (JsonElement itemElement : itemsArray) {
-                    OrderItem item = context.deserialize(itemElement, OrderItem.class);
-                    order.addItem(item);
-                }
-            }
-            return order;
-        }
-    }
-
-    private static class InstantTypeAdapter
-            implements JsonSerializer<java.time.Instant>, com.google.gson.JsonDeserializer<java.time.Instant> {
-        @Override
-        public JsonElement serialize(java.time.Instant src, Type typeOfSrc, JsonSerializationContext context) {
-            return new com.google.gson.JsonPrimitive(src.toString());
-        }
-
-        @Override
-        public java.time.Instant deserialize(JsonElement json, Type typeOfT,
-                com.google.gson.JsonDeserializationContext context) throws com.google.gson.JsonParseException {
-            return java.time.Instant.parse(json.getAsString());
         }
     }
 }

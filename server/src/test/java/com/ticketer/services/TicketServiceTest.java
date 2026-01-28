@@ -17,6 +17,7 @@ public class TicketServiceTest {
 
     private TicketService service;
     private static final String TEST_TICKETS_DIR = "target/test-tickets-service";
+    private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @Before
     public void setUp() throws IOException {
@@ -26,7 +27,13 @@ public class TicketServiceTest {
         }
         System.setProperty("tickets.dir", TEST_TICKETS_DIR);
 
-        service = new TicketService(new FileTicketRepository());
+        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+
+        service = new TicketService(new FileTicketRepository(mapper));
         service.clearAllTickets();
     }
 
@@ -238,7 +245,7 @@ public class TicketServiceTest {
         }
         System.setProperty("tickets.dir", badDir.getAbsolutePath());
 
-        TicketService badService = new TicketService(new FileTicketRepository());
+        TicketService badService = new TicketService(new FileTicketRepository(mapper));
         badService.serializeClosedTickets();
     }
 

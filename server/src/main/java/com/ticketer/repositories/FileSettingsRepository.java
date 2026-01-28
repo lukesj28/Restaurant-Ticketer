@@ -1,42 +1,45 @@
 package com.ticketer.repositories;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticketer.models.Settings;
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class FileSettingsRepository implements SettingsRepository {
 
     private final String filePath;
-    private final Gson gson;
+    private final ObjectMapper objectMapper;
 
-    public FileSettingsRepository() {
+    @Autowired
+    public FileSettingsRepository(ObjectMapper objectMapper) {
         this.filePath = System.getProperty("settings.file", "data/settings.json");
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
+        this.objectMapper = objectMapper;
     }
 
-    public FileSettingsRepository(String filePath) {
+    public FileSettingsRepository(String filePath, ObjectMapper objectMapper) {
         this.filePath = filePath;
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
+        this.objectMapper = objectMapper;
     }
 
     @Override
     public Settings getSettings() {
-        java.io.File file = new java.io.File(filePath);
+        File file = new File(filePath);
         if (!file.exists()) {
-            return new Settings(0.0, new java.util.HashMap<>());
+            return new Settings(0.0, new HashMap<>());
         }
 
         try (FileReader reader = new FileReader(file)) {
-            Settings settings = gson.fromJson(reader, Settings.class);
+            Settings settings = objectMapper.readValue(reader, Settings.class);
             if (settings == null) {
-                return new Settings(0.0, new java.util.HashMap<>());
+                return new Settings(0.0, new HashMap<>());
             }
             return settings;
         } catch (IOException e) {
@@ -47,7 +50,7 @@ public class FileSettingsRepository implements SettingsRepository {
     @Override
     public void saveSettings(Settings settings) {
         try (FileWriter writer = new FileWriter(filePath)) {
-            gson.toJson(settings, writer);
+            objectMapper.writeValue(writer, settings);
         } catch (IOException e) {
             throw new RuntimeException("Failed to save settings to " + filePath, e);
         }

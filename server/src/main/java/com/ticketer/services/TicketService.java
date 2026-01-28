@@ -2,6 +2,7 @@ package com.ticketer.services;
 
 import com.ticketer.models.Ticket;
 import com.ticketer.models.Order;
+import com.ticketer.models.OrderItem;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
 
@@ -72,7 +73,7 @@ public class TicketService {
         ticketRepository.save(ticket);
     }
 
-    public void addItemToOrder(int ticketId, int orderIndex, com.ticketer.models.OrderItem item) {
+    public void addItemToOrder(int ticketId, int orderIndex, OrderItem item) {
         Ticket ticket = getTicket(ticketId);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket " + ticketId + " not found");
@@ -84,7 +85,7 @@ public class TicketService {
         ticketRepository.save(ticket);
     }
 
-    public void removeItemFromOrder(int ticketId, int orderIndex, com.ticketer.models.OrderItem item) {
+    public void removeItemFromOrder(int ticketId, int orderIndex, OrderItem item) {
         Ticket ticket = getTicket(ticketId);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket " + ticketId + " not found");

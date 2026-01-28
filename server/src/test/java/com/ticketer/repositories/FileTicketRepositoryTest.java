@@ -18,6 +18,7 @@ public class FileTicketRepositoryTest {
 
     private FileTicketRepository repository;
     private static final String TEST_TICKETS_DIR = "target/test-tickets-repo";
+    private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @Before
     public void setUp() {
@@ -27,7 +28,14 @@ public class FileTicketRepositoryTest {
         }
         System.setProperty("tickets.dir", TEST_TICKETS_DIR);
         System.setProperty("recovery.file", TEST_TICKETS_DIR + "/recovery.json");
-        repository = new FileTicketRepository();
+
+        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+
+        repository = new FileTicketRepository(mapper);
     }
 
     @After
@@ -123,7 +131,7 @@ public class FileTicketRepositoryTest {
                     "}");
         }
 
-        repository = new FileTicketRepository();
+        repository = new FileTicketRepository(mapper);
 
         java.util.List<Ticket> active = repository.findAllActive();
         assertEquals(1, active.size());

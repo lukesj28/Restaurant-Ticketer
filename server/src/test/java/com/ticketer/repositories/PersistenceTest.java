@@ -15,6 +15,7 @@ class PersistenceTest {
     private FileTicketRepository repository;
     private final String TEST_TICKETS_DIR = "target/test-data/tickets";
     private final String TEST_RECOVERY_FILE = "target/test-data/recovery.json";
+    private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -24,7 +25,13 @@ class PersistenceTest {
         System.setProperty("tickets.dir", TEST_TICKETS_DIR);
         System.setProperty("recovery.file", TEST_RECOVERY_FILE);
 
-        repository = new FileTicketRepository();
+        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+
+        repository = new FileTicketRepository(mapper);
     }
 
     @AfterEach
@@ -42,7 +49,7 @@ class PersistenceTest {
         File recoveryFile = new File(TEST_RECOVERY_FILE);
         assertTrue(recoveryFile.exists(), "Recovery file should exist after saving a ticket");
 
-        FileTicketRepository newRepository = new FileTicketRepository();
+        FileTicketRepository newRepository = new FileTicketRepository(mapper);
 
         Optional<Ticket> recovered = newRepository.findById(1);
         assertTrue(recovered.isPresent(), "Ticket should be recovered from file");

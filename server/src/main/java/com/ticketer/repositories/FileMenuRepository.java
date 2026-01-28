@@ -1,63 +1,88 @@
 package com.ticketer.repositories;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.reflect.TypeToken;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ticketer.models.Menu;
 import com.ticketer.models.MenuItem;
 import com.ticketer.models.Side;
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class FileMenuRepository implements MenuRepository {
 
     private final String filePath;
-    private final Gson gson;
+    private final ObjectMapper objectMapper;
 
-    public FileMenuRepository() {
+    @Autowired
+    public FileMenuRepository(ObjectMapper objectMapper) {
         this.filePath = System.getProperty("menu.file", "data/menu.json");
-        this.gson = new GsonBuilder()
-                .registerTypeAdapter(Side.class, new SideDeserializer())
-                .setPrettyPrinting()
-                .create();
+        this.objectMapper = objectMapper;
     }
 
-    public FileMenuRepository(String filePath) {
+    public FileMenuRepository(String filePath, ObjectMapper objectMapper) {
         this.filePath = filePath;
-        this.gson = new GsonBuilder()
-                .registerTypeAdapter(Side.class, new SideDeserializer())
-                .setPrettyPrinting()
-                .create();
+        this.objectMapper = objectMapper;
     }
 
     @Override
     public Menu getMenu() {
-        java.io.File file = new java.io.File(filePath);
+        File file = new File(filePath);
         if (!file.exists()) {
             return new Menu(new HashMap<>());
         }
 
         try (FileReader reader = new FileReader(file)) {
-            JsonObject json = gson.fromJson(reader, JsonObject.class);
-            if (json == null) {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(reader);
+            if (root == null || root.isNull()) {
                 return new Menu(new HashMap<>());
             }
-            return parseMenu(json);
+
+            Map<String, java.util.List<com.ticketer.models.MenuItem>> categories = new HashMap<>();
+            java.util.Iterator<Map.Entry<String, com.fasterxml.jackson.databind.JsonNode>> fields = root.fields();
+
+            while (fields.hasNext()) {
+                Map.Entry<String, com.fasterxml.jackson.databind.JsonNode> categoryEntry = fields.next();
+                String categoryName = categoryEntry.getKey();
+                com.fasterxml.jackson.databind.JsonNode categoryNode = categoryEntry.getValue();
+
+                java.util.List<com.ticketer.models.MenuItem> items = new java.util.ArrayList<>();
+                java.util.Iterator<Map.Entry<String, com.fasterxml.jackson.databind.JsonNode>> itemFields = categoryNode
+                        .fields();
+
+                while (itemFields.hasNext()) {
+                    Map.Entry<String, com.fasterxml.jackson.databind.JsonNode> itemEntry = itemFields.next();
+                    String itemName = itemEntry.getKey();
+                    com.fasterxml.jackson.databind.JsonNode itemNode = itemEntry.getValue();
+
+                    double priceDouble = itemNode.has("price") ? itemNode.get("price").asDouble() : 0.0;
+                    boolean available = itemNode.has("available") && itemNode.get("available").asBoolean();
+
+                    Map<String, com.ticketer.models.Side> sides = null;
+                    if (itemNode.has("sides")) {
+                        sides = objectMapper.convertValue(itemNode.get("sides"),
+                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, com.ticketer.models.Side>>() {
+                                });
+                    }
+                    items.add(new com.ticketer.models.MenuItem(itemName, (int) Math.round(priceDouble * 100), available,
+                            sides));
+                }
+                categories.put(categoryName, items);
+            }
+            return new Menu(categories);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load menu from " + filePath, e);
         }
@@ -65,72 +90,28 @@ public class FileMenuRepository implements MenuRepository {
 
     @Override
     public void saveMenu(Menu menu) {
-        JsonObject json = new JsonObject();
-
-        for (Map.Entry<String, List<MenuItem>> catEntry : menu.getCategories().entrySet()) {
-            JsonObject catJson = new JsonObject();
-            for (MenuItem item : catEntry.getValue()) {
-                JsonObject itemJson = new JsonObject();
-                itemJson.addProperty("price", item.basePrice / 100.0);
-                itemJson.addProperty("available", item.available);
-
-                if (item.sideOptions != null && !item.sideOptions.isEmpty()) {
-                    JsonObject sidesJson = new JsonObject();
-                    for (Map.Entry<String, Side> sideEntry : item.sideOptions.entrySet()) {
-                        JsonObject sideJson = new JsonObject();
-                        sideJson.addProperty("price", sideEntry.getValue().price / 100.0);
-                        sideJson.addProperty("available", sideEntry.getValue().available);
-                        sidesJson.add(sideEntry.getKey(), sideJson);
-                    }
-                    itemJson.add("sides", sidesJson);
-                }
-                catJson.add(item.name, itemJson);
-            }
-            json.add(catEntry.getKey(), catJson);
-        }
-
         try (FileWriter writer = new FileWriter(filePath)) {
-            gson.toJson(json, writer);
+            com.fasterxml.jackson.databind.node.ObjectNode root = objectMapper.createObjectNode();
+
+            for (Map.Entry<String, java.util.List<com.ticketer.models.MenuItem>> categoryEntry : menu.getCategories()
+                    .entrySet()) {
+                com.fasterxml.jackson.databind.node.ObjectNode categoryNode = objectMapper.createObjectNode();
+
+                for (com.ticketer.models.MenuItem item : categoryEntry.getValue()) {
+                    com.fasterxml.jackson.databind.node.ObjectNode itemNode = objectMapper.createObjectNode();
+                    itemNode.put("price", item.basePrice / 100.0);
+                    itemNode.put("available", item.available);
+
+                    if (item.sideOptions != null && !item.sideOptions.isEmpty()) {
+                        itemNode.set("sides", objectMapper.valueToTree(item.sideOptions));
+                    }
+                    categoryNode.set(item.name, itemNode);
+                }
+                root.set(categoryEntry.getKey(), categoryNode);
+            }
+            objectMapper.writeValue(writer, root);
         } catch (IOException e) {
             throw new RuntimeException("Failed to save menu to " + filePath, e);
-        }
-    }
-
-    private Menu parseMenu(JsonObject json) {
-        Map<String, List<MenuItem>> categories = new HashMap<>();
-
-        for (String categoryKey : json.keySet()) {
-            JsonObject categoryJson = json.getAsJsonObject(categoryKey);
-            List<MenuItem> items = new ArrayList<>();
-
-            for (String itemKey : categoryJson.keySet()) {
-                JsonObject itemJson = categoryJson.getAsJsonObject(itemKey);
-                int price = (int) Math.round(itemJson.get("price").getAsDouble() * 100);
-                boolean avail = itemJson.has("available") && itemJson.get("available").getAsBoolean();
-
-                Map<String, Side> sides = null;
-                if (itemJson.has("sides")) {
-                    Type sideType = new TypeToken<Map<String, Side>>() {
-                    }.getType();
-                    sides = gson.fromJson(itemJson.get("sides"), sideType);
-                }
-
-                items.add(new MenuItem(itemKey, price, avail, sides));
-            }
-            categories.put(categoryKey, items);
-        }
-        return new Menu(categories);
-    }
-
-    private static class SideDeserializer implements JsonDeserializer<Side> {
-        @Override
-        public Side deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-                throws JsonParseException {
-            JsonObject jsonObj = json.getAsJsonObject();
-            Side side = new Side();
-            side.price = (int) Math.round(jsonObj.get("price").getAsDouble() * 100);
-            side.available = jsonObj.get("available").getAsBoolean();
-            return side;
         }
     }
 }

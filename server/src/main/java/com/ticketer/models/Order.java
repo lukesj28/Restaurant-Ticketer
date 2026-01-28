@@ -1,12 +1,18 @@
 package com.ticketer.models;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Order {
     private List<OrderItem> items;
+    @JsonIgnore
     private int subtotal;
+    @JsonIgnore
     private int total;
+    @JsonIgnore
     private double taxRate;
 
     public Order(double taxRate) {
@@ -54,5 +60,27 @@ public class Order {
 
     public int getTotal() {
         return total;
+    }
+
+    @JsonGetter("subtotal")
+    public double getSubtotalDouble() {
+        return subtotal / 100.0;
+    }
+
+    @JsonGetter("total")
+    public double getTotalDouble() {
+        return total / 100.0;
+    }
+
+    @JsonSetter("items")
+    public void setItems(List<OrderItem> newItems) {
+        this.items = new ArrayList<>();
+        this.subtotal = 0;
+        this.total = 0;
+        if (newItems != null) {
+            for (OrderItem item : newItems) {
+                addItem(item);
+            }
+        }
     }
 }

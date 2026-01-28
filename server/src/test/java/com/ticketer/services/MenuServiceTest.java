@@ -19,6 +19,7 @@ public class MenuServiceTest {
 
     private MenuService service;
     private static final String TEST_MENU_PATH = "target/test-menu-service.json";
+    private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @Before
     public void setUp() {
@@ -34,7 +35,10 @@ public class MenuServiceTest {
             throw new RuntimeException("Failed to set up test environment", e);
         }
 
-        service = new MenuService(new FileMenuRepository(TEST_MENU_PATH));
+        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+
+        service = new MenuService(new FileMenuRepository(TEST_MENU_PATH, mapper));
     }
 
     @After

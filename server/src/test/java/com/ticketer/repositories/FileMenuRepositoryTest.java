@@ -12,10 +12,13 @@ import static org.junit.Assert.*;
 public class FileMenuRepositoryTest {
 
     private static final String TEST_FILE = "target/repo-test-menu.json";
+    private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @Before
     public void setUp() {
         new File(TEST_FILE).delete();
+        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
     }
 
     @After
@@ -25,7 +28,7 @@ public class FileMenuRepositoryTest {
 
     @Test
     public void testGetMenuFileNotFound() {
-        FileMenuRepository repo = new FileMenuRepository(TEST_FILE);
+        FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
         Menu menu = repo.getMenu();
         assertNotNull(menu);
         assertTrue(menu.getCategories().isEmpty());
@@ -34,12 +37,10 @@ public class FileMenuRepositoryTest {
     @Test
     public void testGetMenuCorruptedJson() throws IOException {
         Files.write(new File(TEST_FILE).toPath(), "{ invalid json ".getBytes());
-        FileMenuRepository repo = new FileMenuRepository(TEST_FILE);
+        FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
         try {
             repo.getMenu();
             fail("Should throw exception for corrupted JSON");
-        } catch (com.google.gson.JsonSyntaxException e) {
-
         } catch (RuntimeException e) {
 
         }
@@ -47,7 +48,7 @@ public class FileMenuRepositoryTest {
 
     @Test
     public void testSaveAndLoad() {
-        FileMenuRepository repo = new FileMenuRepository(TEST_FILE);
+        FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
         Menu menu = new Menu(new java.util.HashMap<>());
         repo.saveMenu(menu);
 

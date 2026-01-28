@@ -1,5 +1,7 @@
 package com.ticketer.models;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +12,12 @@ public class Ticket {
     private List<Order> orders;
     private Instant createdAt;
     private Instant closedAt;
+
+    @SuppressWarnings("unused")
+    private Ticket() {
+        this.orders = new ArrayList<>();
+        this.createdAt = Instant.now();
+    }
 
     public Ticket(int id) {
         this.id = id;
@@ -43,12 +51,24 @@ public class Ticket {
         return new ArrayList<>(orders);
     }
 
+    @JsonIgnore
     public int getSubtotal() {
         return orders.stream().mapToInt(Order::getSubtotal).sum();
     }
 
+    @JsonGetter("subtotal")
+    public double getSubtotalDouble() {
+        return getSubtotal() / 100.0;
+    }
+
+    @JsonIgnore
     public int getTotal() {
         return orders.stream().mapToInt(Order::getTotal).sum();
+    }
+
+    @JsonGetter("total")
+    public double getTotalDouble() {
+        return getTotal() / 100.0;
     }
 
     public Instant getCreatedAt() {
@@ -61,5 +81,9 @@ public class Ticket {
 
     public void setClosedAt(Instant closedAt) {
         this.closedAt = closedAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

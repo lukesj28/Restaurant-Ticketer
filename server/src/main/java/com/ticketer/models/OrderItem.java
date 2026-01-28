@@ -1,9 +1,23 @@
 package com.ticketer.models;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class OrderItem {
     private String name;
     private String selectedSide;
     private int price;
+
+    @JsonCreator
+    public OrderItem(@JsonProperty("name") String name,
+            @JsonProperty("selectedSide") String selectedSide,
+            @JsonProperty("price") double priceDouble) {
+        this.name = name;
+        this.selectedSide = selectedSide;
+        this.price = (int) Math.round(priceDouble * 100);
+    }
 
     public OrderItem(String name, String selectedSide, int price) {
         this.name = name;
@@ -27,8 +41,14 @@ public class OrderItem {
         return selectedSide;
     }
 
+    @JsonIgnore
     public int getPrice() {
         return price;
+    }
+
+    @JsonGetter("price")
+    public double getPriceDouble() {
+        return price / 100.0;
     }
 
     @Override

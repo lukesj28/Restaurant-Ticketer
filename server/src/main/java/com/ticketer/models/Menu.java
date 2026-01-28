@@ -4,13 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public class Menu {
     private Map<String, List<MenuItem>> categories;
 
+    @JsonCreator
     public Menu(Map<String, List<MenuItem>> categories) {
         this.categories = categories;
     }
 
+    @JsonValue
     public Map<String, List<MenuItem>> getCategories() {
         return categories;
     }

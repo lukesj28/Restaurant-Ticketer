@@ -14,6 +14,7 @@ public class SettingsServiceTest {
 
     private SettingsService service;
     private static final String TEST_SETTINGS_PATH = "target/test-settings-service.json";
+    private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @Before
     public void setUp() {
@@ -29,7 +30,10 @@ public class SettingsServiceTest {
             throw new RuntimeException("Failed to set up test environment", e);
         }
 
-        service = new SettingsService(new FileSettingsRepository(TEST_SETTINGS_PATH));
+        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+
+        service = new SettingsService(new FileSettingsRepository(TEST_SETTINGS_PATH, mapper));
     }
 
     @After
