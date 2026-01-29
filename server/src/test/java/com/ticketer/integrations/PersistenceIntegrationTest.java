@@ -71,7 +71,7 @@ class PersistenceIntegrationTest {
         repository.save(t1);
         assertTrue(new File(TEST_RECOVERY_FILE).exists());
 
-        repository.clearRecoveryFile();
+        repository.deleteAll();
 
         assertFalse(new File(TEST_RECOVERY_FILE).exists(), "Recovery file should be deleted after explicit clear");
     }

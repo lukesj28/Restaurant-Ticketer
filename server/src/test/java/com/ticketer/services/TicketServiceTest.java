@@ -131,10 +131,9 @@ public class TicketServiceTest {
     public void testAddOrderToClosedTicket() {
         Ticket t1 = new Ticket(1);
         
-
+        when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1));
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
         assertThrows(IllegalArgumentException.class, () -> ticketService.addOrderToTicket(1, new Order(10.0)));
     }
 }
-

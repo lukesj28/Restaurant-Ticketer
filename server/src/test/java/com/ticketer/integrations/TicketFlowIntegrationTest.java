@@ -205,7 +205,7 @@ public class TicketFlowIntegrationTest {
 
         service.serializeClosedTickets();
 
-        String date = java.time.LocalDate.now().toString();
+        String date = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
         File file = tempDir.resolve(date + ".json").toFile();
 
         assertTrue(file.exists(), "Ticket file should exist at " + file.getAbsolutePath());

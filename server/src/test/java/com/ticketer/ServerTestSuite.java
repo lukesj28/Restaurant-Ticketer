@@ -1,10 +1,10 @@
 package com.ticketer;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses({
+@Suite
+@SelectClasses({
                 com.ticketer.models.OrderItemTest.class,
                 com.ticketer.models.MenuItemTest.class,
                 com.ticketer.models.MenuItemViewTest.class,

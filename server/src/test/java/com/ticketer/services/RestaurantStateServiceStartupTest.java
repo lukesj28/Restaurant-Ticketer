@@ -30,7 +30,7 @@ public class RestaurantStateServiceStartupTest {
     @Test
     public void testStartupBeforeOpenHours() {
         SettingsService settingsService = createMockSettingsService("09:00 - 22:00");
-        Clock clock = Clock.fixed(Instant.parse("2024-01-01T08:00:00Z"), zone); // 08:00 Mon
+        Clock clock = Clock.fixed(Instant.parse("2024-01-01T08:00:00Z"), zone);
 
         MockTicketService ticketService = new MockTicketService();
         RestaurantStateService stateService = new RestaurantStateService(settingsService, ticketService, clock);
@@ -124,9 +124,6 @@ public class RestaurantStateServiceStartupTest {
                 }
 
                 public void moveToActive(int id) {
-                }
-
-                public void clearRecoveryFile() {
                 }
             });
         }

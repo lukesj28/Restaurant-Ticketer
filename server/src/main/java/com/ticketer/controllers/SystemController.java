@@ -17,17 +17,19 @@ public class SystemController {
     }
 
     @GetMapping("/status")
-    public boolean isOpen() {
-        return restaurantStateService.isOpen();
+    public com.ticketer.api.ApiResponse<Boolean> isOpen() {
+        return com.ticketer.api.ApiResponse.success(restaurantStateService.isOpen());
     }
 
     @PostMapping("/open")
-    public void open() {
+    public com.ticketer.api.ApiResponse<Void> open() {
         restaurantStateService.forceOpen();
+        return com.ticketer.api.ApiResponse.success(null);
     }
 
     @PostMapping("/shutdown")
-    public void shutdown() {
+    public com.ticketer.api.ApiResponse<Void> shutdown() {
         restaurantStateService.forceClose();
+        return com.ticketer.api.ApiResponse.success(null);
     }
 }

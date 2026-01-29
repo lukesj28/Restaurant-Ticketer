@@ -158,7 +158,6 @@ public class TicketService {
 
     public void clearAllTickets() {
         ticketRepository.deleteAll();
-        ticketRepository.clearRecoveryFile();
         resetTicketCounter();
     }
 

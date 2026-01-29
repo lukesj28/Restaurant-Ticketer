@@ -11,12 +11,17 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.time.Clock;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class FileTicketRepository implements TicketRepository {
+
+    private static final Logger logger = LoggerFactory.getLogger(FileTicketRepository.class);
 
     private final List<Ticket> activeTickets = new CopyOnWriteArrayList<>();
     private final List<Ticket> completedTickets = new CopyOnWriteArrayList<>();
@@ -25,27 +30,38 @@ public class FileTicketRepository implements TicketRepository {
     private final String ticketsDir;
     private final String recoveryFilePath;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
     private final Object fileLock = new Object();
 
     @Autowired
-    public FileTicketRepository(ObjectMapper objectMapper) {
+    public FileTicketRepository(ObjectMapper objectMapper, Clock clock) {
         this.ticketsDir = System.getProperty("tickets.dir", "data/tickets");
         this.recoveryFilePath = System.getProperty("recovery.file", "data/recovery.json");
         this.objectMapper = objectMapper;
+        this.clock = clock;
 
         loadStateFromRecoveryFile();
     }
 
+    public FileTicketRepository(ObjectMapper objectMapper) {
+        this(objectMapper, Clock.systemUTC());
+    }
+
     public FileTicketRepository(String ticketsDir, String recoveryFilePath, ObjectMapper objectMapper) {
+        this(ticketsDir, recoveryFilePath, objectMapper, Clock.systemUTC());
+    }
+
+    public FileTicketRepository(String ticketsDir, String recoveryFilePath, ObjectMapper objectMapper, Clock clock) {
         this.ticketsDir = ticketsDir;
         this.recoveryFilePath = recoveryFilePath;
         this.objectMapper = objectMapper;
+        this.clock = clock;
 
         loadStateFromRecoveryFile();
     }
 
     @Override
-    public Ticket save(Ticket ticket) {
+    public synchronized Ticket save(Ticket ticket) {
         for (int i = 0; i < activeTickets.size(); i++) {
             if (activeTickets.get(i).getId() == ticket.getId()) {
                 activeTickets.set(i, ticket);
@@ -96,7 +112,7 @@ public class FileTicketRepository implements TicketRepository {
     }
 
     @Override
-    public boolean deleteById(int id) {
+    public synchronized boolean deleteById(int id) {
         boolean removed = activeTickets.removeIf(t -> t.getId() == id)
                 || completedTickets.removeIf(t -> t.getId() == id)
                 || closedTickets.removeIf(t -> t.getId() == id);
@@ -108,16 +124,21 @@ public class FileTicketRepository implements TicketRepository {
     }
 
     @Override
-    public void deleteAll() {
+    public synchronized void deleteAll() {
         activeTickets.clear();
         completedTickets.clear();
         closedTickets.clear();
-        clearRecoveryFile();
+        synchronized (fileLock) {
+            File file = new File(recoveryFilePath);
+            if (file.exists()) {
+                file.delete();
+            }
+        }
     }
 
     @Override
     public void persistClosedTickets() {
-        String date = LocalDate.now().toString();
+        String date = LocalDate.now(clock).toString();
         String filename = ticketsDir + "/" + date + ".json";
 
         File directory = new File(ticketsDir);
@@ -138,7 +159,7 @@ public class FileTicketRepository implements TicketRepository {
     }
 
     @Override
-    public void moveToCompleted(int id) {
+    public synchronized void moveToCompleted(int id) {
         Optional<Ticket> ticketOpt = activeTickets.stream().filter(t -> t.getId() == id).findFirst();
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
@@ -149,12 +170,12 @@ public class FileTicketRepository implements TicketRepository {
     }
 
     @Override
-    public void moveToClosed(int id) {
+    public synchronized void moveToClosed(int id) {
         Optional<Ticket> ticketOpt = activeTickets.stream().filter(t -> t.getId() == id).findFirst();
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             activeTickets.remove(ticket);
-            ticket.setClosedAt(java.time.Instant.now());
+            ticket.setClosedAt(java.time.Instant.now(clock));
             closedTickets.add(ticket);
             appendLog(new LogEntry(LogType.MOVE_CLOSED, id));
             return;
@@ -163,14 +184,14 @@ public class FileTicketRepository implements TicketRepository {
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             completedTickets.remove(ticket);
-            ticket.setClosedAt(java.time.Instant.now());
+            ticket.setClosedAt(java.time.Instant.now(clock));
             closedTickets.add(ticket);
             appendLog(new LogEntry(LogType.MOVE_CLOSED, id));
         }
     }
 
     @Override
-    public void moveToActive(int id) {
+    public synchronized void moveToActive(int id) {
         Optional<Ticket> ticketOpt = completedTickets.stream().filter(t -> t.getId() == id).findFirst();
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
@@ -178,16 +199,6 @@ public class FileTicketRepository implements TicketRepository {
             ticket.setClosedAt(null);
             activeTickets.add(ticket);
             appendLog(new LogEntry(LogType.MOVE_ACTIVE, id));
-        }
-    }
-
-    @Override
-    public void clearRecoveryFile() {
-        synchronized (fileLock) {
-            File file = new File(recoveryFilePath);
-            if (file.exists()) {
-                file.delete();
-            }
         }
     }
 
@@ -204,7 +215,7 @@ public class FileTicketRepository implements TicketRepository {
                         .writeValueAsString(entry);
                 writer.write(json + "\n");
             } catch (IOException e) {
-                System.err.println("Failed to append recovery state: " + e.getMessage());
+                logger.error("Failed to append recovery state: {}", e.getMessage());
             }
         }
     }
@@ -226,11 +237,11 @@ public class FileTicketRepository implements TicketRepository {
                         LogEntry entry = objectMapper.readValue(line, LogEntry.class);
                         replayLogEntry(entry);
                     } catch (Exception e) {
-                        System.err.println("Skipping malformed or legacy log line: " + line);
+                        logger.warn("Skipping malformed or legacy log line: {}", line);
                     }
                 }
             } catch (IOException e) {
-                System.err.println("Failed to load recovery state: " + e.getMessage());
+                logger.error("Failed to load recovery state: {}", e.getMessage());
             }
         }
     }
@@ -289,14 +300,8 @@ public class FileTicketRepository implements TicketRepository {
         Optional<Ticket> t = activeTickets.stream().filter(x -> x.getId() == id).findFirst();
         if (t.isPresent()) {
             activeTickets.remove(t.get());
-            // In replay, we might not have the exact timestamp if log doesn't store it
-            // separate
-            // But if it was UPDATEd before MOVE, ticket might have it.
-            // Here we assume simple replay. If accurate timestamp is needed, LogEntry
-            // should carry it.
-            // For now, ensuring it is in Closed list is key.
             if (t.get().getClosedAt() == null) {
-                t.get().setClosedAt(java.time.Instant.now());
+                t.get().setClosedAt(java.time.Instant.now(clock));
             }
             closedTickets.add(t.get());
             return;
@@ -305,7 +310,7 @@ public class FileTicketRepository implements TicketRepository {
         if (t.isPresent()) {
             completedTickets.remove(t.get());
             if (t.get().getClosedAt() == null) {
-                t.get().setClosedAt(java.time.Instant.now());
+                t.get().setClosedAt(java.time.Instant.now(clock));
             }
             closedTickets.add(t.get());
         }
@@ -331,6 +336,7 @@ public class FileTicketRepository implements TicketRepository {
         public Ticket ticket;
         public int ticketId;
 
+        @SuppressWarnings("unused")
         public LogEntry() {
         }
 

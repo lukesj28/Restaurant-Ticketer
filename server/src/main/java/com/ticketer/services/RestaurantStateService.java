@@ -12,11 +12,15 @@ import java.util.concurrent.TimeUnit;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class RestaurantStateService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RestaurantStateService.class);
 
     private final SettingsService settingsService;
     private final TicketService ticketService;
@@ -27,10 +31,11 @@ public class RestaurantStateService {
     private boolean forcedOpen;
     private LocalDate forcedClosedDate;
 
-    @Autowired
     public RestaurantStateService(SettingsService settingsService, TicketService ticketService) {
-        this(settingsService, ticketService, java.time.Clock.systemDefaultZone());
+        this(settingsService, ticketService, java.time.Clock.systemUTC());
     }
+
+    @Autowired
 
     public RestaurantStateService(SettingsService settingsService, TicketService ticketService, java.time.Clock clock) {
         this.settingsService = settingsService;
@@ -145,7 +150,7 @@ public class RestaurantStateService {
             }
 
         } catch (DateTimeParseException e) {
-            System.err.println("Error parsing time settings: " + e.getMessage());
+            logger.error("Error parsing time settings: {}", e.getMessage());
             setClosedState();
             scheduleNextDayCheck();
         }
@@ -161,14 +166,14 @@ public class RestaurantStateService {
     private void setOpenState() {
         if (!this.isOpen) {
             this.isOpen = true;
-            System.out.println("Restaurant is now OPEN.");
+            logger.info("Restaurant is now OPEN.");
         }
     }
 
     private void setClosedState() {
         if (this.isOpen) {
             this.isOpen = false;
-            System.out.println("Restaurant is now CLOSED (New tickets disabled).");
+            logger.info("Restaurant is now CLOSED (New tickets disabled).");
         } else {
             this.isOpen = false;
         }
@@ -186,7 +191,7 @@ public class RestaurantStateService {
     }
 
     private void runClosingSequence() {
-        System.out.println("Starting closing sequence...");
+        logger.info("Starting closing sequence...");
 
         long startTime = System.currentTimeMillis();
         long maxWaitTime = 60000;
@@ -194,7 +199,7 @@ public class RestaurantStateService {
 
         while (System.currentTimeMillis() - startTime < maxWaitTime) {
             if (forcedClosedDate != null) {
-                System.out.println("Forced shutdown detected. Skipping wait period.");
+                logger.warn("Forced shutdown detected. Skipping wait period.");
                 break;
             }
 
@@ -205,15 +210,15 @@ public class RestaurantStateService {
                 Thread.sleep(checkInterval);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                System.out.println("Closing sequence interrupted. Proceeding to immediate cleanup.");
+                logger.warn("Closing sequence interrupted. Proceeding to immediate cleanup.");
                 break;
             }
         }
 
-        System.out.println("Finalizing closing sequence. Moving remaining tickets to closed.");
+        logger.info("Finalizing closing sequence. Moving remaining tickets to closed.");
         ticketService.moveAllToClosed();
         ticketService.serializeClosedTickets();
         ticketService.clearAllTickets();
-        System.out.println("Closing sequence completed.");
+        logger.info("Closing sequence completed.");
     }
 }

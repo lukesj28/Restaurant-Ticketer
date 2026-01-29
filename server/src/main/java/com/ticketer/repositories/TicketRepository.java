@@ -27,5 +27,4 @@ public interface TicketRepository {
 
     void moveToActive(int ticketId);
 
-    void clearRecoveryFile();
 }

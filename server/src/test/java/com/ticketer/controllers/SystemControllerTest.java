@@ -44,7 +44,7 @@ public class SystemControllerTest {
 
         mockMvc.perform(get("/api/status"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("true"));
+                .andExpect(jsonPath("$.payload").value(true));
 
         verify(restaurantStateService).isOpen();
     }
@@ -52,7 +52,8 @@ public class SystemControllerTest {
     @Test
     public void testForceClose() throws Exception {
         mockMvc.perform(post("/api/shutdown"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCESS"));
 
         verify(restaurantStateService).forceClose();
     }
@@ -60,7 +61,8 @@ public class SystemControllerTest {
     @Test
     public void testForceOpen() throws Exception {
         mockMvc.perform(post("/api/open"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCESS"));
 
         verify(restaurantStateService).forceOpen();
     }
