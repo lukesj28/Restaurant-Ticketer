@@ -1,25 +1,34 @@
-package com.ticketer.repositories;
+package com.ticketer.integrations;
 
 import com.ticketer.models.Ticket;
+import com.ticketer.repositories.FileTicketRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class PersistenceTest {
+class PersistenceIntegrationTest {
 
     private FileTicketRepository repository;
-    private final String TEST_TICKETS_DIR = "target/test-data/tickets";
-    private final String TEST_RECOVERY_FILE = "target/test-data/recovery.json";
+
+    @TempDir
+    Path tempDir;
+
+    private String TEST_TICKETS_DIR;
+    private String TEST_RECOVERY_FILE;
     private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     @BeforeEach
     void setUp() throws IOException {
-        deleteDir(new File("target/test-data"));
+        TEST_TICKETS_DIR = tempDir.resolve("tickets").toAbsolutePath().toString();
+        TEST_RECOVERY_FILE = tempDir.resolve("recovery.json").toAbsolutePath().toString();
         new File(TEST_TICKETS_DIR).mkdirs();
 
         System.setProperty("tickets.dir", TEST_TICKETS_DIR);
@@ -65,16 +74,5 @@ class PersistenceTest {
         repository.clearRecoveryFile();
 
         assertFalse(new File(TEST_RECOVERY_FILE).exists(), "Recovery file should be deleted after explicit clear");
-    }
-
-    private void deleteDir(File file) {
-        if (file.isDirectory()) {
-            File[] files = file.listFiles();
-            if (files != null) {
-                for (File f : files)
-                    deleteDir(f);
-            }
-        }
-        file.delete();
     }
 }

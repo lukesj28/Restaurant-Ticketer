@@ -1,34 +1,41 @@
 package com.ticketer.controllers;
 
-import static org.junit.Assert.*;
-import org.junit.Before;
-import org.junit.Test;
-
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import com.ticketer.api.ApiResponse;
-import com.ticketer.dtos.*;
-import com.ticketer.exceptions.TicketerException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
 import com.ticketer.models.Settings;
-import com.ticketer.repositories.SettingsRepository;
 import com.ticketer.services.RestaurantStateService;
 import com.ticketer.services.SettingsService;
 
 public class SettingsControllerTest {
 
-    private MockSettingsService settingsService;
-    private MockRestaurantStateService restaurantStateService;
+    @Mock
+    private SettingsService settingsService;
+
+    @Mock
+    private RestaurantStateService restaurantStateService;
+
+    @InjectMocks
     private SettingsController settingsController;
+
     private MockMvc mockMvc;
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        settingsService = new MockSettingsService();
-        restaurantStateService = new MockRestaurantStateService();
+        MockitoAnnotations.openMocks(this);
         settingsController = new SettingsController(settingsService, restaurantStateService);
         mockMvc = MockMvcBuilders.standaloneSetup(settingsController)
                 .setControllerAdvice(new com.ticketer.exceptions.GlobalExceptionHandler())
@@ -41,142 +48,92 @@ public class SettingsControllerTest {
     }
 
     @Test
-    public void testRefreshSettings() {
-        ApiResponse<Settings> response = settingsController.refreshSettings();
-        assertNotNull(response.payload());
+    public void testRefreshSettings() throws Exception {
+        Map<String, String> hours = new HashMap<>();
+        hours.put("monday", "09:00 - 22:00");
+        Settings settings = new Settings(0.1, hours);
+        when(settingsService.getSettings()).thenReturn(settings);
+
+        mockMvc.perform(post("/api/settings/refresh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload").exists());
+
+        verify(settingsService).getSettings();
     }
 
     @Test
-    public void testGetTax() {
-        ApiResponse<Double> response = settingsController.getTax();
-        assertEquals(0.1, response.payload(), 0.001);
+    public void testGetTax() throws Exception {
+        when(settingsService.getTax()).thenReturn(0.1);
+
+        mockMvc.perform(get("/api/settings/tax"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload").value(0.1));
+
+        verify(settingsService).getTax();
     }
 
     @Test
-    public void testGetOpeningHours() {
-        ApiResponse<Map<String, String>> response = settingsController.getOpeningHours();
-        assertTrue(response.payload().containsKey("monday"));
+    public void testGetOpeningHours() throws Exception {
+        Map<String, String> hours = new HashMap<>();
+        hours.put("monday", "09:00 - 22:00");
+        when(settingsService.getAllOpeningHours()).thenReturn(hours);
+
+        mockMvc.perform(get("/api/settings/hours"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload.monday").exists());
+
+        verify(settingsService).getAllOpeningHours();
     }
 
     @Test
-    public void testGetOpeningHoursForDay() {
-        ApiResponse<String> response = settingsController.getOpeningHours("monday");
-        assertEquals("09:00-22:00", response.payload());
+    public void testGetOpeningHoursForDay() throws Exception {
+        when(settingsService.getOpeningHours("monday")).thenReturn("09:00-22:00");
+
+        mockMvc.perform(get("/api/settings/hours/monday"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload").value("09:00-22:00"));
+
+        verify(settingsService).getOpeningHours("monday");
     }
 
     @Test
-    public void testGetOpenCloseTime() {
-        assertEquals("09:00", settingsController.getOpenTime("monday").payload());
-        assertEquals("22:00", settingsController.getCloseTime("monday").payload());
+    public void testGetOpenCloseTime() throws Exception {
+        when(settingsService.getOpenTime("monday")).thenReturn("09:00");
+        when(settingsService.getCloseTime("monday")).thenReturn("22:00");
+
+        mockMvc.perform(get("/api/settings/hours/monday/open"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload").value("09:00"));
+
+        verify(settingsService).getOpenTime("monday");
+
+        mockMvc.perform(get("/api/settings/hours/monday/close"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload").value("22:00"));
+
+        verify(settingsService).getCloseTime("monday");
     }
 
     @Test
-    public void testSetTax() {
-        settingsController.setTax(new Requests.TaxUpdateRequest(0.15));
-        assertTrue(settingsService.setTaxCalled);
+    public void testSetTax() throws Exception {
+        String json = "{\"tax\":0.15}";
+        mockMvc.perform(put("/api/settings/tax")
+                .contentType("application/json")
+                .content(json))
+                .andExpect(status().isOk());
+
+        verify(settingsService).setTax(0.15);
     }
 
     @Test
-    public void testSetOpeningHours() {
-        settingsController.setOpeningHours("Monday", new Requests.OpeningHoursUpdateRequest("10:00 - 20:00"));
-        assertTrue(restaurantStateService.checkAndScheduleStateCalled);
-    }
+    public void testSetOpeningHours() throws Exception {
+        String json = "{\"hours\":\"10:00 - 20:00\"}";
+        mockMvc.perform(put("/api/settings/hours/Monday")
+                .contentType("application/json")
+                .content(json))
+                .andExpect(status().isOk());
 
-    private static class FakeSettingsRepository implements SettingsRepository {
-        @Override
-        public Settings getSettings() {
-            return new Settings(0.1, new HashMap<>());
-        }
-
-        @Override
-        public void saveSettings(Settings settings) {
-        }
-    }
-
-    private static class MockSettingsService extends SettingsService {
-        boolean setTaxCalled = false;
-        boolean throwGenericException = false;
-        boolean throwTicketerException = false;
-
-        public MockSettingsService() {
-            super(new FakeSettingsRepository());
-        }
-
-        private void checkExceptions() {
-            if (throwTicketerException)
-                throw new TicketerException("Ticketer Error", 400);
-            if (throwGenericException)
-                throw new RuntimeException("Generic Error");
-        }
-
-        @Override
-        public String getOpenTime(String day) {
-            checkExceptions();
-            return "09:00";
-        }
-
-        @Override
-        public String getCloseTime(String day) {
-            checkExceptions();
-            return "22:00";
-        }
-
-        @Override
-        public Settings getSettings() {
-            checkExceptions();
-            Map<String, String> hours = new HashMap<>();
-            hours.put("monday", "09:00 - 22:00");
-            return new Settings(0.1, hours);
-        }
-
-        @Override
-        public double getTax() {
-            checkExceptions();
-            return 0.1;
-        }
-
-        @Override
-        public void setTax(double tax) {
-            checkExceptions();
-            setTaxCalled = true;
-        }
-
-        @Override
-        public Map<String, String> getAllOpeningHours() {
-            checkExceptions();
-            Map<String, String> hours = new HashMap<>();
-            hours.put("monday", "09:00 - 22:00");
-            return hours;
-        }
-
-        @Override
-        public String getOpeningHours(String day) {
-            checkExceptions();
-            return "09:00-22:00";
-        }
-
-        @Override
-        public void setOpeningHours(String day, String range) {
-            checkExceptions();
-        }
-    }
-
-    private static class MockRestaurantStateService extends RestaurantStateService {
-        boolean checkAndScheduleStateCalled = false;
-
-        public MockRestaurantStateService() {
-            super(null, null);
-        }
-
-        @Override
-        public void checkAndScheduleState() {
-            checkAndScheduleStateCalled = true;
-        }
-
-        @Override
-        public boolean isOpen() {
-            return true;
-        }
-
+        verify(settingsService).setOpeningHours("Monday", "10:00 - 20:00");
+        verify(restaurantStateService).checkAndScheduleState();
     }
 }

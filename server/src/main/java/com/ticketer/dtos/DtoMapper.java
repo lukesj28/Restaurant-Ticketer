@@ -37,7 +37,7 @@ public class DtoMapper {
                 .collect(Collectors.toList());
 
         java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-        java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+        java.time.ZoneId zone = java.time.ZoneId.of("UTC");
 
         return new TicketDto(
                 ticket.getId(),

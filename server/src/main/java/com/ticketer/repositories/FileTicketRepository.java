@@ -46,12 +46,24 @@ public class FileTicketRepository implements TicketRepository {
 
     @Override
     public Ticket save(Ticket ticket) {
-        if (findById(ticket.getId()).isPresent()) {
-            saveStateToRecoveryFile();
-            return ticket;
+        for (int i = 0; i < activeTickets.size(); i++) {
+            if (activeTickets.get(i).getId() == ticket.getId()) {
+                activeTickets.set(i, ticket);
+                appendLog(new LogEntry(LogType.UPDATE, ticket));
+                return ticket;
+            }
         }
+
+        for (int i = 0; i < completedTickets.size(); i++) {
+            if (completedTickets.get(i).getId() == ticket.getId()) {
+                completedTickets.set(i, ticket);
+                appendLog(new LogEntry(LogType.UPDATE, ticket));
+                return ticket;
+            }
+        }
+
         activeTickets.add(ticket);
-        saveStateToRecoveryFile();
+        appendLog(new LogEntry(LogType.CREATE, ticket));
         return ticket;
     }
 
@@ -85,16 +97,12 @@ public class FileTicketRepository implements TicketRepository {
 
     @Override
     public boolean deleteById(int id) {
-        boolean removed = false;
-        if (activeTickets.removeIf(t -> t.getId() == id))
-            removed = true;
-        else if (completedTickets.removeIf(t -> t.getId() == id))
-            removed = true;
-        else if (closedTickets.removeIf(t -> t.getId() == id))
-            removed = true;
+        boolean removed = activeTickets.removeIf(t -> t.getId() == id)
+                || completedTickets.removeIf(t -> t.getId() == id)
+                || closedTickets.removeIf(t -> t.getId() == id);
 
         if (removed) {
-            saveStateToRecoveryFile();
+            appendLog(new LogEntry(LogType.DELETE, id));
         }
         return removed;
     }
@@ -104,7 +112,7 @@ public class FileTicketRepository implements TicketRepository {
         activeTickets.clear();
         completedTickets.clear();
         closedTickets.clear();
-        saveStateToRecoveryFile();
+        clearRecoveryFile();
     }
 
     @Override
@@ -135,21 +143,29 @@ public class FileTicketRepository implements TicketRepository {
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             activeTickets.remove(ticket);
-            ticket.setClosedAt(null);
             completedTickets.add(ticket);
-            saveStateToRecoveryFile();
+            appendLog(new LogEntry(LogType.MOVE_COMPLETED, id));
         }
     }
 
     @Override
     public void moveToClosed(int id) {
-        Optional<Ticket> ticketOpt = completedTickets.stream().filter(t -> t.getId() == id).findFirst();
+        Optional<Ticket> ticketOpt = activeTickets.stream().filter(t -> t.getId() == id).findFirst();
+        if (ticketOpt.isPresent()) {
+            Ticket ticket = ticketOpt.get();
+            activeTickets.remove(ticket);
+            ticket.setClosedAt(java.time.Instant.now());
+            closedTickets.add(ticket);
+            appendLog(new LogEntry(LogType.MOVE_CLOSED, id));
+            return;
+        }
+        ticketOpt = completedTickets.stream().filter(t -> t.getId() == id).findFirst();
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             completedTickets.remove(ticket);
             ticket.setClosedAt(java.time.Instant.now());
             closedTickets.add(ticket);
-            saveStateToRecoveryFile();
+            appendLog(new LogEntry(LogType.MOVE_CLOSED, id));
         }
     }
 
@@ -161,45 +177,7 @@ public class FileTicketRepository implements TicketRepository {
             completedTickets.remove(ticket);
             ticket.setClosedAt(null);
             activeTickets.add(ticket);
-            saveStateToRecoveryFile();
-        }
-    }
-
-    private void saveStateToRecoveryFile() {
-        RecoverableState state = new RecoverableState(activeTickets, completedTickets);
-        File file = new File(recoveryFilePath);
-        File parent = file.getParentFile();
-        if (parent != null) {
-            parent.mkdirs();
-        }
-
-        synchronized (fileLock) {
-            try (FileWriter writer = new FileWriter(file)) {
-                objectMapper.writeValue(writer, state);
-            } catch (IOException e) {
-                System.err.println("Failed to save recovery state: " + e.getMessage());
-            }
-        }
-    }
-
-    private void loadStateFromRecoveryFile() {
-        File file = new File(recoveryFilePath);
-        if (!file.exists()) {
-            return;
-        }
-
-        synchronized (fileLock) {
-            try (FileReader reader = new FileReader(file)) {
-                RecoverableState state = objectMapper.readValue(reader, RecoverableState.class);
-                if (state != null) {
-                    if (state.active != null)
-                        activeTickets.addAll(state.active);
-                    if (state.completed != null)
-                        completedTickets.addAll(state.completed);
-                }
-            } catch (IOException e) {
-                System.err.println("Failed to load recovery state: " + e.getMessage());
-            }
+            appendLog(new LogEntry(LogType.MOVE_ACTIVE, id));
         }
     }
 
@@ -213,17 +191,163 @@ public class FileTicketRepository implements TicketRepository {
         }
     }
 
-    private static class RecoverableState {
-        public List<Ticket> active;
-        public List<Ticket> completed;
+    private void appendLog(LogEntry entry) {
+        File file = new File(recoveryFilePath);
+        File parent = file.getParentFile();
+        if (parent != null)
+            parent.mkdirs();
 
-        @SuppressWarnings("unused")
-        public RecoverableState() {
+        synchronized (fileLock) {
+            try (FileWriter writer = new FileWriter(file, true)) {
+                String json = objectMapper.writer()
+                        .without(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT)
+                        .writeValueAsString(entry);
+                writer.write(json + "\n");
+            } catch (IOException e) {
+                System.err.println("Failed to append recovery state: " + e.getMessage());
+            }
+        }
+    }
+
+    private void loadStateFromRecoveryFile() {
+        File file = new File(recoveryFilePath);
+        if (!file.exists())
+            return;
+
+        synchronized (fileLock) {
+            try (FileReader reader = new FileReader(file);
+                    java.io.BufferedReader bufferedReader = new java.io.BufferedReader(reader)) {
+
+                String line;
+                while ((line = bufferedReader.readLine()) != null) {
+                    if (line.trim().isEmpty())
+                        continue;
+                    try {
+                        LogEntry entry = objectMapper.readValue(line, LogEntry.class);
+                        replayLogEntry(entry);
+                    } catch (Exception e) {
+                        System.err.println("Skipping malformed or legacy log line: " + line);
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to load recovery state: " + e.getMessage());
+            }
+        }
+    }
+
+    private void replayLogEntry(LogEntry entry) {
+        if (entry.type == null)
+            return;
+
+        switch (entry.type) {
+            case CREATE:
+            case UPDATE:
+                if (entry.ticket != null) {
+                    upsertTicket(entry.ticket);
+                }
+                break;
+            case MOVE_COMPLETED:
+                moveTicketToCompleted(entry.ticketId);
+                break;
+            case MOVE_CLOSED:
+                moveTicketToClosedReplay(entry.ticketId);
+                break;
+            case MOVE_ACTIVE:
+                moveTicketToActiveReplay(entry.ticketId);
+                break;
+            case DELETE:
+                deleteTicketInternal(entry.ticketId);
+                break;
+        }
+    }
+
+    private void upsertTicket(Ticket ticket) {
+        for (int i = 0; i < activeTickets.size(); i++) {
+            if (activeTickets.get(i).getId() == ticket.getId()) {
+                activeTickets.set(i, ticket);
+                return;
+            }
+        }
+        for (int i = 0; i < completedTickets.size(); i++) {
+            if (completedTickets.get(i).getId() == ticket.getId()) {
+                completedTickets.set(i, ticket);
+                return;
+            }
+        }
+        activeTickets.add(ticket);
+    }
+
+    private void moveTicketToCompleted(int id) {
+        Optional<Ticket> t = activeTickets.stream().filter(x -> x.getId() == id).findFirst();
+        if (t.isPresent()) {
+            activeTickets.remove(t.get());
+            completedTickets.add(t.get());
+        }
+    }
+
+    private void moveTicketToClosedReplay(int id) {
+        Optional<Ticket> t = activeTickets.stream().filter(x -> x.getId() == id).findFirst();
+        if (t.isPresent()) {
+            activeTickets.remove(t.get());
+            // In replay, we might not have the exact timestamp if log doesn't store it
+            // separate
+            // But if it was UPDATEd before MOVE, ticket might have it.
+            // Here we assume simple replay. If accurate timestamp is needed, LogEntry
+            // should carry it.
+            // For now, ensuring it is in Closed list is key.
+            if (t.get().getClosedAt() == null) {
+                t.get().setClosedAt(java.time.Instant.now());
+            }
+            closedTickets.add(t.get());
+            return;
+        }
+        t = completedTickets.stream().filter(x -> x.getId() == id).findFirst();
+        if (t.isPresent()) {
+            completedTickets.remove(t.get());
+            if (t.get().getClosedAt() == null) {
+                t.get().setClosedAt(java.time.Instant.now());
+            }
+            closedTickets.add(t.get());
+        }
+    }
+
+    private void moveTicketToActiveReplay(int id) {
+        Optional<Ticket> t = completedTickets.stream().filter(x -> x.getId() == id).findFirst();
+        if (t.isPresent()) {
+            completedTickets.remove(t.get());
+            t.get().setClosedAt(null);
+            activeTickets.add(t.get());
+        }
+    }
+
+    private void deleteTicketInternal(int id) {
+        activeTickets.removeIf(t -> t.getId() == id);
+        completedTickets.removeIf(t -> t.getId() == id);
+        closedTickets.removeIf(t -> t.getId() == id);
+    }
+
+    private static class LogEntry {
+        public LogType type;
+        public Ticket ticket;
+        public int ticketId;
+
+        public LogEntry() {
         }
 
-        public RecoverableState(List<Ticket> active, List<Ticket> completed) {
-            this.active = active;
-            this.completed = completed;
+        public LogEntry(LogType type, Ticket ticket) {
+            this.type = type;
+            this.ticket = ticket;
+            if (ticket != null)
+                this.ticketId = ticket.getId();
         }
+
+        public LogEntry(LogType type, int ticketId) {
+            this.type = type;
+            this.ticketId = ticketId;
+        }
+    }
+
+    private enum LogType {
+        CREATE, UPDATE, MOVE_COMPLETED, MOVE_CLOSED, MOVE_ACTIVE, DELETE
     }
 }

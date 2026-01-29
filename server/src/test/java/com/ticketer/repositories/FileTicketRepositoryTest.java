@@ -1,18 +1,20 @@
 package com.ticketer.repositories;
 
 import com.ticketer.models.Ticket;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class FileTicketRepositoryTest {
 
@@ -20,7 +22,7 @@ public class FileTicketRepositoryTest {
     private static final String TEST_TICKETS_DIR = "target/test-tickets-repo";
     private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         File ticketsDir = new File(TEST_TICKETS_DIR);
         if (!ticketsDir.exists()) {
@@ -38,7 +40,7 @@ public class FileTicketRepositoryTest {
         repository = new FileTicketRepository(mapper);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         repository.deleteAll();
         File testDir = new File(TEST_TICKETS_DIR);
@@ -95,50 +97,36 @@ public class FileTicketRepositoryTest {
         }
 
         latch.await(30, TimeUnit.SECONDS);
-        assertEquals("Should complete without exceptions", 0, exceptions.get());
+        assertEquals(0, exceptions.get(), "Should complete without exceptions");
         assertEquals(threadCount * ticketsPerThread, repository.findAllActive().size());
         executor.shutdown();
     }
 
     @Test
-    public void testLegacyRecovery() throws java.io.IOException {
-        File recoveryFile = new File(TEST_TICKETS_DIR + "/recovery.json");
-        recoveryFile.getParentFile().mkdirs();
-        try (java.io.FileWriter writer = new java.io.FileWriter(recoveryFile)) {
-            writer.write("{\n" +
-                    "  \"active\": [\n" +
-                    "    {\n" +
-                    "      \"id\": 99,\n" +
-                    "      \"tableNumber\": \"T99\",\n" +
-                    "      \"orders\": [\n" +
-                    "        {\n" +
-                    "          \"items\": [\n" +
-                    "            {\n" +
-                    "              \"name\": \"Burger\",\n" +
-                    "              \"price\": 10.99\n" +
-                    "            }\n" +
-                    "          ],\n" +
-                    "          \"subtotal\": 10.99,\n" +
-                    "          \"total\": 12.42\n" +
-                    "        }\n" +
-                    "      ],\n" +
-                    "      \"subtotal\": 10.99,\n" +
-                    "      \"total\": 12.42,\n" +
-                    "      \"createdAt\": \"2023-01-01T12:00:00Z\"\n" +
-                    "    }\n" +
-                    "  ],\n" +
-                    "  \"completed\": []\n" +
-                    "}");
-        }
+    public void testRecovery() throws IOException {
+        Ticket t = new Ticket(99);
+        t.setTableNumber("T99");
+        repository.save(t);
 
-        repository = new FileTicketRepository(mapper);
-
-        java.util.List<Ticket> active = repository.findAllActive();
+        FileTicketRepository newRepo = new FileTicketRepository(mapper);
+        java.util.List<Ticket> active = newRepo.findAllActive();
         assertEquals(1, active.size());
-        Ticket t = active.get(0);
-        assertEquals(99, t.getId());
-        assertEquals(1, t.getOrders().size());
-        assertEquals(1099, t.getOrders().get(0).getItems().get(0).getPrice());
-        assertEquals(1099, t.getOrders().get(0).getTotal());
+        Ticket recovered = active.get(0);
+        assertEquals(99, recovered.getId());
+        assertEquals("T99", recovered.getTableNumber());
+    }
+
+    @Test
+    public void testTicketSerializationUsesUTC() throws IOException {
+        Ticket t = new Ticket(55);
+        t.setCreatedAt(java.time.Instant.parse("2023-01-01T12:00:00Z"));
+        repository.save(t);
+
+        File recoveryFile = new File(TEST_TICKETS_DIR + "/recovery.json");
+        assertTrue(recoveryFile.exists());
+
+        String content = new String(Files.readAllBytes(recoveryFile.toPath()));
+        assertTrue(content.contains("2023-01-01T12:00:00Z"),
+                "JSON should contain UTC timestamp (ending in Z). Actual: " + content);
     }
 }

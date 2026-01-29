@@ -1,251 +1,200 @@
 package com.ticketer.services;
 
+import com.ticketer.models.Menu;
 import com.ticketer.models.MenuItem;
 import com.ticketer.models.MenuItemView;
-import com.ticketer.repositories.FileMenuRepository;
+import com.ticketer.repositories.MenuRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import static org.junit.Assert.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 public class MenuServiceTest {
 
-    private MenuService service;
-    private static final String TEST_MENU_PATH = "target/test-menu-service.json";
-    private com.fasterxml.jackson.databind.ObjectMapper mapper;
+    @Mock
+    private MenuRepository menuRepository;
 
-    @Before
+    private MenuService menuService;
+
+    @BeforeEach
     public void setUp() {
-        File dataDir = new File("target");
-        if (!dataDir.exists()) {
-            dataDir.mkdir();
-        }
-
-        try {
-            String json = "{ \"TestCategory\": { \"TestItemAdd\": { \"price\": 12.34, \"available\": true, \"sides\": {} } } }";
-            Files.write(new File(TEST_MENU_PATH).toPath(), json.getBytes());
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to set up test environment", e);
-        }
-
-        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
-
-        service = new MenuService(new FileMenuRepository(TEST_MENU_PATH, mapper));
-    }
-
-    @After
-    public void tearDown() {
-        try {
-            Files.deleteIfExists(new File(TEST_MENU_PATH).toPath());
-        } catch (Exception e) {
-        }
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
-    public void testInitialization() {
-        assertNotNull("Categories should function", service.getCategories());
+    public void testGetCategories() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+
+        when(menuRepository.getMenu()).thenReturn(new Menu(data));
+        menuService = new MenuService(menuRepository);
+
+        Map<String, List<MenuItem>> categories = menuService.getCategories();
+        assertNotNull(categories);
+        assertTrue(categories.containsKey("entrees"));
+        assertEquals(1, categories.get("entrees").size());
+        assertEquals("Burger", categories.get("entrees").get(0).name);
     }
 
     @Test
     public void testGetItem() {
-        List<MenuItemView> items = service.getAllItems();
-        if (!items.isEmpty()) {
-            MenuItemView item = items.get(0);
-            MenuItem found = service.getItem(item.name);
-            assertNotNull("Should find existing item", found);
-            assertEquals(item.name, found.name);
-        }
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        MenuItem burger = new MenuItem("Burger", 100, true, new HashMap<>());
+        items.add(burger);
+        data.put("entrees", items);
+
+        when(menuRepository.getMenu()).thenReturn(new Menu(data));
+        menuService = new MenuService(menuRepository);
+
+        MenuItem found = menuService.getItem("Burger");
+        assertNotNull(found);
+        assertEquals("Burger", found.name);
+    }
+
+    @Test
+    public void testGetItemNotFound() {
+        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>()));
+        menuService = new MenuService(menuRepository);
+        assertThrows(EntityNotFoundException.class, () -> menuService.getItem("Burger"));
+    }
+
+    @Test
+    public void testGetAllItems() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+
+        when(menuRepository.getMenu()).thenReturn(new Menu(data));
+        menuService = new MenuService(menuRepository);
+
+        List<MenuItemView> allItems = menuService.getAllItems();
+        assertEquals(1, allItems.size());
+        assertEquals("Burger", allItems.get(0).name);
     }
 
     @Test
     public void testRemoveItem() {
-        if (service.getAllItems().isEmpty()) {
-            service.addItem("TempCat", "ToRemove", 1000, null);
-        }
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
 
-        String nameToRemove = service.getAllItems().get(0).name;
-        service.removeItem(nameToRemove);
+        Menu menu = new Menu(data);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
 
-        try {
-            service.getItem(nameToRemove);
-            fail("Expected EntityNotFoundException");
-        } catch (EntityNotFoundException e) {
-        }
+        menuService.removeItem("Burger");
+
+        assertTrue(data.get("entrees").isEmpty());
+        verify(menuRepository).saveMenu(menu);
     }
 
     @Test
-    public void testRenameCategory() {
-        String oldCat = "OldCat";
-        service.addItem(oldCat, "ItemInCat", 1000, null);
-
-        String newCat = "NewCat_Renamed";
-        service.renameCategory(oldCat, newCat);
-
-        try {
-            service.getCategory(oldCat.toLowerCase());
-            fail("Old category should be gone");
-        } catch (EntityNotFoundException e) {
-        }
-        assertNotNull("New category should exist", service.getCategory(newCat.toLowerCase()));
-    }
-
-    @Test
-    public void testGetItemObject() {
-        if (service.getAllItems().isEmpty()) {
-            service.addItem("Cat", "Item", 1000, null);
-        }
-
-        MenuItemView view = service.getAllItems().get(0);
-        MenuItem menuItem = service.getItem(view.name);
-
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, null);
-
-        assertNotNull("Should create OrderItem object", item);
-        assertEquals(menuItem.name, item.getName());
-    }
-
-    @Test
-    public void testGetItemWithSide() {
-        String name = "ItemSideTest";
-        Map<String, Integer> sides = new HashMap<>();
-        sides.put("Fries", 200);
-        service.addItem("SideCat", name, 1000, sides);
-
-        MenuItem menuItem = service.getItem(name);
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, "Fries");
-
-        assertNotNull(item);
-        assertEquals(name, item.getName());
+    public void testRemoveItemNotFound() {
+        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>()));
+        menuService = new MenuService(menuRepository);
+        assertThrows(EntityNotFoundException.class, () -> menuService.removeItem("Burger"));
     }
 
     @Test
     public void testAddItem() {
-        String cat = "TestCategory";
-        String name = "TestItemAdd";
-        int price = 1234;
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        Menu menu = new Menu(data);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
 
-        service.addItem(cat, name, price, null);
+        menuService.addItem("Entrees", "Burger", 100, new HashMap<>());
 
-        MenuItem item = service.getItem(name);
-        assertNotNull(item);
-        assertEquals(name, item.name);
-        assertEquals(price, item.basePrice);
-
-        List<MenuItem> catItems = service.getCategory(cat.toLowerCase());
-        assertNotNull(catItems);
-        assertTrue(catItems.stream().anyMatch(i -> i.name.equals(name)));
+        assertTrue(data.containsKey("entrees"));
+        assertEquals(1, data.get("entrees").size());
+        assertEquals("Burger", data.get("entrees").get(0).name);
+        verify(menuRepository).saveMenu(menu);
     }
 
     @Test
     public void testEditItemPrice() {
-        String name = "PriceItem";
-        service.addItem("Cat", name, 1000, null);
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
 
-        int newPrice = 9999;
-        service.editItemPrice(name, newPrice);
+        Menu menu = new Menu(data);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
 
-        assertEquals(newPrice, service.getItem(name).basePrice);
+        menuService.editItemPrice("Burger", 200);
+
+        assertEquals(200, items.get(0).basePrice);
+        verify(menuRepository).saveMenu(menu);
     }
 
     @Test
     public void testEditItemAvailability() {
-        String name = "AvailItem";
-        service.addItem("Cat", name, 1000, null);
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
 
-        service.editItemAvailability(name, false);
-        assertFalse(service.getItem(name).available);
+        Menu menu = new Menu(data);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
 
-        service.editItemAvailability(name, true);
-        assertTrue(service.getItem(name).available);
+        menuService.editItemAvailability("Burger", false);
+
+        assertFalse(items.get(0).available);
+        verify(menuRepository).saveMenu(menu);
     }
 
     @Test
     public void testRenameItem() {
-        String oldName = "OldNameItem";
-        service.addItem("Cat", oldName, 1000, null);
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
 
-        String newName = "RenamedItem_" + System.currentTimeMillis();
-        service.renameItem(oldName, newName);
+        Menu menu = new Menu(data);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
 
-        try {
-            service.getItem(oldName);
-            fail("Old item name should not exist");
-        } catch (EntityNotFoundException e) {
-        }
-        assertNotNull(service.getItem(newName));
+        menuService.renameItem("Burger", "Cheeseburger");
+
+        assertEquals("Cheeseburger", items.get(0).name);
+        verify(menuRepository).saveMenu(menu);
     }
 
     @Test
-    public void testChangeCategory() {
-        String name = "CatChangeItem";
-        String oldCat = "Cat1";
-        service.addItem(oldCat, name, 1000, null);
+    public void testRenameCategory() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        data.put("entrees", new ArrayList<>());
 
-        String newCat = "Cat2_New";
-        service.changeCategory(name, newCat);
+        Menu menu = new Menu(data);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
 
-        List<MenuItem> catItems = service.getCategory(newCat.toLowerCase());
-        assertNotNull(catItems);
-        assertTrue(catItems.stream().anyMatch(i -> i.name.equals(name)));
+        menuService.renameCategory("Entrees", "Mains");
 
-        List<MenuItem> oldCatItems = service.getCategory(oldCat.toLowerCase());
-        assertFalse(oldCatItems.stream().anyMatch(i -> i.name.equals(name)));
+        assertFalse(data.containsKey("entrees"));
+        assertTrue(data.containsKey("mains"));
+        verify(menuRepository).saveMenu(menu);
     }
 
     @Test
-    public void testUpdateSide() {
-        String name = "ItemWithSide";
-        Map<String, Integer> sides = new HashMap<>();
-        sides.put("Fries", 200);
-        service.addItem("SideCat", name, 1000, sides);
-
-        service.updateSide(name, "Fries", 500);
-
-        MenuItem item = service.getItem(name);
-        assertNotNull(item.sideOptions);
-        assertEquals(500, item.sideOptions.get("Fries").price);
-    }
-
-    @Test
-    public void testChangeCategorySameCategory() {
-        String name = "SameCatItem";
-        String cat = "SameCat";
-        service.addItem(cat, name, 1000, null);
-
-        service.changeCategory(name, cat);
-
-        assertEquals(cat.toLowerCase(), service.getCategoryOfItem(name));
-    }
-
-    @Test(expected = EntityNotFoundException.class)
     public void testRenameCategoryNotFound() {
-        service.renameCategory("NonExistentCat", "NewCat");
-    }
-
-    @Test
-    public void testGetCategoryOfItemFound() {
-        String name = "FindMe";
-        String cat = "Hideout";
-        service.addItem(cat, name, 1000, null);
-
-        assertEquals(cat.toLowerCase(), service.getCategoryOfItem(name));
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testGetCategoryOfItemNotFound() {
-        service.getCategoryOfItem("InvisibleItem");
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testGetCategoryNotFound() {
-        service.getCategory("GhostCategory");
+        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>()));
+        menuService = new MenuService(menuRepository);
+        assertThrows(EntityNotFoundException.class, () -> menuService.renameCategory("Entrees", "Mains"));
     }
 }

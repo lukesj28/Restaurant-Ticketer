@@ -1,27 +1,29 @@
 package com.ticketer.repositories;
 
 import com.ticketer.models.Settings;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import static org.junit.Assert.*;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class FileSettingsRepositoryTest {
 
     private static final String TEST_FILE = "target/repo-test-settings.json";
     private com.fasterxml.jackson.databind.ObjectMapper mapper;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         new File(TEST_FILE).delete();
         mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         new File(TEST_FILE).delete();
     }
@@ -40,12 +42,7 @@ public class FileSettingsRepositoryTest {
     public void testGetSettingsCorruptedJson() throws IOException {
         Files.write(new File(TEST_FILE).toPath(), "{ invalid json ".getBytes());
         FileSettingsRepository repo = new FileSettingsRepository(TEST_FILE, mapper);
-        try {
-            repo.getSettings();
-            fail("Should throw exception for corrupted JSON");
-        } catch (RuntimeException e) {
-
-        }
+        assertThrows(RuntimeException.class, () -> repo.getSettings());
     }
 
     @Test

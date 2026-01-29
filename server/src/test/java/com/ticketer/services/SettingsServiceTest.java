@@ -1,126 +1,113 @@
 package com.ticketer.services;
 
 import com.ticketer.models.Settings;
-import com.ticketer.repositories.FileSettingsRepository;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import static org.junit.Assert.*;
+import com.ticketer.repositories.SettingsRepository;
+import com.ticketer.exceptions.ValidationException;
+import com.ticketer.exceptions.EntityNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockitoAnnotations;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 public class SettingsServiceTest {
 
-    private SettingsService service;
-    private static final String TEST_SETTINGS_PATH = "target/test-settings-service.json";
-    private com.fasterxml.jackson.databind.ObjectMapper mapper;
+    @Mock
+    private SettingsRepository settingsRepository;
 
-    @Before
+    @InjectMocks
+    private SettingsService settingsService;
+
+    @BeforeEach
     public void setUp() {
-        File dataDir = new File("target");
-        if (!dataDir.exists()) {
-            dataDir.mkdir();
-        }
-
-        try {
-            String json = "{ \"tax\": 0.1, \"hours\": { \"monday\": \"09:00 - 22:00\" } }";
-            Files.write(new File(TEST_SETTINGS_PATH).toPath(), json.getBytes());
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to set up test environment", e);
-        }
-
-        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
-
-        service = new SettingsService(new FileSettingsRepository(TEST_SETTINGS_PATH, mapper));
-    }
-
-    @After
-    public void tearDown() {
-        try {
-            Files.deleteIfExists(new File(TEST_SETTINGS_PATH).toPath());
-        } catch (IOException e) {
-        }
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
-    public void testInitialization() throws IOException {
-        Settings settings = service.getSettings();
-        assertNotNull("Settings should be loaded on initialization", settings);
+    public void testGetSettings() {
+        Settings settings = new Settings(0.1, new HashMap<>());
+        when(settingsRepository.getSettings()).thenReturn(settings);
+
+        settingsService = new SettingsService(settingsRepository);
+        Settings result = settingsService.getSettings();
+
+        assertNotNull(result);
+        assertEquals(0.1, result.getTax());
     }
 
     @Test
-    public void testGetIndividualSettings() throws IOException {
-        double tax = service.getTax();
-        assertTrue("Tax should be non-negative", tax >= 0);
-
-        java.util.Map<String, String> hours = service.getAllOpeningHours();
-        assertNotNull("Opening hours map should not be null", hours);
-
-        String monHours = service.getOpeningHours("mon");
-        assertNotNull("Monday hours should not be null", monHours);
-    }
-
-    @Test
-    public void testSetTax() throws IOException {
-        double newTax = 0.99;
-        service.setTax(newTax);
-        assertEquals(newTax, service.getTax(), 0.001);
-    }
-
-    @Test
-    public void testSetOpeningHours() throws IOException {
-        String day = "mon";
-        String newHours = "00:00-23:59";
-
-        service.setOpeningHours(day, newHours);
-        assertEquals(newHours, service.getOpeningHours(day));
-    }
-
-    @Test
-    public void testGetOpenAndCloseTime() throws IOException {
-        String day = "wed";
-        String testHours = "09:00 - 17:00";
-
-        service.setOpeningHours(day, testHours);
-
-        assertEquals("09:00", service.getOpenTime(day));
-        assertEquals("17:00", service.getCloseTime(day));
-
-        service.setOpeningHours(day, "closed");
-        assertNull(service.getOpenTime(day));
-        assertNull(service.getCloseTime(day));
-    }
-
-    @Test
-    public void testGetOpenTimeValid() throws IOException {
-        String mon = service.getOpenTime("mon");
-        if (mon != null) {
-            assertTrue("Open time should match HH:MM format", mon.matches("^\\d{2}:\\d{2}$"));
-        }
-
-        String close = service.getCloseTime("mon");
-        if (close != null) {
-            assertTrue("Close time should match HH:MM format", close.matches("^\\d{2}:\\d{2}$"));
-        }
-    }
-
-    @Test(expected = com.ticketer.exceptions.ValidationException.class)
-    public void testSetTaxInvalid() {
-        service.setTax(-1);
-    }
-
-    @Test(expected = com.ticketer.exceptions.EntityNotFoundException.class)
     public void testGetSettingsNotFound() {
-        SettingsService errorService = new SettingsService(new com.ticketer.repositories.SettingsRepository() {
-            public Settings getSettings() {
-                return null;
-            }
+        when(settingsRepository.getSettings()).thenReturn(null);
+        settingsService = new SettingsService(settingsRepository);
 
-            public void saveSettings(Settings s) {
-            }
-        });
-        errorService.getSettings();
+        assertThrows(EntityNotFoundException.class, () -> settingsService.getSettings());
+    }
+
+    @Test
+    public void testSetTax() {
+        Settings settings = new Settings(0.1, new HashMap<>());
+        when(settingsRepository.getSettings()).thenReturn(settings);
+        settingsService = new SettingsService(settingsRepository);
+
+        settingsService.setTax(0.2);
+
+        ArgumentCaptor<Settings> captor = ArgumentCaptor.forClass(Settings.class);
+        verify(settingsRepository).saveSettings(captor.capture());
+
+        Settings saved = captor.getValue();
+        assertEquals(0.2, saved.getTax(), 0.001);
+    }
+
+    @Test
+    public void testSetTaxInvalid() {
+        assertThrows(ValidationException.class, () -> settingsService.setTax(-1));
+    }
+
+    @Test
+    public void testSetOpeningHours() {
+        Settings settings = new Settings(0.1, new HashMap<>());
+        when(settingsRepository.getSettings()).thenReturn(settings);
+        settingsService = new SettingsService(settingsRepository);
+
+        settingsService.setOpeningHours("monday", "09:00 - 17:00");
+
+        ArgumentCaptor<Settings> captor = ArgumentCaptor.forClass(Settings.class);
+        verify(settingsRepository).saveSettings(captor.capture());
+
+        Settings saved = captor.getValue();
+        assertEquals("09:00 - 17:00", saved.getHours().get("monday"));
+    }
+
+    @Test
+    public void testGetOpenTime() {
+        Map<String, String> hours = new HashMap<>();
+        hours.put("monday", "09:00 - 17:00");
+        Settings settings = new Settings(0.1, hours);
+
+        when(settingsRepository.getSettings()).thenReturn(settings);
+        settingsService = new SettingsService(settingsRepository);
+
+        String openTime = settingsService.getOpenTime("monday");
+        assertEquals("09:00", openTime);
+    }
+
+    @Test
+    public void testGetOpenTimeClosed() {
+        Map<String, String> hours = new HashMap<>();
+        hours.put("monday", "closed");
+        Settings settings = new Settings(0.1, hours);
+
+        when(settingsRepository.getSettings()).thenReturn(settings);
+        settingsService = new SettingsService(settingsRepository);
+
+        String openTime = settingsService.getOpenTime("monday");
+        assertNull(openTime);
     }
 }

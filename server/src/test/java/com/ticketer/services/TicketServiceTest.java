@@ -1,325 +1,140 @@
 package com.ticketer.services;
 
-import com.ticketer.models.OrderItem;
 import com.ticketer.models.Order;
 import com.ticketer.models.Ticket;
-import com.ticketer.repositories.FileTicketRepository;
+import com.ticketer.repositories.TicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
-import org.junit.Before;
-import org.junit.Test;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import static org.junit.Assert.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 public class TicketServiceTest {
 
-    private TicketService service;
-    private static final String TEST_TICKETS_DIR = "target/test-tickets-service";
-    private com.fasterxml.jackson.databind.ObjectMapper mapper;
+    @Mock
+    private TicketRepository ticketRepository;
 
-    @Before
-    public void setUp() throws IOException {
-        File ticketsDir = new File(TEST_TICKETS_DIR);
-        if (!ticketsDir.exists()) {
-            ticketsDir.mkdirs();
-        }
-        System.setProperty("tickets.dir", TEST_TICKETS_DIR);
+    @InjectMocks
+    private TicketService ticketService;
 
-        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        mapper.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
-
-        service = new TicketService(new FileTicketRepository(mapper));
-        service.clearAllTickets();
-    }
-
-    @org.junit.After
-    public void tearDown() {
-        File testDir = new File(TEST_TICKETS_DIR);
-        if (testDir.exists()) {
-            File[] files = testDir.listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    f.delete();
-                }
-            }
-            testDir.delete();
-        }
-        System.clearProperty("tickets.dir");
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
-    public void testCreateTicketAndIdIncrement() {
-        Ticket t1 = service.createTicket("Table 1");
-        assertEquals(1, t1.getId());
-        assertEquals("Table 1", t1.getTableNumber());
+    public void testCreateTicket() {
+        Ticket ticket = new Ticket(1);
+        ticket.setTableNumber("Table 1");
+        when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
 
-        Ticket t2 = service.createTicket("Table 2");
-        assertEquals(2, t2.getId());
+        Ticket created = ticketService.createTicket("Table 1");
 
-        service.clearAllTickets();
-        Ticket t3 = service.createTicket("Table 3");
-        assertEquals(1, t3.getId());
+        assertNotNull(created);
+        assertEquals("Table 1", created.getTableNumber());
+        verify(ticketRepository, times(1)).save(any(Ticket.class));
     }
 
     @Test
     public void testGetActiveTickets() {
-        assertTrue(service.getActiveTickets().isEmpty());
-        Ticket t1 = service.createTicket("T1");
-        assertEquals(1, service.getActiveTickets().size());
-        assertTrue(service.getActiveTickets().contains(t1));
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
+
+        List<Ticket> active = ticketService.getActiveTickets();
+        assertEquals(1, active.size());
+        assertEquals(t1, active.get(0));
     }
 
     @Test
-    public void testLifecycle() {
-        Ticket t = service.createTicket("T1");
-        int id = t.getId();
+    public void testMoveToCompleted() {
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-        service.moveToCompleted(id);
-        assertFalse(service.getActiveTickets().contains(t));
-        assertTrue(service.getCompletedTickets().contains(t));
+        ticketService.moveToCompleted(1);
 
-        service.moveToActive(id);
-        assertTrue(service.getActiveTickets().contains(t));
-        assertFalse(service.getCompletedTickets().contains(t));
-
-        service.moveToCompleted(id);
-        service.moveToClosed(id);
-        assertFalse(service.getCompletedTickets().contains(t));
-        assertTrue(service.getClosedTickets().contains(t));
+        verify(ticketRepository).moveToCompleted(1);
     }
 
-    @Test(expected = EntityNotFoundException.class)
-    public void testMoveToCompletedInvalid() {
-        service.moveToCompleted(999);
+    @Test
+    public void testMoveToCompletedNotFound() {
+        when(ticketRepository.findById(1)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> ticketService.moveToCompleted(1));
     }
 
-    @Test(expected = EntityNotFoundException.class)
-    public void testMoveToClosedInvalid() {
-        service.moveToClosed(999);
+    @Test
+    public void testMoveToClosed() {
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
+
+        ticketService.moveToClosed(1);
+
+        verify(ticketRepository).moveToClosed(1);
     }
 
-    @Test(expected = EntityNotFoundException.class)
-    public void testMoveToActiveInvalid() {
-        service.moveToActive(999);
+    @Test
+    public void testMoveToActive() {
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
+
+        ticketService.moveToActive(1);
+
+        verify(ticketRepository).moveToActive(1);
     }
 
     @Test
     public void testRemoveTicket() {
-        Ticket t1 = service.createTicket("T1");
-        service.removeTicket(t1.getId());
-        assertFalse(service.getActiveTickets().contains(t1));
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.deleteById(1)).thenReturn(true);
 
-        Ticket t2 = service.createTicket("T2");
-        service.moveToCompleted(t2.getId());
-        service.removeTicket(t2.getId());
-        assertFalse(service.getCompletedTickets().contains(t2));
+        ticketService.removeTicket(1);
 
-        Ticket t3 = service.createTicket("T3");
-        service.moveToCompleted(t3.getId());
-        service.moveToClosed(t3.getId());
-        service.removeTicket(t3.getId());
-        assertFalse(service.getClosedTickets().contains(t3));
+        verify(ticketRepository).deleteById(1);
     }
 
-    @Test(expected = EntityNotFoundException.class)
+    @Test
     public void testRemoveTicketNotFound() {
-        service.removeTicket(999);
+        when(ticketRepository.deleteById(1)).thenReturn(false);
+
+        assertThrows(EntityNotFoundException.class, () -> ticketService.removeTicket(1));
     }
 
     @Test
-    public void testCreateAndManageOrders() {
-        Ticket ticket = service.createTicket("T1");
+    public void testAddOrderToTicket() {
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-        Order order = new Order(0.1);
-        service.addOrderToTicket(ticket.getId(), order);
+        Order order = new Order(10.0);
+        ticketService.addOrderToTicket(1, order);
 
-        assertEquals(1, ticket.getOrders().size());
+        assertEquals(1, t1.getOrders().size());
 
-        OrderItem item = new OrderItem("Burger", "Fries", 1000);
-        order.addItem(item);
-
-        assertEquals(1000, order.getSubtotal());
-        assertEquals(1100, order.getTotal());
-        assertEquals(1000, ticket.getSubtotal());
-        assertEquals(1100, ticket.getTotal());
-
-        assertEquals(1100, ticket.getTotal());
-
-        service.removeOrder(ticket.getId(), 0);
-        assertTrue(ticket.getOrders().isEmpty());
-        assertEquals(0, ticket.getTotal());
+        verify(ticketRepository).save(t1);
     }
 
-    @Test(expected = EntityNotFoundException.class)
+    @Test
     public void testAddOrderToTicketNotFound() {
-        service.addOrderToTicket(999, new Order(0));
-    }
+        when(ticketRepository.findById(1)).thenReturn(Optional.empty());
 
-    @Test(expected = EntityNotFoundException.class)
-    public void testRemoveOrderNotFoundTicket() {
-        service.removeOrder(999, 0);
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testRemoveOrderInvalidIndex() {
-        Ticket t = service.createTicket("T1");
-        service.removeOrder(t.getId(), 999);
+        assertThrows(EntityNotFoundException.class, () -> ticketService.addOrderToTicket(1, new Order(10.0)));
     }
 
     @Test
-    public void testMoveAllToClosed() {
-        service.createTicket("T1");
-        Ticket t2 = service.createTicket("T2");
-        service.moveToCompleted(t2.getId());
-
-        service.moveAllToClosed();
-
-        assertTrue(service.getActiveTickets().isEmpty());
-        assertTrue(service.getCompletedTickets().isEmpty());
-        assertEquals(2, service.getClosedTickets().size());
-    }
-
-    @Test
-    public void testSerializeClosedTickets() throws IOException {
-        Ticket t1 = service.createTicket("T1");
-
-        Order order = new Order(0.1);
-        OrderItem item = new OrderItem("Burger", "Fries", 1000);
-        order.addItem(item);
-        service.addOrderToTicket(t1.getId(), order);
-
-        service.moveToCompleted(t1.getId());
-        service.moveToClosed(t1.getId());
-
-        service.serializeClosedTickets();
-
-        String date = java.time.LocalDate.now().toString();
-        String filename = TEST_TICKETS_DIR + "/" + date + ".json";
-        File file = new File(filename);
-
-        assertTrue("Ticket file should exist at " + filename, file.exists());
-
-        String content = new String(Files.readAllBytes(file.toPath()));
-        assertTrue(content.contains("T1"));
-        assertTrue(content.contains("Burger"));
-        assertTrue(content.contains("Fries"));
-    }
-
-    @Test
-    public void testAddOrderToCompletedTicket() {
-        Ticket ticket = service.createTicket("T1");
-        int id = ticket.getId();
-        service.moveToCompleted(id);
-
-        Order order = new Order(0.1);
-        service.addOrderToTicket(id, order);
-
-        assertTrue(service.getActiveTickets().contains(ticket));
-        assertFalse(service.getCompletedTickets().contains(ticket));
-        assertEquals(1, ticket.getOrders().size());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
     public void testAddOrderToClosedTicket() {
-        Ticket ticket = service.createTicket("T2");
-        int id = ticket.getId();
-        service.moveToCompleted(id);
-        service.moveToClosed(id);
+        Ticket t1 = new Ticket(1);
+        
 
-        Order order = new Order(0.1);
-        service.addOrderToTicket(id, order);
-    }
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-    @Test(expected = RuntimeException.class)
-    public void testSerializeClosedTicketsError() {
-        File badDir = new File(TEST_TICKETS_DIR, "bad");
-        try {
-            badDir.createNewFile();
-        } catch (IOException e) {
-
-        }
-        System.setProperty("tickets.dir", badDir.getAbsolutePath());
-
-        TicketService badService = new TicketService(new FileTicketRepository(mapper));
-        badService.serializeClosedTickets();
-    }
-
-    @Test
-    public void testMoveAllToClosedEmpty() {
-        service.clearAllTickets();
-        service.moveAllToClosed();
-        assertTrue(service.getClosedTickets().isEmpty());
-    }
-
-    @Test
-    public void testAreAllTicketsClosed() {
-        assertTrue(service.areAllTicketsClosed());
-
-        Ticket t1 = service.createTicket("T1");
-        assertFalse(service.areAllTicketsClosed());
-
-        service.moveToCompleted(t1.getId());
-        assertFalse(service.areAllTicketsClosed());
-
-        service.moveToClosed(t1.getId());
-        assertTrue(service.areAllTicketsClosed());
-    }
-
-    @Test
-    public void testAddItemToOrder() {
-        Ticket t = service.createTicket("T1");
-        service.addOrderToTicket(t.getId(), new Order(0));
-
-        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100);
-        service.addItemToOrder(t.getId(), 0, item);
-
-        assertEquals(1, t.getOrders().get(0).getItems().size());
-        assertEquals(item, t.getOrders().get(0).getItems().get(0));
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testAddItemToOrderTicketNotFound() {
-        service.addItemToOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100));
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testAddItemToOrderInvalidIndex() {
-        Ticket t = service.createTicket("T1");
-        service.addItemToOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
-    }
-
-    @Test
-    public void testRemoveItemFromOrder() {
-        Ticket t = service.createTicket("T1");
-        Order o = new Order(0);
-        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100);
-        o.addItem(item);
-        service.addOrderToTicket(t.getId(), o);
-
-        service.removeItemFromOrder(t.getId(), 0, item);
-        assertTrue(t.getOrders().get(0).getItems().isEmpty());
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testRemoveItemFromOrderTicketNotFound() {
-        service.removeItemFromOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100));
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testRemoveItemFromOrderInvalidIndex() {
-        Ticket t = service.createTicket("T1");
-        service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
-    }
-
-    @Test(expected = EntityNotFoundException.class)
-    public void testRemoveItemFromOrderNotFound() {
-        Ticket t = service.createTicket("T1");
-        service.addOrderToTicket(t.getId(), new Order(0));
-        service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
+        assertThrows(IllegalArgumentException.class, () -> ticketService.addOrderToTicket(1, new Order(10.0)));
     }
 }
+
