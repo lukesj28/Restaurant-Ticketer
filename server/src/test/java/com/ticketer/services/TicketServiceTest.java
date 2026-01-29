@@ -4,11 +4,12 @@ import com.ticketer.models.Order;
 import com.ticketer.models.Ticket;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
-import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.Arrays;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 public class TicketServiceTest {
 
     @Mock
@@ -24,11 +26,6 @@ public class TicketServiceTest {
 
     @InjectMocks
     private TicketService ticketService;
-
-    @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
 
     @Test
     public void testCreateTicket() {
@@ -92,7 +89,7 @@ public class TicketServiceTest {
 
     @Test
     public void testRemoveTicket() {
-        Ticket t1 = new Ticket(1);
+
         when(ticketRepository.deleteById(1)).thenReturn(true);
 
         ticketService.removeTicket(1);
@@ -130,7 +127,7 @@ public class TicketServiceTest {
     @Test
     public void testAddOrderToClosedTicket() {
         Ticket t1 = new Ticket(1);
-        
+
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1));
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 

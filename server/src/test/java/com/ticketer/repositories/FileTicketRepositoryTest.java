@@ -129,4 +129,29 @@ public class FileTicketRepositoryTest {
         assertTrue(content.contains("2023-01-01T12:00:00Z"),
                 "JSON should contain UTC timestamp (ending in Z). Actual: " + content);
     }
+
+    @Test
+    public void testPersistClosedTicketsAppendsToFile() throws IOException {
+        String today = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
+        File dailyFile = new File(TEST_TICKETS_DIR + "/" + today + ".json");
+        if (dailyFile.exists()) {
+            dailyFile.delete();
+        }
+
+        try (java.io.FileWriter writer = new java.io.FileWriter(dailyFile)) {
+            writer.write("[{\"id\":1}]");
+        }
+
+        Ticket t = new Ticket(2);
+        repository.save(t);
+        repository.moveToClosed(2);
+        repository.persistClosedTickets();
+
+        java.util.List<Ticket> tickets = mapper.readValue(dailyFile,
+                new com.fasterxml.jackson.core.type.TypeReference<java.util.List<Ticket>>() {
+                });
+        assertEquals(2, tickets.size(), "Should contain 2 tickets");
+        assertEquals(1, tickets.get(0).getId());
+        assertEquals(2, tickets.get(1).getId());
+    }
 }

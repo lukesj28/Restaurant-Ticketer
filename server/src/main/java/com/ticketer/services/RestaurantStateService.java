@@ -142,15 +142,12 @@ public class RestaurantStateService {
                     } else {
                         setClosedState();
                         scheduleNextDayCheck();
-                        if (ticketService.hasActiveTickets()) {
-                            closingExecutor.execute(this::runClosingSequence);
-                        }
                     }
                 }
             }
 
         } catch (DateTimeParseException e) {
-            logger.error("Error parsing time settings: {}", e.getMessage());
+            logger.error("Error parsing time settings", e);
             setClosedState();
             scheduleNextDayCheck();
         }

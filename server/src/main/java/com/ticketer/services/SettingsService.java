@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class SettingsService {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SettingsService.class);
+
     private final SettingsRepository settingsRepository;
     private Settings currentSettings;
 
@@ -28,8 +30,6 @@ public class SettingsService {
 
     public Settings getSettings() {
         if (currentSettings == null) {
-            // Should not happen if repo handles missing file correctly,
-            // but just in case of race condition or null return
             throw new EntityNotFoundException("Settings not found");
         }
         return currentSettings;
@@ -71,6 +71,7 @@ public class SettingsService {
     }
 
     public void setTax(double tax) {
+        logger.info("Setting tax to {}", tax);
         if (tax < 0) {
             throw new ValidationException("Tax cannot be negative");
         }
@@ -81,6 +82,7 @@ public class SettingsService {
     }
 
     public void setOpeningHours(String day, String hours) {
+        logger.info("Setting opening hours for {}: {}", day, hours);
         day = day.toLowerCase();
         Settings settings = getSettings();
         java.util.Map<String, String> currentHours = settings.getHours();

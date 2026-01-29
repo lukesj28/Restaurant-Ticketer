@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class MenuService {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MenuService.class);
+
     private final MenuRepository menuRepository;
     private Menu currentMenu;
 
@@ -71,6 +73,7 @@ public class MenuService {
     }
 
     public void addItem(String category, String name, int price, Map<String, Integer> sides) {
+        logger.info("Adding item {} to category {} with price {}", name, category, price);
         category = category.toLowerCase();
         Map<String, List<MenuItem>> categories = currentMenu.getCategories();
 
@@ -96,24 +99,28 @@ public class MenuService {
     }
 
     public void editItemPrice(String itemName, int newPrice) {
+        logger.info("Editing price for item {} to {}", itemName, newPrice);
         MenuItem item = getItem(itemName);
         item.basePrice = newPrice;
         menuRepository.saveMenu(currentMenu);
     }
 
     public void editItemAvailability(String itemName, boolean available) {
+        logger.info("Setting availability for item {} to {}", itemName, available);
         MenuItem item = getItem(itemName);
         item.available = available;
         menuRepository.saveMenu(currentMenu);
     }
 
     public void renameItem(String oldName, String newName) {
+        logger.info("Renaming item {} to {}", oldName, newName);
         MenuItem item = getItem(oldName);
         item.name = newName;
         menuRepository.saveMenu(currentMenu);
     }
 
     public void removeItem(String itemName) {
+        logger.info("Removing item {}", itemName);
         String category = getCategoryOfItem(itemName);
         List<MenuItem> items = currentMenu.getCategory(category);
         items.removeIf(i -> i.name.equals(itemName));
@@ -121,6 +128,7 @@ public class MenuService {
     }
 
     public void renameCategory(String oldCategory, String newCategory) {
+        logger.info("Renaming category {} to {}", oldCategory, newCategory);
         oldCategory = oldCategory.toLowerCase();
         newCategory = newCategory.toLowerCase();
         Map<String, List<MenuItem>> categories = currentMenu.getCategories();
@@ -139,6 +147,7 @@ public class MenuService {
     }
 
     public void changeCategory(String itemName, String newCategory) {
+        logger.info("Changing category for item {} to {}", itemName, newCategory);
         String oldCategory = getCategoryOfItem(itemName);
         newCategory = newCategory.toLowerCase();
 
@@ -162,6 +171,7 @@ public class MenuService {
     }
 
     public void updateSide(String itemName, String sideName, int newPrice) {
+        logger.info("Updating side {} for item {} to {}", sideName, itemName, newPrice);
         MenuItem item = getItem(itemName);
         if (item.sideOptions == null) {
             item.sideOptions = new java.util.HashMap<>();

@@ -17,6 +17,8 @@ import com.ticketer.services.MenuService;
 @RequestMapping("/api/menu")
 public class MenuController {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MenuController.class);
+
     private final MenuService menuService;
 
     @Autowired
@@ -26,6 +28,7 @@ public class MenuController {
 
     @PostMapping("/refresh")
     public ApiResponse<List<String>> refreshMenu() {
+        logger.info("Received request to refresh menu");
         menuService.refreshMenu();
         return ApiResponse.success(java.util.Collections.emptyList());
     }
@@ -71,6 +74,7 @@ public class MenuController {
 
     @PostMapping("/items")
     public ApiResponse<ItemDto> addItem(@RequestBody Requests.ItemCreateRequest request) {
+        logger.info("Received request to add item: {} to category: {}", request.name(), request.category());
         menuService.addItem(request.category(), request.name(), request.price(), request.sides());
         MenuItem item = menuService.getItem(request.name());
         return ApiResponse.success(DtoMapper.toItemDto(item));
@@ -102,6 +106,7 @@ public class MenuController {
 
     @DeleteMapping("/items/{itemName}")
     public ApiResponse<List<String>> removeItem(@PathVariable String itemName) {
+        logger.info("Received request to remove item: {}", itemName);
         menuService.removeItem(itemName);
         return ApiResponse.success(java.util.Collections.emptyList());
     }

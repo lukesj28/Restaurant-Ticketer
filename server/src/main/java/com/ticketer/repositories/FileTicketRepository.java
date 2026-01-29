@@ -134,6 +134,7 @@ public class FileTicketRepository implements TicketRepository {
                 file.delete();
             }
         }
+        logger.info("Deleted all tickets and recovery file");
     }
 
     @Override
@@ -150,8 +151,25 @@ public class FileTicketRepository implements TicketRepository {
         }
 
         synchronized (fileLock) {
+            List<Ticket> allTickets = new java.util.ArrayList<>();
+            File file = new File(filename);
+
+            if (file.exists()) {
+                try {
+                    List<Ticket> existingTickets = objectMapper.readValue(file,
+                            new com.fasterxml.jackson.core.type.TypeReference<List<Ticket>>() {
+                            });
+                    allTickets.addAll(existingTickets);
+                } catch (IOException e) {
+                    logger.warn("Failed to read existing tickets from file {}, overwriting.", filename, e);
+                }
+            }
+
+            allTickets.addAll(closedTickets);
+
             try (FileWriter writer = new FileWriter(filename)) {
-                objectMapper.writeValue(writer, closedTickets);
+                objectMapper.writeValue(writer, allTickets);
+                logger.info("Persisted {} closed tickets to {} (merged with existing)", allTickets.size(), filename);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to serialize closed tickets", e);
             }
@@ -215,7 +233,7 @@ public class FileTicketRepository implements TicketRepository {
                         .writeValueAsString(entry);
                 writer.write(json + "\n");
             } catch (IOException e) {
-                logger.error("Failed to append recovery state: {}", e.getMessage());
+                logger.error("Failed to append recovery state", e);
             }
         }
     }
@@ -237,11 +255,11 @@ public class FileTicketRepository implements TicketRepository {
                         LogEntry entry = objectMapper.readValue(line, LogEntry.class);
                         replayLogEntry(entry);
                     } catch (Exception e) {
-                        logger.warn("Skipping malformed or legacy log line: {}", line);
+                        logger.warn("Skipping malformed or legacy log line: " + line, e);
                     }
                 }
             } catch (IOException e) {
-                logger.error("Failed to load recovery state: {}", e.getMessage());
+                logger.error("Failed to load recovery state", e);
             }
         }
     }

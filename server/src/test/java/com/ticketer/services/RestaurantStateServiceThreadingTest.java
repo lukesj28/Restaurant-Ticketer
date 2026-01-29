@@ -26,6 +26,8 @@ public class RestaurantStateServiceThreadingTest {
         Clock fixedClock = Clock.fixed(Instant.parse("2023-01-02T18:00:00Z"), ZoneId.of("UTC"));
 
         RestaurantStateService service = new RestaurantStateService(settingsService, ticketService, fixedClock);
+        settingsService.setHours("09:00 - 19:00");
+        service.checkAndScheduleState();
         settingsService.setHours("09:00 - 17:00");
 
         long start = System.currentTimeMillis();

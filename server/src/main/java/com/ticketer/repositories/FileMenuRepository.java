@@ -24,6 +24,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class FileMenuRepository implements MenuRepository {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FileMenuRepository.class);
+
     private final String filePath;
     private final ObjectMapper objectMapper;
 
@@ -42,6 +44,7 @@ public class FileMenuRepository implements MenuRepository {
     public Menu getMenu() {
         File file = new File(filePath);
         if (!file.exists()) {
+            logger.warn("Menu file not found at {}, returning empty menu", filePath);
             return new Menu(new HashMap<>());
         }
 
@@ -51,37 +54,38 @@ public class FileMenuRepository implements MenuRepository {
                 return new Menu(new HashMap<>());
             }
 
-            Map<String, java.util.List<com.ticketer.models.MenuItem>> categories = new HashMap<>();
-            java.util.Iterator<Map.Entry<String, com.fasterxml.jackson.databind.JsonNode>> fields = root.fields();
+            Map<String, List<MenuItem>> categories = new HashMap<>();
+            Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
 
             while (fields.hasNext()) {
-                Map.Entry<String, com.fasterxml.jackson.databind.JsonNode> categoryEntry = fields.next();
+                Map.Entry<String, JsonNode> categoryEntry = fields.next();
                 String categoryName = categoryEntry.getKey();
-                com.fasterxml.jackson.databind.JsonNode categoryNode = categoryEntry.getValue();
+                JsonNode categoryNode = categoryEntry.getValue();
 
-                java.util.List<com.ticketer.models.MenuItem> items = new java.util.ArrayList<>();
-                java.util.Iterator<Map.Entry<String, com.fasterxml.jackson.databind.JsonNode>> itemFields = categoryNode
+                List<MenuItem> items = new ArrayList<>();
+                Iterator<Map.Entry<String, JsonNode>> itemFields = categoryNode
                         .fields();
 
                 while (itemFields.hasNext()) {
-                    Map.Entry<String, com.fasterxml.jackson.databind.JsonNode> itemEntry = itemFields.next();
+                    Map.Entry<String, JsonNode> itemEntry = itemFields.next();
                     String itemName = itemEntry.getKey();
-                    com.fasterxml.jackson.databind.JsonNode itemNode = itemEntry.getValue();
+                    JsonNode itemNode = itemEntry.getValue();
 
                     double priceDouble = itemNode.has("price") ? itemNode.get("price").asDouble() : 0.0;
                     boolean available = itemNode.has("available") && itemNode.get("available").asBoolean();
 
-                    Map<String, com.ticketer.models.Side> sides = null;
+                    Map<String, Side> sides = null;
                     if (itemNode.has("sides")) {
                         sides = objectMapper.convertValue(itemNode.get("sides"),
-                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, com.ticketer.models.Side>>() {
+                                new TypeReference<Map<String, Side>>() {
                                 });
                     }
-                    items.add(new com.ticketer.models.MenuItem(itemName, (int) Math.round(priceDouble * 100), available,
+                    items.add(new MenuItem(itemName, (int) Math.round(priceDouble * 100), available,
                             sides));
                 }
                 categories.put(categoryName, items);
             }
+            logger.info("Successfully loaded menu from {}", filePath);
             return new Menu(categories);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load menu from " + filePath, e);
@@ -91,14 +95,14 @@ public class FileMenuRepository implements MenuRepository {
     @Override
     public void saveMenu(Menu menu) {
         try (FileWriter writer = new FileWriter(filePath)) {
-            com.fasterxml.jackson.databind.node.ObjectNode root = objectMapper.createObjectNode();
+            ObjectNode root = objectMapper.createObjectNode();
 
-            for (Map.Entry<String, java.util.List<com.ticketer.models.MenuItem>> categoryEntry : menu.getCategories()
+            for (Map.Entry<String, List<MenuItem>> categoryEntry : menu.getCategories()
                     .entrySet()) {
-                com.fasterxml.jackson.databind.node.ObjectNode categoryNode = objectMapper.createObjectNode();
+                ObjectNode categoryNode = objectMapper.createObjectNode();
 
-                for (com.ticketer.models.MenuItem item : categoryEntry.getValue()) {
-                    com.fasterxml.jackson.databind.node.ObjectNode itemNode = objectMapper.createObjectNode();
+                for (MenuItem item : categoryEntry.getValue()) {
+                    ObjectNode itemNode = objectMapper.createObjectNode();
                     itemNode.put("price", item.basePrice / 100.0);
                     itemNode.put("available", item.available);
 
@@ -110,6 +114,7 @@ public class FileMenuRepository implements MenuRepository {
                 root.set(categoryEntry.getKey(), categoryNode);
             }
             objectMapper.writeValue(writer, root);
+            logger.info("Successfully saved menu to {}", filePath);
         } catch (IOException e) {
             throw new RuntimeException("Failed to save menu to " + filePath, e);
         }

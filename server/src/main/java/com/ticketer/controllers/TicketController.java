@@ -20,6 +20,8 @@ import com.ticketer.services.TicketService;
 @RequestMapping("/api/tickets")
 public class TicketController {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TicketController.class);
+
     private final TicketService ticketService;
     private final MenuService menuService;
     private final SettingsService settingsService;
@@ -33,6 +35,7 @@ public class TicketController {
 
     @PostMapping("")
     public ApiResponse<TicketDto> createTicket(@RequestParam("tableNumber") String tableNumber) {
+        logger.info("Received request to create ticket for table: {}", tableNumber);
         Ticket ticket = ticketService.createTicket(tableNumber);
         return ApiResponse.success(DtoMapper.toTicketDto(ticket));
     }
@@ -47,6 +50,7 @@ public class TicketController {
 
     @PostMapping("/{ticketId}/orders")
     public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId) {
+        logger.info("Received request to add order to ticket: {}", ticketId);
         ticketService.addOrderToTicket(ticketId, new Order(settingsService.getTax()));
         return getTicket(ticketId);
     }
@@ -62,6 +66,7 @@ public class TicketController {
     public ApiResponse<TicketDto> addItemToOrder(@PathVariable("ticketId") int ticketId,
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.AddItemRequest request) {
+        logger.info("Received request to add item {} to ticket {} order {}", request.name(), ticketId, orderIndex);
         MenuItem menuItem = menuService.getItem(request.name());
         if (menuItem == null) {
             throw new com.ticketer.exceptions.EntityNotFoundException("Item not found: " + request.name());
@@ -109,6 +114,7 @@ public class TicketController {
 
     @PutMapping("/{ticketId}/completed")
     public ApiResponse<TicketDto> moveToCompleted(@PathVariable("ticketId") int ticketId) {
+        logger.info("Received request to move ticket {} to completed", ticketId);
         ticketService.moveToCompleted(ticketId);
         Ticket t = ticketService.getCompletedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
                 .orElse(null);
@@ -117,6 +123,7 @@ public class TicketController {
 
     @PutMapping("/{ticketId}/closed")
     public ApiResponse<TicketDto> moveToClosed(@PathVariable("ticketId") int ticketId) {
+        logger.info("Received request to move ticket {} to closed", ticketId);
         ticketService.moveToClosed(ticketId);
         Ticket t = ticketService.getClosedTickets().stream().filter(x -> x.getId() == ticketId).findFirst()
                 .orElse(null);
@@ -125,12 +132,14 @@ public class TicketController {
 
     @PutMapping("/{ticketId}/active")
     public ApiResponse<TicketDto> moveToActive(@PathVariable("ticketId") int ticketId) {
+        logger.info("Received request to move ticket {} to active", ticketId);
         ticketService.moveToActive(ticketId);
         return getTicket(ticketId);
     }
 
     @DeleteMapping("/{ticketId}")
     public ApiResponse<List<String>> removeTicket(@PathVariable("ticketId") int ticketId) {
+        logger.info("Received request to remove ticket: {}", ticketId);
         ticketService.removeTicket(ticketId);
         return ApiResponse.success(java.util.Collections.emptyList());
     }

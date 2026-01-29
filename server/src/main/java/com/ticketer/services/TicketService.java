@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class TicketService {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TicketService.class);
+
     private final TicketRepository ticketRepository;
     private int ticketIdCounter = 0;
 
@@ -37,6 +39,7 @@ public class TicketService {
     }
 
     public Ticket createTicket(String tableNumber) {
+        logger.info("Creating ticket for table: {}", tableNumber);
         int id = generateTicketId();
         Ticket ticket = new Ticket(id);
         ticket.setTableNumber(tableNumber);
@@ -56,6 +59,7 @@ public class TicketService {
     }
 
     public void addOrderToTicket(int ticketId, Order order) {
+        logger.info("Adding order to ticket: {}", ticketId);
         Ticket ticket = ticketRepository.findById(ticketId).orElse(null);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
@@ -74,6 +78,7 @@ public class TicketService {
     }
 
     public void addItemToOrder(int ticketId, int orderIndex, OrderItem item) {
+        logger.info("Adding item {} to order {} on ticket {}", item.getName(), orderIndex, ticketId);
         Ticket ticket = getTicket(ticketId);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket " + ticketId + " not found");
@@ -86,6 +91,7 @@ public class TicketService {
     }
 
     public void removeItemFromOrder(int ticketId, int orderIndex, OrderItem item) {
+        logger.info("Removing item {} from order {} on ticket {}", item.getName(), orderIndex, ticketId);
         Ticket ticket = getTicket(ticketId);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket " + ticketId + " not found");
@@ -100,6 +106,7 @@ public class TicketService {
     }
 
     public void removeOrder(int ticketId, int orderIndex) {
+        logger.info("Removing order {} from ticket {}", orderIndex, ticketId);
         Ticket ticket = getTicket(ticketId);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket " + ticketId + " not found");
@@ -113,6 +120,7 @@ public class TicketService {
     }
 
     public void moveToCompleted(int ticketId) {
+        logger.info("Moving ticket {} to completed", ticketId);
         if (ticketRepository.findById(ticketId).isEmpty()) {
             throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
         }
@@ -120,6 +128,7 @@ public class TicketService {
     }
 
     public void moveToClosed(int ticketId) {
+        logger.info("Moving ticket {} to closed", ticketId);
         if (ticketRepository.findById(ticketId).isEmpty()) {
             throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
         }
@@ -127,6 +136,7 @@ public class TicketService {
     }
 
     public void moveToActive(int ticketId) {
+        logger.info("Moving ticket {} to active", ticketId);
         if (ticketRepository.findById(ticketId).isEmpty()) {
             throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
         }

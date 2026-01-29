@@ -6,7 +6,6 @@ import com.ticketer.services.SettingsService;
 import com.ticketer.services.TicketService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -32,9 +31,6 @@ public class ClosingFlowIntegrationTest {
 
     @Autowired
     private TicketService ticketService;
-
-    @Autowired
-    private SettingsService settingsService;
 
     private static MutableClock clock = new MutableClock(Instant.parse("2023-01-01T20:00:00Z"), ZoneId.of("UTC"));
 
@@ -105,8 +101,5 @@ public class ClosingFlowIntegrationTest {
             this.instant = instant;
         }
 
-        public void advance(Duration duration) {
-            this.instant = this.instant.plus(duration);
-        }
     }
 }

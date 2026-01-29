@@ -15,6 +15,8 @@ import com.ticketer.services.SettingsService;
 @RequestMapping("/api/settings")
 public class SettingsController {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SettingsController.class);
+
     private final SettingsService settingsService;
     private final RestaurantStateService restaurantStateService;
 
@@ -56,6 +58,7 @@ public class SettingsController {
 
     @PutMapping("/tax")
     public ApiResponse<SettingsDto> setTax(@RequestBody Requests.TaxUpdateRequest request) {
+        logger.info("Received request to update tax to: {}", request.tax());
         settingsService.setTax(request.tax());
         return ApiResponse.success(DtoMapper.toSettingsDto(settingsService.getSettings()));
     }
@@ -63,6 +66,7 @@ public class SettingsController {
     @PutMapping("/hours/{day}")
     public ApiResponse<SettingsDto> setOpeningHours(@PathVariable("day") String day,
             @RequestBody Requests.OpeningHoursUpdateRequest request) {
+        logger.info("Received request to update opening hours for {}: {}", day, request.hours());
         settingsService.setOpeningHours(day, request.hours());
         restaurantStateService.checkAndScheduleState();
         return ApiResponse.success(DtoMapper.toSettingsDto(settingsService.getSettings()));

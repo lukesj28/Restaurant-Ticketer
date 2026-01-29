@@ -9,6 +9,8 @@ import com.ticketer.services.RestaurantStateService;
 @RequestMapping("/api")
 public class SystemController {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SystemController.class);
+
     private final RestaurantStateService restaurantStateService;
 
     @Autowired
@@ -23,12 +25,14 @@ public class SystemController {
 
     @PostMapping("/open")
     public com.ticketer.api.ApiResponse<Void> open() {
+        logger.info("Received request to force open restaurant");
         restaurantStateService.forceOpen();
         return com.ticketer.api.ApiResponse.success(null);
     }
 
     @PostMapping("/shutdown")
     public com.ticketer.api.ApiResponse<Void> shutdown() {
+        logger.info("Received request to force shutdown restaurant");
         restaurantStateService.forceClose();
         return com.ticketer.api.ApiResponse.success(null);
     }
