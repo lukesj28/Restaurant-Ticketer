@@ -42,7 +42,7 @@ public class RestaurantStateService {
         this.ticketService = ticketService;
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
         this.closingExecutor = Executors.newSingleThreadExecutor();
-        this.clock = clock;
+        this.clock = clock.withZone(java.time.ZoneId.systemDefault());
         this.isOpen = false;
         this.forcedOpen = false;
         this.forcedClosedDate = null;
@@ -99,7 +99,11 @@ public class RestaurantStateService {
         String openTimeStr = settingsService.getOpenTime(dayName);
         String closeTimeStr = settingsService.getCloseTime(dayName);
 
+        logger.info("Scheduler check: Today is {} ({}), Current Time: {}", today, dayName, LocalTime.now(clock));
+        logger.info("Configured Hours: Open={}, Close={}", openTimeStr, closeTimeStr);
+
         if (openTimeStr == null || closeTimeStr == null) {
+            logger.info("No hours configured for today. Determining state based on force/default.");
             if (forcedOpen) {
                 setOpenState();
                 scheduleNextDayCheck();
@@ -117,10 +121,15 @@ public class RestaurantStateService {
 
             if (now.isBefore(openTime)) {
                 if (forcedOpen) {
+                    logger.info(
+                            "Current time {} is before open time {}. Forced OPEN. Scheduling next check at open time.",
+                            now, openTime);
                     setOpenState();
                     long delay = java.time.Duration.between(now, openTime).toMillis();
                     scheduler.schedule(this::checkAndScheduleState, delay, TimeUnit.MILLISECONDS);
                 } else {
+                    logger.info("Current time {} is before open time {}. CLOSED. Scheduling opening at {}.", now,
+                            openTime, openTime);
                     setClosedState();
                     long delay = java.time.Duration.between(now, openTime).toMillis();
                     scheduler.schedule(this::handleOpening, delay, TimeUnit.MILLISECONDS);
@@ -129,17 +138,24 @@ public class RestaurantStateService {
                 if (forcedOpen) {
                     forcedOpen = false;
                 }
+                logger.info("Current time {} must be open ({} - {}). OPEN. Scheduling closing at {}.", now, openTime,
+                        closeTime, closeTime);
                 setOpenState();
                 long delay = java.time.Duration.between(now, closeTime).toMillis();
                 scheduler.schedule(this::handleClosing, delay, TimeUnit.MILLISECONDS);
             } else {
                 if (forcedOpen) {
+                    logger.info("Current time {} is after close time {}. Forced OPEN. Scheduling next day check.", now,
+                            closeTime);
                     setOpenState();
                     scheduleNextDayCheck();
                 } else {
                     if (isOpen) {
+                        logger.info("Current time {} is after close time {}. Closing now.", now, closeTime);
                         handleClosing();
                     } else {
+                        logger.info("Current time {} is after close time {}. CLOSED. Scheduling next day check.", now,
+                                closeTime);
                         setClosedState();
                         scheduleNextDayCheck();
                     }
