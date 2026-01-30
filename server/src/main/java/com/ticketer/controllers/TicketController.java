@@ -33,6 +33,13 @@ public class TicketController {
         this.settingsService = settingsService;
     }
 
+    @PostMapping("/counter/reset")
+    public ApiResponse<String> resetTicketCounter() {
+        logger.info("Received request to reset ticket counter");
+        ticketService.clearAllTickets();
+        return ApiResponse.success("Ticket counter reset and all tickets cleared.");
+    }
+
     @PostMapping("")
     public ApiResponse<TicketDto> createTicket(@RequestParam("tableNumber") String tableNumber) {
         logger.info("Received request to create ticket for table: {}", tableNumber);

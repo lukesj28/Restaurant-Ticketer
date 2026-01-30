@@ -8,6 +8,8 @@ import com.ticketer.exceptions.EntityNotFoundException;
 
 import java.util.List;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,12 +19,19 @@ public class TicketService {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TicketService.class);
 
     private final TicketRepository ticketRepository;
+    private final Clock clock;
     private int ticketIdCounter = 0;
+    private LocalDate lastTicketDate;
 
     @Autowired
-    public TicketService(TicketRepository ticketRepository) {
+    public TicketService(TicketRepository ticketRepository, Clock clock) {
         this.ticketRepository = ticketRepository;
+        this.clock = clock;
         initializeTicketCounter();
+    }
+
+    public TicketService(TicketRepository ticketRepository) {
+        this(ticketRepository, Clock.systemDefaultZone());
     }
 
     private void initializeTicketCounter() {
@@ -35,10 +44,34 @@ public class TicketService {
             if (t.getId() > maxId)
                 maxId = t.getId();
         }
-        this.ticketIdCounter = maxId;
+        for (Ticket t : ticketRepository.findAllClosed()) {
+            if (t.getId() > maxId)
+                maxId = t.getId();
+        }
+
+        Ticket maxTicket = getTicket(maxId);
+        if (maxTicket != null) {
+            LocalDate ticketDate = LocalDate.ofInstant(maxTicket.getCreatedAt(), clock.getZone());
+            LocalDate today = LocalDate.now(clock);
+
+            if (!ticketDate.equals(today)) {
+                logger.info("Tickets from previous day (last ticket date: {}). Resetting counter and clearing tickets.",
+                        ticketDate);
+                serializeClosedTickets();
+                clearAllTickets();
+                this.lastTicketDate = today;
+            } else {
+                this.ticketIdCounter = maxId;
+                this.lastTicketDate = today;
+            }
+        } else {
+            this.ticketIdCounter = 0;
+            this.lastTicketDate = LocalDate.now(clock);
+        }
     }
 
     public Ticket createTicket(String tableNumber) {
+        checkAndResetDailyCounter();
         logger.info("Creating ticket for table: {}", tableNumber);
         int id = generateTicketId();
         Ticket ticket = new Ticket(id);
@@ -48,6 +81,18 @@ public class TicketService {
 
     private synchronized int generateTicketId() {
         return ++ticketIdCounter;
+    }
+
+    private synchronized void checkAndResetDailyCounter() {
+        LocalDate today = LocalDate.now(clock);
+        if (lastTicketDate != null && !lastTicketDate.equals(today)) {
+            logger.info("New day detected (was: {}, now: {}). Resetting tickets.", lastTicketDate, today);
+            serializeClosedTickets();
+            clearAllTickets();
+            this.lastTicketDate = today;
+        } else if (lastTicketDate == null) {
+            this.lastTicketDate = today;
+        }
     }
 
     public void resetTicketCounter() {

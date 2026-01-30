@@ -231,7 +231,6 @@ public class RestaurantStateService {
         logger.info("Finalizing closing sequence. Moving remaining tickets to closed.");
         ticketService.moveAllToClosed();
         ticketService.serializeClosedTickets();
-        ticketService.clearAllTickets();
         logger.info("Closing sequence completed.");
     }
 }
