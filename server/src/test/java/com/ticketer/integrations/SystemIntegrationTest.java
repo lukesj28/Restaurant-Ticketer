@@ -17,7 +17,7 @@ import static org.hamcrest.Matchers.*;
 @SpringBootTest
 @AutoConfigureMockMvc
 @SuppressWarnings("null")
-public class SystemFlowIntegrationTest {
+public class SystemIntegrationTest {
 
     @TempDir
     static Path tempDir;
@@ -25,6 +25,7 @@ public class SystemFlowIntegrationTest {
     @BeforeAll
     static void setUp() {
         System.setProperty("tickets.dir", tempDir.resolve("tickets").toAbsolutePath().toString());
+        System.setProperty("recovery.file", tempDir.resolve("recovery.json").toAbsolutePath().toString());
         System.setProperty("menu.file", tempDir.resolve("menu.json").toAbsolutePath().toString());
         System.setProperty("settings.file", tempDir.resolve("settings.json").toAbsolutePath().toString());
     }

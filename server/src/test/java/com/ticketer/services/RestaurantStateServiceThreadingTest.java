@@ -113,6 +113,9 @@ public class RestaurantStateServiceThreadingTest {
 
                 public void moveToActive(int id) {
                 }
+
+                public void deleteRecoveryFile() {
+                }
             });
         }
 

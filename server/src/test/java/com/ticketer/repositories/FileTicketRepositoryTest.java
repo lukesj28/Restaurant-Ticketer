@@ -132,7 +132,7 @@ public class FileTicketRepositoryTest {
 
     @Test
     public void testPersistClosedTicketsAppendsToFile() throws IOException {
-        String today = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
+        String today = java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toString();
         File dailyFile = new File(TEST_TICKETS_DIR + "/" + today + ".json");
         if (dailyFile.exists()) {
             dailyFile.delete();
@@ -161,7 +161,7 @@ public class FileTicketRepositoryTest {
 
     @Test
     public void testDailyTallyCalculation() throws IOException {
-        String today = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
+        String today = java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toString();
         File dailyFile = new File(TEST_TICKETS_DIR + "/" + today + ".json");
         if (dailyFile.exists()) {
             dailyFile.delete();
@@ -197,5 +197,18 @@ public class FileTicketRepositoryTest {
 
         assertEquals(27.00, resultLog.getSubtotal(), 0.001);
         assertTrue(resultLog.getTotal() >= 27.00);
+    }
+
+    @Test
+    public void testDeleteAll() throws IOException {
+        Ticket t = new Ticket(1);
+        repository.save(t);
+        File recoveryFile = new File(System.getProperty("recovery.file"));
+        assertTrue(recoveryFile.exists(), "Recovery file should exist");
+
+        repository.deleteAll();
+
+        assertFalse(recoveryFile.exists(), "Recovery file should be deleted");
+        assertTrue(repository.findAllActive().isEmpty());
     }
 }

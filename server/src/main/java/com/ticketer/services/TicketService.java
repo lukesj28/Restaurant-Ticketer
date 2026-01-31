@@ -201,10 +201,26 @@ public class TicketService {
             ticketRepository.moveToClosed(t.getId());
         }
 
+        moveCompletedToClosed();
+    }
+
+    public void moveCompletedToClosed() {
         List<Ticket> completed = new java.util.ArrayList<>(ticketRepository.findAllCompleted());
         for (Ticket t : completed) {
             ticketRepository.moveToClosed(t.getId());
         }
+    }
+
+    public void discardActiveTickets() {
+        logger.info("Discarding all active tickets.");
+        List<Ticket> active = new java.util.ArrayList<>(ticketRepository.findAllActive());
+        for (Ticket t : active) {
+            ticketRepository.deleteById(t.getId());
+        }
+    }
+
+    public void deleteRecoveryFile() {
+        ticketRepository.deleteRecoveryFile();
     }
 
     public void serializeClosedTickets() {

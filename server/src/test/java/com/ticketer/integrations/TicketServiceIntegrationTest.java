@@ -17,7 +17,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TicketFlowIntegrationTest {
+public class TicketServiceIntegrationTest {
 
     private TicketService service;
 
@@ -29,6 +29,7 @@ public class TicketFlowIntegrationTest {
     @BeforeEach
     public void setUp() throws IOException {
         System.setProperty("tickets.dir", tempDir.toAbsolutePath().toString());
+        System.setProperty("recovery.file", tempDir.resolve("recovery.json").toAbsolutePath().toString());
 
         mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
@@ -43,6 +44,7 @@ public class TicketFlowIntegrationTest {
     @org.junit.jupiter.api.AfterEach
     public void tearDown() {
         System.clearProperty("tickets.dir");
+        System.clearProperty("recovery.file");
     }
 
     @Test
@@ -205,7 +207,7 @@ public class TicketFlowIntegrationTest {
 
         service.serializeClosedTickets();
 
-        String date = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
+        String date = java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toString();
         File file = tempDir.resolve(date + ".json").toFile();
 
         assertTrue(file.exists(), "Ticket file should exist at " + file.getAbsolutePath());

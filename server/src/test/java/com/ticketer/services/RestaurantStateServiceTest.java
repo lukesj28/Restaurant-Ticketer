@@ -163,8 +163,10 @@ public class RestaurantStateServiceTest {
         thread.interrupt();
         thread.join(1000);
 
-        verify(ticketService, atLeastOnce()).moveAllToClosed();
+        verify(ticketService, atLeastOnce()).discardActiveTickets();
+        verify(ticketService, atLeastOnce()).moveCompletedToClosed();
         verify(ticketService, atLeastOnce()).serializeClosedTickets();
+        verify(ticketService, atLeastOnce()).deleteRecoveryFile();
     }
 
     @Test
@@ -176,7 +178,9 @@ public class RestaurantStateServiceTest {
         method.setAccessible(true);
         method.invoke(restaurantStateService);
 
-        verify(ticketService).moveAllToClosed();
+        verify(ticketService).discardActiveTickets();
+        verify(ticketService).moveCompletedToClosed();
         verify(ticketService).serializeClosedTickets();
+        verify(ticketService).deleteRecoveryFile();
     }
 }

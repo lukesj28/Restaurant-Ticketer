@@ -34,13 +34,24 @@ public class FileTicketRepository implements TicketRepository {
     private final Object fileLock = new Object();
 
     @Autowired
-    public FileTicketRepository(ObjectMapper objectMapper, Clock clock) {
-        this.ticketsDir = System.getProperty("tickets.dir", "data/tickets");
-        this.recoveryFilePath = System.getProperty("recovery.file", "data/recovery.json");
+    public FileTicketRepository(
+            @org.springframework.beans.factory.annotation.Value("${tickets.dir:data/tickets}") String ticketsDir,
+            @org.springframework.beans.factory.annotation.Value("${recovery.file:data/recovery.json}") String recoveryFilePath,
+            ObjectMapper objectMapper,
+            Clock clock) {
+        this.ticketsDir = ticketsDir;
+        this.recoveryFilePath = recoveryFilePath;
         this.objectMapper = objectMapper;
         this.clock = clock;
 
         loadStateFromRecoveryFile();
+    }
+
+    public FileTicketRepository(ObjectMapper objectMapper, Clock clock) {
+        this(System.getProperty("tickets.dir", "data/tickets"),
+                System.getProperty("recovery.file", "data/recovery.json"),
+                objectMapper,
+                clock);
     }
 
     public FileTicketRepository(ObjectMapper objectMapper) {
@@ -49,15 +60,6 @@ public class FileTicketRepository implements TicketRepository {
 
     public FileTicketRepository(String ticketsDir, String recoveryFilePath, ObjectMapper objectMapper) {
         this(ticketsDir, recoveryFilePath, objectMapper, Clock.systemUTC());
-    }
-
-    public FileTicketRepository(String ticketsDir, String recoveryFilePath, ObjectMapper objectMapper, Clock clock) {
-        this.ticketsDir = ticketsDir;
-        this.recoveryFilePath = recoveryFilePath;
-        this.objectMapper = objectMapper;
-        this.clock = clock;
-
-        loadStateFromRecoveryFile();
     }
 
     @Override
@@ -138,8 +140,22 @@ public class FileTicketRepository implements TicketRepository {
     }
 
     @Override
+    public void deleteRecoveryFile() {
+        synchronized (fileLock) {
+            File file = new File(recoveryFilePath);
+            if (file.exists()) {
+                if (file.delete()) {
+                    logger.info("Deleted recovery file: {}", recoveryFilePath);
+                } else {
+                    logger.warn("Failed to delete recovery file: {}", recoveryFilePath);
+                }
+            }
+        }
+    }
+
+    @Override
     public void persistClosedTickets() {
-        String date = LocalDate.now(clock).toString();
+        String date = LocalDate.now(clock.withZone(java.time.ZoneId.systemDefault())).toString();
         String filename = ticketsDir + "/" + date + ".json";
 
         File directory = new File(ticketsDir);

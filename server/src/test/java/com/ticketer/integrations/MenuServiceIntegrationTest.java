@@ -19,7 +19,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class MenuFlowIntegrationTest {
+public class MenuServiceIntegrationTest {
 
     private MenuService service;
 

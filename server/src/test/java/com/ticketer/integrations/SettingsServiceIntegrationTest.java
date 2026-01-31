@@ -15,7 +15,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class SettingsFlowIntegrationTest {
+public class SettingsServiceIntegrationTest {
 
     private SettingsService service;
 
