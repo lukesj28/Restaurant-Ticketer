@@ -98,9 +98,14 @@ public class TicketControllerTest {
                 MenuItem menuItem = new MenuItem("TestItem", 1000, true, sides);
                 when(menuService.getItem("TestItem")).thenReturn(menuItem);
 
+                when(menuService.createOrderItem("TestItem", "Fries"))
+                                .thenReturn(new OrderItem("TestItem", "Fries", 1200));
+
                 doAnswer(invocation -> {
                         OrderItem item = invocation.getArgument(2);
-                        ticket.getOrders().get(0).addItem(item);
+                        if (item != null) {
+                                ticket.getOrders().get(0).addItem(item);
+                        }
                         return null;
                 }).when(ticketService).addItemToOrder(eq(1), eq(0), any(OrderItem.class));
 
@@ -133,6 +138,9 @@ public class TicketControllerTest {
         @Test
         public void testOrderExceptions() throws Exception {
                 when(menuService.getItem("MissingItem")).thenReturn(null);
+                when(menuService.createOrderItem("MissingItem", null))
+                                .thenThrow(new com.ticketer.exceptions.EntityNotFoundException(
+                                                "Item not found: MissingItem"));
 
                 String json = "{\"name\":\"MissingItem\"}";
                 mockMvc.perform(post("/api/tickets/1/orders/0/items")

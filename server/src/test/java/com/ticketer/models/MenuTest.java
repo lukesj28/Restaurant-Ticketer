@@ -76,4 +76,13 @@ public class MenuTest {
         MenuItem fish = new MenuItem("Fish", 1000, true, sides);
         Menu.getItem(fish, "invalid_side");
     }
+
+    @Test
+    public void testGetItemWithSideIgnored() {
+        MenuItem burger = new MenuItem("Burger", 1000, true, null);
+        OrderItem result = Menu.getItem(burger, "Fries");
+        assertEquals("Burger", result.getName());
+        assertEquals(1000, result.getPrice());
+        assertNull(result.getSelectedSide());
+    }
 }

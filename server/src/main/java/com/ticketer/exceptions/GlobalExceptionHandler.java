@@ -22,6 +22,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(404).body(ApiResponse.error(e.getMessage()));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException e) {
+        logger.warn("IllegalArgumentException", e);
+        return ResponseEntity.status(400).body(ApiResponse.error(e.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception e) {
         logger.error("Unhandled exception occurred", e);

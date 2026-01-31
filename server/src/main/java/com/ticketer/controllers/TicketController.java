@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 import com.ticketer.api.ApiResponse;
 import com.ticketer.dtos.*;
-import com.ticketer.models.MenuItem;
 import com.ticketer.models.Order;
 import com.ticketer.models.OrderItem;
 import com.ticketer.models.Ticket;
@@ -83,18 +82,7 @@ public class TicketController {
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.AddItemRequest request) {
         logger.info("Received request to add item {} to ticket {} order {}", request.name(), ticketId, orderIndex);
-        MenuItem menuItem = menuService.getItem(request.name());
-        if (menuItem == null) {
-            throw new com.ticketer.exceptions.EntityNotFoundException("Item not found: " + request.name());
-        }
-        int price = menuItem.basePrice;
-        if (request.selectedSide() != null && menuItem.sideOptions != null) {
-            var side = menuItem.sideOptions.get(request.selectedSide());
-            if (side != null) {
-                price += side.price;
-            }
-        }
-        OrderItem item = new OrderItem(request.name(), request.selectedSide(), price);
+        OrderItem item = menuService.createOrderItem(request.name(), request.selectedSide());
         ticketService.addItemToOrder(ticketId, orderIndex, item);
         return getTicket(ticketId);
     }

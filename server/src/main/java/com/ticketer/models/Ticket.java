@@ -92,8 +92,11 @@ public class Ticket {
         java.util.Map<String, Integer> tally = new java.util.HashMap<>();
         for (Order order : orders) {
             for (OrderItem item : order.getItems()) {
-                tally.merge(item.getName(), 1, Integer::sum);
-                if (item.getSelectedSide() != null && !item.getSelectedSide().isEmpty()) {
+                if (!"none".equalsIgnoreCase(item.getName())) {
+                    tally.merge(item.getName(), 1, Integer::sum);
+                }
+                if (item.getSelectedSide() != null && !item.getSelectedSide().isEmpty()
+                        && !"none".equalsIgnoreCase(item.getSelectedSide())) {
                     tally.merge(item.getSelectedSide(), 1, Integer::sum);
                 }
             }

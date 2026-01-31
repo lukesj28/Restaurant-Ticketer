@@ -132,7 +132,7 @@ public class FileTicketRepositoryTest {
 
     @Test
     public void testPersistClosedTicketsAppendsToFile() throws IOException {
-        String today = java.time.LocalDate.now(java.time.Clock.systemDefaultZone()).toString();
+        String today = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
         File dailyFile = new File(TEST_TICKETS_DIR + "/" + today + ".json");
         if (dailyFile.exists()) {
             dailyFile.delete();
@@ -161,7 +161,7 @@ public class FileTicketRepositoryTest {
 
     @Test
     public void testDailyTallyCalculation() throws IOException {
-        String today = java.time.LocalDate.now(java.time.Clock.systemDefaultZone()).toString();
+        String today = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
         File dailyFile = new File(TEST_TICKETS_DIR + "/" + today + ".json");
         if (dailyFile.exists()) {
             dailyFile.delete();
