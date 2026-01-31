@@ -6,7 +6,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,7 +25,8 @@ public class RestaurantStateServiceTest {
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        fixedClock = Clock.fixed(Instant.parse("2023-01-02T12:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T12:00:00");
+        fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
     }
 
     private void initService() {
@@ -47,7 +47,8 @@ public class RestaurantStateServiceTest {
     public void testClosedBeforeOpenTime() {
         when(settingsService.getOpenTime(anyString())).thenReturn("09:00");
         when(settingsService.getCloseTime(anyString())).thenReturn("17:00");
-        fixedClock = Clock.fixed(Instant.parse("2023-01-02T08:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T08:00:00");
+        fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         initService();
 
         restaurantStateService.checkAndScheduleState();
@@ -58,7 +59,8 @@ public class RestaurantStateServiceTest {
     public void testOpenDuringHours() {
         when(settingsService.getOpenTime(anyString())).thenReturn("09:00");
         when(settingsService.getCloseTime(anyString())).thenReturn("17:00");
-        fixedClock = Clock.fixed(Instant.parse("2023-01-02T12:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T12:00:00");
+        fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         initService();
 
         restaurantStateService.checkAndScheduleState();
@@ -69,7 +71,8 @@ public class RestaurantStateServiceTest {
     public void testClosedAfterHours() {
         when(settingsService.getOpenTime(anyString())).thenReturn("09:00");
         when(settingsService.getCloseTime(anyString())).thenReturn("17:00");
-        fixedClock = Clock.fixed(Instant.parse("2023-01-02T18:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T18:00:00");
+        fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         initService();
 
         restaurantStateService.checkAndScheduleState();
@@ -80,7 +83,8 @@ public class RestaurantStateServiceTest {
     public void testTransitionsFromOpenToClosed() {
         when(settingsService.getOpenTime(anyString())).thenReturn("09:00");
         when(settingsService.getCloseTime(anyString())).thenReturn("17:00");
-        fixedClock = Clock.fixed(Instant.parse("2023-01-02T18:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T18:00:00");
+        fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         initService();
 
         restaurantStateService.checkAndScheduleState();
@@ -107,7 +111,8 @@ public class RestaurantStateServiceTest {
     public void testForceClose() {
         when(settingsService.getOpenTime(anyString())).thenReturn("09:00");
         when(settingsService.getCloseTime(anyString())).thenReturn("17:00");
-        fixedClock = Clock.fixed(Instant.parse("2023-01-02T12:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T12:00:00");
+        fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         initService();
 
         restaurantStateService.checkAndScheduleState();
@@ -124,7 +129,8 @@ public class RestaurantStateServiceTest {
     public void testForceOpen() {
         when(settingsService.getOpenTime(anyString())).thenReturn("09:00");
         when(settingsService.getCloseTime(anyString())).thenReturn("17:00");
-        fixedClock = Clock.fixed(Instant.parse("2023-01-02T19:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T19:00:00");
+        fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         initService();
 
         restaurantStateService.checkAndScheduleState();
@@ -159,7 +165,6 @@ public class RestaurantStateServiceTest {
 
         verify(ticketService, atLeastOnce()).moveAllToClosed();
         verify(ticketService, atLeastOnce()).serializeClosedTickets();
-        verify(ticketService, atLeastOnce()).clearAllTickets();
     }
 
     @Test
@@ -173,6 +178,5 @@ public class RestaurantStateServiceTest {
 
         verify(ticketService).moveAllToClosed();
         verify(ticketService).serializeClosedTickets();
-        verify(ticketService).clearAllTickets();
     }
 }

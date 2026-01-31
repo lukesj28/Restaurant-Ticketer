@@ -7,7 +7,6 @@ import com.ticketer.models.Ticket;
 import org.junit.Test;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
@@ -23,7 +22,8 @@ public class RestaurantStateServiceThreadingTest {
     public void testClosingDoesNotBlock() throws InterruptedException {
         MockSettingsService settingsService = new MockSettingsService();
         BlockingTicketService ticketService = new BlockingTicketService();
-        Clock fixedClock = Clock.fixed(Instant.parse("2023-01-02T18:00:00Z"), ZoneId.of("UTC"));
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T18:00:00");
+        Clock fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
 
         RestaurantStateService service = new RestaurantStateService(settingsService, ticketService, fixedClock);
         settingsService.setHours("09:00 - 19:00");

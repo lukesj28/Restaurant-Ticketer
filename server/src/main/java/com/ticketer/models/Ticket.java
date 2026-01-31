@@ -86,4 +86,18 @@ public class Ticket {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+
+    @JsonIgnore
+    public java.util.Map<String, Integer> getTally() {
+        java.util.Map<String, Integer> tally = new java.util.HashMap<>();
+        for (Order order : orders) {
+            for (OrderItem item : order.getItems()) {
+                tally.merge(item.getName(), 1, Integer::sum);
+                if (item.getSelectedSide() != null && !item.getSelectedSide().isEmpty()) {
+                    tally.merge(item.getSelectedSide(), 1, Integer::sum);
+                }
+            }
+        }
+        return tally;
+    }
 }

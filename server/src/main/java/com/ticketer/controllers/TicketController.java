@@ -55,6 +55,15 @@ public class TicketController {
         return ApiResponse.success(DtoMapper.toTicketDto(ticket));
     }
 
+    @GetMapping("/{ticketId}/tally")
+    public ApiResponse<java.util.Map<String, Integer>> getTicketTally(@PathVariable("ticketId") int ticketId) {
+        Ticket ticket = ticketService.getTicket(ticketId);
+        if (ticket == null) {
+            throw new com.ticketer.exceptions.EntityNotFoundException("Ticket not found");
+        }
+        return ApiResponse.success(ticket.getTally());
+    }
+
     @PostMapping("/{ticketId}/orders")
     public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId) {
         logger.info("Received request to add order to ticket: {}", ticketId);

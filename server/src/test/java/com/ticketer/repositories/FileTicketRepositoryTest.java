@@ -132,14 +132,19 @@ public class FileTicketRepositoryTest {
 
     @Test
     public void testPersistClosedTicketsAppendsToFile() throws IOException {
-        String today = java.time.LocalDate.now(java.time.Clock.systemUTC()).toString();
+        String today = java.time.LocalDate.now(java.time.Clock.systemDefaultZone()).toString();
         File dailyFile = new File(TEST_TICKETS_DIR + "/" + today + ".json");
         if (dailyFile.exists()) {
             dailyFile.delete();
         }
 
+        java.util.List<Ticket> initialTickets = new java.util.ArrayList<>();
+        initialTickets.add(new Ticket(1));
+        com.ticketer.models.DailyTicketLog log = new com.ticketer.models.DailyTicketLog(new java.util.HashMap<>(),
+                initialTickets, 0.0, 0.0);
+
         try (java.io.FileWriter writer = new java.io.FileWriter(dailyFile)) {
-            writer.write("[{\"id\":1}]");
+            mapper.writeValue(writer, log);
         }
 
         Ticket t = new Ticket(2);
@@ -147,11 +152,50 @@ public class FileTicketRepositoryTest {
         repository.moveToClosed(2);
         repository.persistClosedTickets();
 
-        java.util.List<Ticket> tickets = mapper.readValue(dailyFile,
-                new com.fasterxml.jackson.core.type.TypeReference<java.util.List<Ticket>>() {
-                });
-        assertEquals(2, tickets.size(), "Should contain 2 tickets");
-        assertEquals(1, tickets.get(0).getId());
-        assertEquals(2, tickets.get(1).getId());
+        com.ticketer.models.DailyTicketLog resultLog = mapper.readValue(dailyFile,
+                com.ticketer.models.DailyTicketLog.class);
+        assertEquals(2, resultLog.getTickets().size(), "Should contain 2 tickets");
+        assertEquals(1, resultLog.getTickets().get(0).getId());
+        assertEquals(2, resultLog.getTickets().get(1).getId());
+    }
+
+    @Test
+    public void testDailyTallyCalculation() throws IOException {
+        String today = java.time.LocalDate.now(java.time.Clock.systemDefaultZone()).toString();
+        File dailyFile = new File(TEST_TICKETS_DIR + "/" + today + ".json");
+        if (dailyFile.exists()) {
+            dailyFile.delete();
+        }
+
+        Ticket t1 = new Ticket(1);
+        com.ticketer.models.Order o1 = new com.ticketer.models.Order();
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        o1.addItem(new com.ticketer.models.OrderItem("Soda", null, 200));
+        t1.addOrder(o1);
+
+        Ticket t2 = new Ticket(2);
+        com.ticketer.models.Order o2 = new com.ticketer.models.Order();
+        o2.addItem(new com.ticketer.models.OrderItem("Burger", null, 1000));
+        o2.addItem(new com.ticketer.models.OrderItem("Fries", "Ranch", 500));
+        t2.addOrder(o2);
+
+        repository.save(t1);
+        repository.save(t2);
+        repository.moveToClosed(1);
+        repository.moveToClosed(2);
+
+        repository.persistClosedTickets();
+
+        com.ticketer.models.DailyTicketLog resultLog = mapper.readValue(dailyFile,
+                com.ticketer.models.DailyTicketLog.class);
+        java.util.Map<String, Integer> tally = resultLog.getTally();
+
+        assertEquals(2, tally.get("Burger"));
+        assertEquals(2, tally.get("Fries"));
+        assertEquals(1, tally.get("Soda"));
+        assertEquals(1, tally.get("Ranch"));
+
+        assertEquals(27.00, resultLog.getSubtotal(), 0.001);
+        assertTrue(resultLog.getTotal() >= 27.00);
     }
 }

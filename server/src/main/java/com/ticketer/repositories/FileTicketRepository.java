@@ -156,20 +156,37 @@ public class FileTicketRepository implements TicketRepository {
 
             if (file.exists()) {
                 try {
-                    List<Ticket> existingTickets = objectMapper.readValue(file,
-                            new com.fasterxml.jackson.core.type.TypeReference<List<Ticket>>() {
-                            });
-                    allTickets.addAll(existingTickets);
+                    com.ticketer.models.DailyTicketLog dailyLog = objectMapper.readValue(file,
+                            com.ticketer.models.DailyTicketLog.class);
+                    if (dailyLog.getTickets() != null) {
+                        allTickets.addAll(dailyLog.getTickets());
+                    }
                 } catch (IOException e) {
-                    logger.warn("Failed to read existing tickets from file {}, overwriting.", filename, e);
+                    logger.warn("Failed to read existing daily log from file {}, overwriting.", filename, e);
                 }
             }
 
             allTickets.addAll(closedTickets);
 
+            java.util.Map<String, Integer> dailyTally = new java.util.HashMap<>();
+            int dailySubtotalCents = 0;
+            int dailyTotalCents = 0;
+
+            for (Ticket ticket : allTickets) {
+                java.util.Map<String, Integer> ticketTally = ticket.getTally();
+                ticketTally.forEach((item, count) -> dailyTally.merge(item, count, Integer::sum));
+
+                dailySubtotalCents += ticket.getSubtotal();
+                dailyTotalCents += ticket.getTotal();
+            }
+
+            com.ticketer.models.DailyTicketLog log = new com.ticketer.models.DailyTicketLog(dailyTally, allTickets,
+                    dailySubtotalCents / 100.0, dailyTotalCents / 100.0);
+
             try (FileWriter writer = new FileWriter(filename)) {
-                objectMapper.writeValue(writer, allTickets);
+                objectMapper.writeValue(writer, log);
                 logger.info("Persisted {} closed tickets to {} (merged with existing)", allTickets.size(), filename);
+                closedTickets.clear();
             } catch (IOException e) {
                 throw new RuntimeException("Failed to serialize closed tickets", e);
             }

@@ -1,24 +1,27 @@
-package com.ticketer.services;
+package com.ticketer.integrations;
 
 import com.ticketer.models.Settings;
 import com.ticketer.repositories.SettingsRepository;
+import com.ticketer.services.RestaurantStateService;
+import com.ticketer.services.SettingsService;
+import com.ticketer.services.TicketService;
 import org.junit.Test;
 import java.time.Clock;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import static org.junit.Assert.*;
 
-public class RestaurantStateServiceStartupTest {
+public class RestaurantStateStartupIntegrationTest {
 
-    private final ZoneId zone = ZoneId.of("UTC");
+    private final ZoneId zone = ZoneId.systemDefault();
 
     @Test
     public void testStartupDuringOpenHours() {
         SettingsService settingsService = createMockSettingsService("09:00 - 22:00");
 
-        Clock clock = Clock.fixed(Instant.parse("2024-01-01T12:00:00Z"), zone);
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2024-01-01T12:00:00");
+        Clock clock = Clock.fixed(localDate.atZone(zone).toInstant(), zone);
 
         MockTicketService ticketService = new MockTicketService();
         RestaurantStateService stateService = new RestaurantStateService(settingsService, ticketService, clock);
@@ -30,7 +33,8 @@ public class RestaurantStateServiceStartupTest {
     @Test
     public void testStartupBeforeOpenHours() {
         SettingsService settingsService = createMockSettingsService("09:00 - 22:00");
-        Clock clock = Clock.fixed(Instant.parse("2024-01-01T08:00:00Z"), zone);
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2024-01-01T08:00:00");
+        Clock clock = Clock.fixed(localDate.atZone(zone).toInstant(), zone);
 
         MockTicketService ticketService = new MockTicketService();
         RestaurantStateService stateService = new RestaurantStateService(settingsService, ticketService, clock);
@@ -42,7 +46,8 @@ public class RestaurantStateServiceStartupTest {
     @Test
     public void testStartupAfterCloseHours() {
         SettingsService settingsService = createMockSettingsService("09:00 - 22:00");
-        Clock clock = Clock.fixed(Instant.parse("2024-01-01T23:00:00Z"), zone);
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2024-01-01T23:00:00");
+        Clock clock = Clock.fixed(localDate.atZone(zone).toInstant(), zone);
 
         MockTicketService ticketService = new MockTicketService();
         RestaurantStateService stateService = new RestaurantStateService(settingsService, ticketService, clock);
@@ -62,7 +67,8 @@ public class RestaurantStateServiceStartupTest {
             }
         });
 
-        Clock clock = Clock.fixed(Instant.parse("2024-01-01T12:00:00Z"), zone);
+        java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2024-01-01T12:00:00");
+        Clock clock = Clock.fixed(localDate.atZone(zone).toInstant(), zone);
 
         MockTicketService ticketService = new MockTicketService();
         RestaurantStateService stateService = new RestaurantStateService(settingsService, ticketService, clock);

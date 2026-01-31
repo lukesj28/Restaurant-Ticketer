@@ -5,12 +5,15 @@ import com.ticketer.models.Ticket;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -24,8 +27,18 @@ public class TicketServiceTest {
     @Mock
     private TicketRepository ticketRepository;
 
-    @InjectMocks
+    @Mock
+    private Clock clock;
+
     private TicketService ticketService;
+
+    @BeforeEach
+    public void setUp() {
+        lenient().when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
+        lenient().when(clock.instant()).thenReturn(Instant.parse("2023-01-01T12:00:00Z"));
+
+        ticketService = new TicketService(ticketRepository, clock);
+    }
 
     @Test
     public void testCreateTicket() {
