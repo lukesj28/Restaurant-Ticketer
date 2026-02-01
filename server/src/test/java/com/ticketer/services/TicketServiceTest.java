@@ -146,4 +146,22 @@ public class TicketServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> ticketService.addOrderToTicket(1, new Order(10.0)));
     }
+
+    @Test
+    public void testMoveClosedToCompletedShouldFail() {
+        Ticket t1 = new Ticket(1);
+        t1.setClosedAt(Instant.now());
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
+
+        assertThrows(IllegalArgumentException.class, () -> ticketService.moveToCompleted(1));
+    }
+
+    @Test
+    public void testMoveClosedToActiveShouldFail() {
+        Ticket t1 = new Ticket(1);
+        t1.setClosedAt(Instant.now());
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
+
+        assertThrows(IllegalArgumentException.class, () -> ticketService.moveToActive(1));
+    }
 }

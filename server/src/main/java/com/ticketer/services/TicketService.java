@@ -166,8 +166,11 @@ public class TicketService {
 
     public void moveToCompleted(int ticketId) {
         logger.info("Moving ticket {} to completed", ticketId);
-        if (ticketRepository.findById(ticketId).isEmpty()) {
-            throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
+        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+                () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
+
+        if (ticket.getClosedAt() != null) {
+            throw new IllegalArgumentException("Cannot move a closed ticket to completed.");
         }
         ticketRepository.moveToCompleted(ticketId);
     }
@@ -182,8 +185,11 @@ public class TicketService {
 
     public void moveToActive(int ticketId) {
         logger.info("Moving ticket {} to active", ticketId);
-        if (ticketRepository.findById(ticketId).isEmpty()) {
-            throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
+        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+                () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
+
+        if (ticket.getClosedAt() != null) {
+            throw new IllegalArgumentException("Cannot move a closed ticket to active.");
         }
         ticketRepository.moveToActive(ticketId);
     }
