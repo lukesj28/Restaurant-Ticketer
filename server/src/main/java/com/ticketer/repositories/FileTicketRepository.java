@@ -197,7 +197,7 @@ public class FileTicketRepository implements TicketRepository {
             }
 
             com.ticketer.models.DailyTicketLog log = new com.ticketer.models.DailyTicketLog(dailyTally, allTickets,
-                    dailySubtotalCents / 100.0, dailyTotalCents / 100.0);
+                    dailySubtotalCents, dailyTotalCents);
 
             try (FileWriter writer = new FileWriter(filename)) {
                 objectMapper.writeValue(writer, log);

@@ -164,6 +164,18 @@ public class TicketService {
         ticketRepository.save(ticket);
     }
 
+    public Order getOrder(int ticketId, int orderIndex) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        List<Order> orders = ticket.getOrders();
+        if (orderIndex < 0 || orderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
+        }
+        return orders.get(orderIndex);
+    }
+
     public void moveToCompleted(int ticketId) {
         logger.info("Moving ticket {} to completed", ticketId);
         Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
@@ -256,5 +268,27 @@ public class TicketService {
 
     public List<Ticket> getClosedTickets() {
         return ticketRepository.findAllClosed();
+    }
+
+    public int getClosedTicketsSubtotal() {
+        return getClosedTickets().stream().mapToInt(Ticket::getSubtotal).sum();
+    }
+
+    public int getClosedTicketsTotal() {
+        return getClosedTickets().stream().mapToInt(Ticket::getTotal).sum();
+    }
+
+    public int getActiveAndCompletedTicketsSubtotal() {
+        List<Ticket> active = getActiveTickets();
+        List<Ticket> completed = getCompletedTickets();
+        return active.stream().mapToInt(Ticket::getSubtotal).sum() +
+                completed.stream().mapToInt(Ticket::getSubtotal).sum();
+    }
+
+    public int getActiveAndCompletedTicketsTotal() {
+        List<Ticket> active = getActiveTickets();
+        List<Ticket> completed = getCompletedTickets();
+        return active.stream().mapToInt(Ticket::getTotal).sum() +
+                completed.stream().mapToInt(Ticket::getTotal).sum();
     }
 }

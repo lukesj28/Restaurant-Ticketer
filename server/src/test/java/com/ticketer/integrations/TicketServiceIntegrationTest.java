@@ -138,7 +138,7 @@ public class TicketServiceIntegrationTest {
     public void testCreateAndManageOrders() {
         Ticket ticket = service.createTicket("T1");
 
-        Order order = new Order(0.1);
+        Order order = new Order(1000);
         service.addOrderToTicket(ticket.getId(), order);
 
         assertEquals(1, ticket.getOrders().size());
@@ -197,7 +197,7 @@ public class TicketServiceIntegrationTest {
     public void testSerializeClosedTickets() throws IOException {
         Ticket t1 = service.createTicket("T1");
 
-        Order order = new Order(0.1);
+        Order order = new Order(1000);
         OrderItem item = new OrderItem("Burger", "Fries", 1000);
         order.addItem(item);
         service.addOrderToTicket(t1.getId(), order);
@@ -224,7 +224,7 @@ public class TicketServiceIntegrationTest {
         int id = ticket.getId();
         service.moveToCompleted(id);
 
-        Order order = new Order(0.1);
+        Order order = new Order(1000);
         service.addOrderToTicket(id, order);
 
         assertTrue(service.getActiveTickets().contains(ticket));
@@ -239,7 +239,7 @@ public class TicketServiceIntegrationTest {
         service.moveToCompleted(id);
         service.moveToClosed(id);
 
-        Order order = new Order(0.1);
+        Order order = new Order(1000);
         assertThrows(IllegalArgumentException.class, () -> {
             service.addOrderToTicket(id, order);
         });

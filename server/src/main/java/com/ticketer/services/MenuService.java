@@ -101,7 +101,7 @@ public class MenuService {
     public void editItemPrice(String itemName, int newPrice) {
         logger.info("Editing price for item {} to {}", itemName, newPrice);
         MenuItem item = getItem(itemName);
-        item.basePrice = newPrice;
+        item.price = newPrice;
         menuRepository.saveMenu(currentMenu);
     }
 

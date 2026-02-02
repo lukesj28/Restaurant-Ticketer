@@ -51,7 +51,7 @@ public class SettingsControllerTest {
     public void testRefreshSettings() throws Exception {
         Map<String, String> hours = new HashMap<>();
         hours.put("monday", "09:00 - 22:00");
-        Settings settings = new Settings(0.1, hours);
+        Settings settings = new Settings(1000, hours);
         when(settingsService.getSettings()).thenReturn(settings);
 
         mockMvc.perform(post("/api/settings/refresh"))
@@ -63,11 +63,11 @@ public class SettingsControllerTest {
 
     @Test
     public void testGetTax() throws Exception {
-        when(settingsService.getTax()).thenReturn(0.1);
+        when(settingsService.getTax()).thenReturn(1000);
 
         mockMvc.perform(get("/api/settings/tax"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payload").value(0.1));
+                .andExpect(jsonPath("$.payload").value(1000));
 
         verify(settingsService).getTax();
     }
@@ -116,13 +116,13 @@ public class SettingsControllerTest {
 
     @Test
     public void testSetTax() throws Exception {
-        String json = "{\"tax\":0.15}";
+        String json = "{\"tax\":1500}";
         mockMvc.perform(put("/api/settings/tax")
                 .contentType("application/json")
                 .content(json))
                 .andExpect(status().isOk());
 
-        verify(settingsService).setTax(0.15);
+        verify(settingsService).setTax(1500);
     }
 
     @Test

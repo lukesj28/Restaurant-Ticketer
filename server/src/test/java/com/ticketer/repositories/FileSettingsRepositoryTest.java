@@ -33,7 +33,7 @@ public class FileSettingsRepositoryTest {
         FileSettingsRepository settingsRepo = new FileSettingsRepository(TEST_FILE, mapper);
         Settings settings = settingsRepo.getSettings();
         assertNotNull(settings);
-        assertEquals(0.0, settings.getTax(), 0.001);
+        assertEquals(0, settings.getTax());
         assertNotNull(settings.getHours());
         assertTrue(settings.getHours().isEmpty());
     }
@@ -48,7 +48,7 @@ public class FileSettingsRepositoryTest {
     @Test
     public void testSaveAndLoad() {
         FileSettingsRepository repo = new FileSettingsRepository(TEST_FILE, mapper);
-        Settings settings = new Settings(0.15, new java.util.HashMap<>());
+        Settings settings = new Settings(1500, new java.util.HashMap<>());
         repo.saveSettings(settings);
 
         File f = new File(TEST_FILE);
@@ -56,6 +56,6 @@ public class FileSettingsRepositoryTest {
 
         Settings loaded = repo.getSettings();
         assertNotNull(loaded);
-        assertEquals(0.15, loaded.getTax(), 0.001);
+        assertEquals(1500, loaded.getTax());
     }
 }

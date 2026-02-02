@@ -34,7 +34,7 @@ public class MenuServiceIntegrationTest {
         testMenuFile = tempDir.resolve("test-menu-service.json").toFile();
 
         try {
-            String json = "{ \"TestCategory\": { \"TestItemAdd\": { \"price\": 12.34, \"available\": true, \"sides\": {} } } }";
+            String json = "{ \"TestCategory\": { \"TestItemAdd\": { \"price\": 1234, \"available\": true, \"sides\": {} } } }";
             Files.write(testMenuFile.toPath(), json.getBytes());
         } catch (IOException e) {
             throw new RuntimeException("Failed to set up test environment", e);
@@ -130,7 +130,7 @@ public class MenuServiceIntegrationTest {
         MenuItem item = service.getItem(name);
         assertNotNull(item);
         assertEquals(name, item.name);
-        assertEquals(price, item.basePrice);
+        assertEquals(price, item.price);
 
         List<MenuItem> catItems = service.getCategory(cat.toLowerCase());
         assertNotNull(catItems);
@@ -145,7 +145,7 @@ public class MenuServiceIntegrationTest {
         int newPrice = 9999;
         service.editItemPrice(name, newPrice);
 
-        assertEquals(newPrice, service.getItem(name).basePrice);
+        assertEquals(newPrice, service.getItem(name).price);
     }
 
     @Test

@@ -1,11 +1,12 @@
 package com.ticketer.models;
 
-import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Ticket {
     private int id;
     private String tableNumber;
@@ -51,24 +52,12 @@ public class Ticket {
         return new ArrayList<>(orders);
     }
 
-    @JsonIgnore
     public int getSubtotal() {
         return orders.stream().mapToInt(Order::getSubtotal).sum();
     }
 
-    @JsonGetter("subtotal")
-    public double getSubtotalDouble() {
-        return getSubtotal() / 100.0;
-    }
-
-    @JsonIgnore
     public int getTotal() {
         return orders.stream().mapToInt(Order::getTotal).sum();
-    }
-
-    @JsonGetter("total")
-    public double getTotalDouble() {
-        return getTotal() / 100.0;
     }
 
     public Instant getCreatedAt() {

@@ -8,13 +8,13 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 public class DailyTicketLog {
     private Map<String, Integer> tally;
     private List<Ticket> tickets;
-    private double subtotal;
-    private double total;
+    private int subtotal;
+    private int total;
 
     public DailyTicketLog() {
     }
 
-    public DailyTicketLog(Map<String, Integer> tally, List<Ticket> tickets, double subtotal, double total) {
+    public DailyTicketLog(Map<String, Integer> tally, List<Ticket> tickets, int subtotal, int total) {
         this.tally = tally;
         this.tickets = tickets;
         this.subtotal = subtotal;
@@ -37,19 +37,19 @@ public class DailyTicketLog {
         this.tickets = tickets;
     }
 
-    public double getSubtotal() {
+    public int getSubtotal() {
         return subtotal;
     }
 
-    public void setSubtotal(double subtotal) {
+    public void setSubtotal(int subtotal) {
         this.subtotal = subtotal;
     }
 
-    public double getTotal() {
+    public int getTotal() {
         return total;
     }
 
-    public void setTotal(double total) {
+    public void setTotal(int total) {
         this.total = total;
     }
 }

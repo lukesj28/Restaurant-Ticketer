@@ -32,14 +32,14 @@ public class SettingsServiceTest {
 
     @Test
     public void testGetSettings() {
-        Settings settings = new Settings(0.1, new HashMap<>());
+        Settings settings = new Settings(1000, new HashMap<>());
         when(settingsRepository.getSettings()).thenReturn(settings);
 
         settingsService = new SettingsService(settingsRepository);
         Settings result = settingsService.getSettings();
 
         assertNotNull(result);
-        assertEquals(0.1, result.getTax());
+        assertEquals(1000, result.getTax());
     }
 
     @Test
@@ -52,17 +52,17 @@ public class SettingsServiceTest {
 
     @Test
     public void testSetTax() {
-        Settings settings = new Settings(0.1, new HashMap<>());
+        Settings settings = new Settings(1000, new HashMap<>());
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);
 
-        settingsService.setTax(0.2);
+        settingsService.setTax(2000);
 
         ArgumentCaptor<Settings> captor = ArgumentCaptor.forClass(Settings.class);
         verify(settingsRepository).saveSettings(captor.capture());
 
         Settings saved = captor.getValue();
-        assertEquals(0.2, saved.getTax(), 0.001);
+        assertEquals(2000, saved.getTax());
     }
 
     @Test
@@ -72,7 +72,7 @@ public class SettingsServiceTest {
 
     @Test
     public void testSetOpeningHours() {
-        Settings settings = new Settings(0.1, new HashMap<>());
+        Settings settings = new Settings(1000, new HashMap<>());
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);
 
@@ -89,7 +89,7 @@ public class SettingsServiceTest {
     public void testGetOpenTime() {
         Map<String, String> hours = new HashMap<>();
         hours.put("monday", "09:00 - 17:00");
-        Settings settings = new Settings(0.1, hours);
+        Settings settings = new Settings(1000, hours);
 
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);
@@ -102,7 +102,7 @@ public class SettingsServiceTest {
     public void testGetOpenTimeClosed() {
         Map<String, String> hours = new HashMap<>();
         hours.put("monday", "closed");
-        Settings settings = new Settings(0.1, hours);
+        Settings settings = new Settings(1000, hours);
 
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);

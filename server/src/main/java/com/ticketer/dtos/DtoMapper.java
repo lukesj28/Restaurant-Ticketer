@@ -61,7 +61,7 @@ public class DtoMapper {
         }
         return new ItemDto(
                 item.name,
-                item.basePrice,
+                item.price,
                 item.available,
                 sides);
     }

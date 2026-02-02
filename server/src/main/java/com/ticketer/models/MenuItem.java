@@ -9,26 +9,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class MenuItem {
     public String name;
-    @JsonIgnore
-    public int basePrice;
+    public int price;
     public boolean available;
     @JsonProperty("sides")
     public Map<String, Side> sideOptions;
 
     @JsonCreator
     public MenuItem(@JsonProperty("name") String name,
-            @JsonProperty("price") double priceDouble,
+            @JsonProperty("price") int price,
             @JsonProperty("available") boolean available,
             @JsonProperty("sides") Map<String, Side> sideOptions) {
         this.name = name;
-        this.basePrice = (int) Math.round(priceDouble * 100);
-        this.available = available;
-        this.sideOptions = sideOptions;
-    }
-
-    public MenuItem(String name, int basePrice, boolean available, Map<String, Side> sideOptions) {
-        this.name = name;
-        this.basePrice = basePrice;
+        this.price = price;
         this.available = available;
         this.sideOptions = sideOptions;
     }
@@ -37,8 +29,4 @@ public class MenuItem {
         return sideOptions != null && !sideOptions.isEmpty();
     }
 
-    @JsonGetter("price")
-    public double getPriceDouble() {
-        return basePrice / 100.0;
-    }
 }

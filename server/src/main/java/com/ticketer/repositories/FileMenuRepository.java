@@ -71,7 +71,7 @@ public class FileMenuRepository implements MenuRepository {
                     String itemName = itemEntry.getKey();
                     JsonNode itemNode = itemEntry.getValue();
 
-                    double priceDouble = itemNode.has("price") ? itemNode.get("price").asDouble() : 0.0;
+                    int price = itemNode.has("price") ? itemNode.get("price").asInt() : 0;
                     boolean available = itemNode.has("available") && itemNode.get("available").asBoolean();
 
                     Map<String, Side> sides = null;
@@ -80,7 +80,7 @@ public class FileMenuRepository implements MenuRepository {
                                 new TypeReference<Map<String, Side>>() {
                                 });
                     }
-                    items.add(new MenuItem(itemName, (int) Math.round(priceDouble * 100), available,
+                    items.add(new MenuItem(itemName, price, available,
                             sides));
                 }
                 categories.put(categoryName, items);
@@ -103,7 +103,7 @@ public class FileMenuRepository implements MenuRepository {
 
                 for (MenuItem item : categoryEntry.getValue()) {
                     ObjectNode itemNode = objectMapper.createObjectNode();
-                    itemNode.put("price", item.basePrice / 100.0);
+                    itemNode.put("price", item.price);
                     itemNode.put("available", item.available);
 
                     if (item.sideOptions != null && !item.sideOptions.isEmpty()) {

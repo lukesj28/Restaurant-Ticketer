@@ -137,7 +137,7 @@ public class MenuServiceTest {
 
         menuService.editItemPrice("Burger", 200);
 
-        assertEquals(200, items.get(0).basePrice);
+        assertEquals(200, items.get(0).price);
         verify(menuRepository).saveMenu(menu);
     }
 

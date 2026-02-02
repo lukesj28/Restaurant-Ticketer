@@ -70,6 +70,13 @@ public class TicketController {
         return getTicket(ticketId);
     }
 
+    @GetMapping("/{ticketId}/orders/{orderIndex}")
+    public ApiResponse<OrderDto> getOrder(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex) {
+        Order order = ticketService.getOrder(ticketId, orderIndex);
+        return ApiResponse.success(DtoMapper.toOrderDto(order));
+    }
+
     @DeleteMapping("/{ticketId}/orders/{orderIndex}")
     public ApiResponse<TicketDto> removeOrderFromTicket(@PathVariable("ticketId") int ticketId,
             @PathVariable("orderIndex") int orderIndex) {
@@ -146,5 +153,25 @@ public class TicketController {
         logger.info("Received request to remove ticket: {}", ticketId);
         ticketService.removeTicket(ticketId);
         return ApiResponse.success(java.util.Collections.emptyList());
+    }
+
+    @GetMapping("/closed/subtotal")
+    public ApiResponse<Integer> getClosedTicketsSubtotal() {
+        return ApiResponse.success(ticketService.getClosedTicketsSubtotal());
+    }
+
+    @GetMapping("/closed/total")
+    public ApiResponse<Integer> getClosedTicketsTotal() {
+        return ApiResponse.success(ticketService.getClosedTicketsTotal());
+    }
+
+    @GetMapping("/active-completed/subtotal")
+    public ApiResponse<Integer> getActiveAndCompletedTicketsSubtotal() {
+        return ApiResponse.success(ticketService.getActiveAndCompletedTicketsSubtotal());
+    }
+
+    @GetMapping("/active-completed/total")
+    public ApiResponse<Integer> getActiveAndCompletedTicketsTotal() {
+        return ApiResponse.success(ticketService.getActiveAndCompletedTicketsTotal());
     }
 }

@@ -6,17 +6,17 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Settings {
-    private double tax;
+    private int taxBasisPoints;
     private Map<String, String> hours;
 
     @JsonCreator
-    public Settings(@JsonProperty("tax") double tax, @JsonProperty("hours") Map<String, String> hours) {
-        this.tax = tax;
+    public Settings(@JsonProperty("tax") int taxBasisPoints, @JsonProperty("hours") Map<String, String> hours) {
+        this.taxBasisPoints = taxBasisPoints;
         this.hours = hours;
     }
 
-    public double getTax() {
-        return tax;
+    public int getTax() {
+        return taxBasisPoints;
     }
 
     public Map<String, String> getHours() {

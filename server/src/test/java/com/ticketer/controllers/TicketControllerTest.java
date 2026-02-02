@@ -133,6 +133,13 @@ public class TicketControllerTest {
                 mockMvc.perform(delete("/api/tickets/1/orders/0"))
                                 .andExpect(status().isOk());
                 verify(ticketService).removeOrder(1, 0);
+
+                Order returnedOrder = new Order();
+                when(ticketService.getOrder(1, 0)).thenReturn(returnedOrder);
+                mockMvc.perform(get("/api/tickets/1/orders/0"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").exists());
+                verify(ticketService).getOrder(1, 0);
         }
 
         @Test
@@ -228,5 +235,60 @@ public class TicketControllerTest {
                                 .param("tableNumber", "T1"))
                                 .andExpect(status().isInternalServerError())
                                 .andExpect(jsonPath("$.status").value("ERROR"));
+        }
+
+        @Test
+        public void testGetClosedTicketsSubtotal() throws Exception {
+                when(ticketService.getClosedTicketsSubtotal()).thenReturn(5000);
+
+                mockMvc.perform(get("/api/tickets/closed/subtotal"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value(5000));
+
+                verify(ticketService).getClosedTicketsSubtotal();
+        }
+
+        @Test
+        public void testGetClosedTicketsTotal() throws Exception {
+                when(ticketService.getClosedTicketsTotal()).thenReturn(5500);
+
+                mockMvc.perform(get("/api/tickets/closed/total"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value(5500));
+
+                verify(ticketService).getClosedTicketsTotal();
+        }
+
+        @Test
+        public void testGetActiveAndCompletedTicketsSubtotal() throws Exception {
+                when(ticketService.getActiveAndCompletedTicketsSubtotal()).thenReturn(3000);
+
+                mockMvc.perform(get("/api/tickets/active-completed/subtotal"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value(3000));
+
+                verify(ticketService).getActiveAndCompletedTicketsSubtotal();
+        }
+
+        @Test
+        public void testGetActiveAndCompletedTicketsTotal() throws Exception {
+                when(ticketService.getActiveAndCompletedTicketsTotal()).thenReturn(3300);
+
+                mockMvc.perform(get("/api/tickets/active-completed/total"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value(3300));
+
+                verify(ticketService).getActiveAndCompletedTicketsTotal();
+        }
+
+        @Test
+        public void testGetOrderNotFound() throws Exception {
+                when(ticketService.getOrder(1, 0))
+                                .thenThrow(new com.ticketer.exceptions.EntityNotFoundException("Order not found"));
+
+                mockMvc.perform(get("/api/tickets/1/orders/0"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.status").value("ERROR"))
+                                .andExpect(jsonPath("$.message").value("Order not found"));
         }
 }

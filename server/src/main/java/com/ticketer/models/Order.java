@@ -1,11 +1,12 @@
 package com.ticketer.models;
 
-import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import java.util.ArrayList;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Order {
     private List<OrderItem> items;
     @JsonIgnore
@@ -13,9 +14,9 @@ public class Order {
     @JsonIgnore
     private int total;
     @JsonIgnore
-    private double taxRate;
+    private int taxRate;
 
-    public Order(double taxRate) {
+    public Order(int taxRate) {
         this.items = new ArrayList<>();
         this.subtotal = 0;
         this.total = 0;
@@ -23,30 +24,35 @@ public class Order {
     }
 
     public Order() {
-        this(0.0);
+        this(0);
     }
 
     public void addItem(OrderItem item) {
         items.add(item);
         subtotal += item.getPrice();
-        total = (int) Math.round(subtotal * (1 + taxRate));
+        updateTotal();
     }
 
     public boolean removeItem(OrderItem item) {
         if (items.remove(item)) {
             subtotal -= item.getPrice();
-            total = (int) Math.round(subtotal * (1 + taxRate));
+            updateTotal();
             return true;
         }
         return false;
     }
 
-    public void setTaxRate(double taxRate) {
-        this.taxRate = taxRate;
-        total = (int) Math.round(subtotal * (1 + taxRate));
+    private void updateTotal() {
+        int taxAmount = (subtotal * taxRate + 5000) / 10000;
+        total = subtotal + taxAmount;
     }
 
-    public double getTaxRate() {
+    public void setTaxRate(int taxRate) {
+        this.taxRate = taxRate;
+        updateTotal();
+    }
+
+    public int getTaxRate() {
         return taxRate;
     }
 
@@ -60,16 +66,6 @@ public class Order {
 
     public int getTotal() {
         return total;
-    }
-
-    @JsonGetter("subtotal")
-    public double getSubtotalDouble() {
-        return subtotal / 100.0;
-    }
-
-    @JsonGetter("total")
-    public double getTotalDouble() {
-        return total / 100.0;
     }
 
     @JsonSetter("items")

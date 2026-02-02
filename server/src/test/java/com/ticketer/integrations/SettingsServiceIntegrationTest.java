@@ -30,7 +30,7 @@ public class SettingsServiceIntegrationTest {
         testSettingsFile = tempDir.resolve("test-settings-service.json").toFile();
 
         try {
-            String json = "{ \"tax\": 0.1, \"hours\": { \"monday\": \"09:00 - 22:00\" } }";
+            String json = "{ \"tax\": 1000, \"hours\": { \"monday\": \"09:00 - 22:00\" } }";
             Files.write(testSettingsFile.toPath(), json.getBytes());
         } catch (IOException e) {
             throw new RuntimeException("Failed to set up test environment", e);
@@ -50,7 +50,7 @@ public class SettingsServiceIntegrationTest {
 
     @Test
     public void testGetIndividualSettings() throws IOException {
-        double tax = service.getTax();
+        int tax = service.getTax();
         assertTrue(tax >= 0, "Tax should be non-negative");
 
         java.util.Map<String, String> hours = service.getAllOpeningHours();
@@ -62,9 +62,9 @@ public class SettingsServiceIntegrationTest {
 
     @Test
     public void testSetTax() throws IOException {
-        double newTax = 0.99;
+        int newTax = 9900;
         service.setTax(newTax);
-        assertEquals(newTax, service.getTax(), 0.001);
+        assertEquals(newTax, service.getTax());
     }
 
     @Test

@@ -24,7 +24,7 @@ public class Requests {
     public record SideUpdateRequest(int newPrice) {
     }
 
-    public record TaxUpdateRequest(double tax) {
+    public record TaxUpdateRequest(int tax) {
     }
 
     public record OpeningHoursUpdateRequest(String hours) {

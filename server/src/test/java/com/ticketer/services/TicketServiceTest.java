@@ -122,7 +122,7 @@ public class TicketServiceTest {
         Ticket t1 = new Ticket(1);
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-        Order order = new Order(10.0);
+        Order order = new Order(1000);
         ticketService.addOrderToTicket(1, order);
 
         assertEquals(1, t1.getOrders().size());
@@ -134,7 +134,7 @@ public class TicketServiceTest {
     public void testAddOrderToTicketNotFound() {
         when(ticketRepository.findById(1)).thenReturn(Optional.empty());
 
-        assertThrows(EntityNotFoundException.class, () -> ticketService.addOrderToTicket(1, new Order(10.0)));
+        assertThrows(EntityNotFoundException.class, () -> ticketService.addOrderToTicket(1, new Order(1000)));
     }
 
     @Test
@@ -144,7 +144,7 @@ public class TicketServiceTest {
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1));
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-        assertThrows(IllegalArgumentException.class, () -> ticketService.addOrderToTicket(1, new Order(10.0)));
+        assertThrows(IllegalArgumentException.class, () -> ticketService.addOrderToTicket(1, new Order(1000)));
     }
 
     @Test
@@ -163,5 +163,103 @@ public class TicketServiceTest {
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
         assertThrows(IllegalArgumentException.class, () -> ticketService.moveToActive(1));
+    }
+
+    @Test
+    public void testGetOrder() {
+        Ticket t1 = new Ticket(1);
+        Order o1 = new Order(0);
+        t1.addOrder(o1);
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
+
+        Order retrieved = ticketService.getOrder(1, 0);
+        assertEquals(o1, retrieved);
+    }
+
+    @Test
+    public void testGetOrderTicketNotFound() {
+        when(ticketRepository.findById(1)).thenReturn(Optional.empty());
+        assertThrows(EntityNotFoundException.class, () -> ticketService.getOrder(1, 0));
+    }
+
+    @Test
+    public void testGetOrderIndexInvalid() {
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
+        assertThrows(EntityNotFoundException.class, () -> ticketService.getOrder(1, 0));
+    }
+
+    @Test
+    public void testGetClosedTicketsSubtotal() {
+        Ticket t1 = new Ticket(1);
+        Order o1 = new Order(0);
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        t1.addOrder(o1);
+
+        Ticket t2 = new Ticket(2);
+        Order o2 = new Order(0);
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        t2.addOrder(o2);
+
+        when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
+
+        int subtotal = ticketService.getClosedTicketsSubtotal();
+        assertEquals(3000, subtotal);
+    }
+
+    @Test
+    public void testGetClosedTicketsTotal() {
+        Ticket t1 = new Ticket(1);
+        Order o1 = new Order(1000);
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        t1.addOrder(o1);
+
+        Ticket t2 = new Ticket(2);
+        Order o2 = new Order(2000);
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        t2.addOrder(o2);
+
+        when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
+
+        int total = ticketService.getClosedTicketsTotal();
+        assertEquals(3500, total);
+    }
+
+    @Test
+    public void testGetActiveAndCompletedTicketsSubtotal() {
+        Ticket t1 = new Ticket(1);
+        Order o1 = new Order(0);
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        t1.addOrder(o1);
+
+        Ticket t2 = new Ticket(2);
+        Order o2 = new Order(0);
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        t2.addOrder(o2);
+
+        when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
+        when(ticketRepository.findAllCompleted()).thenReturn(Arrays.asList(t2));
+
+        int subtotal = ticketService.getActiveAndCompletedTicketsSubtotal();
+        assertEquals(3000, subtotal);
+    }
+
+    @Test
+    public void testGetActiveAndCompletedTicketsTotal() {
+        Ticket t1 = new Ticket(1);
+        Order o1 = new Order(1000);
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        t1.addOrder(o1);
+
+        Ticket t2 = new Ticket(2);
+        Order o2 = new Order(2000);
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        t2.addOrder(o2);
+
+        when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
+        when(ticketRepository.findAllCompleted()).thenReturn(Arrays.asList(t2));
+
+        int total = ticketService.getActiveAndCompletedTicketsTotal();
+        assertEquals(3500, total);
     }
 }

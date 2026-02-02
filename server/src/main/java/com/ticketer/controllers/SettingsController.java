@@ -32,7 +32,7 @@ public class SettingsController {
     }
 
     @GetMapping("/tax")
-    public ApiResponse<Double> getTax() {
+    public ApiResponse<Integer> getTax() {
         return ApiResponse.success(settingsService.getTax());
     }
 

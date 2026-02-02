@@ -49,16 +49,16 @@ public class OrderTest {
 
     @Test
     public void testTaxCalculation() {
-        Order order = new Order(0.10);
+        Order order = new Order(1000);
         OrderItem item = new OrderItem("Burger", null, 1000);
 
         order.addItem(item);
 
         assertEquals(1000, order.getSubtotal());
         assertEquals(1100, order.getTotal());
-        assertEquals(0.10, order.getTaxRate(), 0.001);
+        assertEquals(1000, order.getTaxRate());
 
-        order.setTaxRate(0.20);
+        order.setTaxRate(2000);
         assertEquals(1200, order.getTotal());
     }
 }

@@ -141,7 +141,7 @@ public class FileTicketRepositoryTest {
         java.util.List<Ticket> initialTickets = new java.util.ArrayList<>();
         initialTickets.add(new Ticket(1));
         com.ticketer.models.DailyTicketLog log = new com.ticketer.models.DailyTicketLog(new java.util.HashMap<>(),
-                initialTickets, 0.0, 0.0);
+                initialTickets, 0, 0);
 
         try (java.io.FileWriter writer = new java.io.FileWriter(dailyFile)) {
             mapper.writeValue(writer, log);
@@ -195,8 +195,8 @@ public class FileTicketRepositoryTest {
         assertEquals(1, tally.get("Soda"));
         assertEquals(1, tally.get("Ranch"));
 
-        assertEquals(27.00, resultLog.getSubtotal(), 0.001);
-        assertTrue(resultLog.getTotal() >= 27.00);
+        assertEquals(2700, resultLog.getSubtotal());
+        assertTrue(resultLog.getTotal() >= 2700);
     }
 
     @Test

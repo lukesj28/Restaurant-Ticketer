@@ -30,10 +30,10 @@ public class TicketTest {
     public void testAddOrdersAndCalculatePrice() {
         Ticket ticket = new Ticket(1);
 
-        Order order1 = new Order(0.1);
+        Order order1 = new Order(1000);
         order1.addItem(new OrderItem("A", null, 1000));
 
-        Order order2 = new Order(0.1);
+        Order order2 = new Order(1000);
         order2.addItem(new OrderItem("B", null, 500));
 
         ticket.addOrder(order1);
@@ -65,12 +65,12 @@ public class TicketTest {
     public void testDifferentTaxRates() {
         Ticket ticket = new Ticket(1);
 
-        Order orderZeroTax = new Order(0.0);
+        Order orderZeroTax = new Order(0);
         orderZeroTax.addItem(new OrderItem("Item", null, 10000));
         ticket.addOrder(orderZeroTax);
         assertEquals(10000, ticket.getTotal());
 
-        Order orderHighTax = new Order(0.25);
+        Order orderHighTax = new Order(2500);
         orderHighTax.addItem(new OrderItem("Item", null, 10000));
         ticket.addOrder(orderHighTax);
 
@@ -80,7 +80,7 @@ public class TicketTest {
     @Test
     public void testRemoveOrder() {
         Ticket ticket = new Ticket(1);
-        Order order = new Order(0.1);
+        Order order = new Order(1000);
         order.addItem(new OrderItem("Item", null, 10000));
 
         ticket.addOrder(order);

@@ -35,7 +35,7 @@ public class SettingsService {
         return currentSettings;
     }
 
-    public double getTax() {
+    public int getTax() {
         return getSettings().getTax();
     }
 
@@ -70,13 +70,13 @@ public class SettingsService {
         return settings.getHours();
     }
 
-    public void setTax(double tax) {
-        logger.info("Setting tax to {}", tax);
-        if (tax < 0) {
+    public void setTax(int taxBasisPoints) {
+        logger.info("Setting tax to {}", taxBasisPoints);
+        if (taxBasisPoints < 0) {
             throw new ValidationException("Tax cannot be negative");
         }
         Settings settings = getSettings();
-        Settings newSettings = new Settings(tax, settings.getHours());
+        Settings newSettings = new Settings(taxBasisPoints, settings.getHours());
         this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }

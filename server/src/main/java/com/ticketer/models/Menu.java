@@ -31,7 +31,7 @@ public class Menu {
             for (MenuItem item : items) {
                 list.add(new MenuItemView(
                         item.name,
-                        item.basePrice,
+                        item.price,
                         item.available));
             }
         }
@@ -51,17 +51,17 @@ public class Menu {
 
     public static OrderItem getItem(MenuItem item, String sideName) {
         if (!item.hasSides()) {
-            return new OrderItem(item.name, null, item.basePrice);
+            return new OrderItem(item.name, null, item.price);
         }
 
         if (sideName != null && item.sideOptions.containsKey(sideName)) {
             Side side = item.sideOptions.get(sideName);
-            return new OrderItem(item.name, sideName, item.basePrice + side.price);
+            return new OrderItem(item.name, sideName, item.price + side.price);
         } else {
             if (sideName != null) {
                 throw new IllegalArgumentException("Invalid side selection: " + sideName);
             }
-            return new OrderItem(item.name, null, item.basePrice);
+            return new OrderItem(item.name, null, item.price);
         }
     }
 }
