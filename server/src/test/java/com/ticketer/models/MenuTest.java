@@ -57,6 +57,8 @@ public class MenuTest {
         OrderItem result = Menu.getItem(fish, "chips");
         assertEquals("Fish", result.getName());
         assertEquals("chips", result.getSelectedSide());
+        assertEquals(1000, result.getMainPrice());
+        assertEquals(200, result.getSidePrice());
         assertEquals(1200, result.getPrice());
     }
 
@@ -65,6 +67,8 @@ public class MenuTest {
         MenuItem burger = new MenuItem("Burger", 1000, true, null);
         OrderItem result = Menu.getItem(burger, null);
         assertEquals("Burger", result.getName());
+        assertEquals(1000, result.getMainPrice());
+        assertEquals(0, result.getSidePrice());
         assertEquals(1000, result.getPrice());
         assertNull(result.getSelectedSide());
     }
@@ -82,6 +86,8 @@ public class MenuTest {
         MenuItem burger = new MenuItem("Burger", 1000, true, null);
         OrderItem result = Menu.getItem(burger, "Fries");
         assertEquals("Burger", result.getName());
+        assertEquals(1000, result.getMainPrice());
+        assertEquals(0, result.getSidePrice());
         assertEquals(1000, result.getPrice());
         assertNull(result.getSelectedSide());
     }

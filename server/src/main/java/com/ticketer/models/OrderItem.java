@@ -6,23 +6,27 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class OrderItem {
     private String name;
     private String selectedSide;
-    private int price;
+    private int mainPrice;
+    private int sidePrice;
 
     @JsonCreator
     public OrderItem(@JsonProperty("name") String name,
             @JsonProperty("selectedSide") String selectedSide,
-            @JsonProperty("price") int price) {
+            @JsonProperty("mainPrice") int mainPrice,
+            @JsonProperty("sidePrice") int sidePrice) {
         this.name = name;
         this.selectedSide = selectedSide;
-        this.price = price;
+        this.mainPrice = mainPrice;
+        this.sidePrice = sidePrice;
     }
 
     @Override
     public String toString() {
         if (selectedSide != null) {
-            return String.format("Item: %s, Side: %s, Total: $%.2f", name, selectedSide, price / 100.0);
+            return String.format("Item: %s ($%.2f), Side: %s ($%.2f), Total: $%.2f",
+                    name, mainPrice / 100.0, selectedSide, sidePrice / 100.0, (mainPrice + sidePrice) / 100.0);
         }
-        return String.format("Item: %s, Total: $%.2f", name, price / 100.0);
+        return String.format("Item: %s, Total: $%.2f", name, mainPrice / 100.0);
     }
 
     public String getName() {
@@ -33,8 +37,17 @@ public class OrderItem {
         return selectedSide;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public int getPrice() {
-        return price;
+        return mainPrice + sidePrice;
+    }
+
+    public int getMainPrice() {
+        return mainPrice;
+    }
+
+    public int getSidePrice() {
+        return sidePrice;
     }
 
     @Override

@@ -77,7 +77,7 @@ public class AnalysisServiceTest {
         List<Ticket> historicalTickets = new ArrayList<>();
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("HistoryItem", null, 1000));
+        o1.addItem(new OrderItem("HistoryItem", null, 1000, 0));
         t1.addOrder(o1);
         historicalTickets.add(t1);
 
@@ -88,11 +88,11 @@ public class AnalysisServiceTest {
         Ticket t2 = new Ticket(2);
 
         Order o2a = new Order(0);
-        o2a.addItem(new OrderItem("MemoryItem1", null, 1000));
+        o2a.addItem(new OrderItem("MemoryItem1", null, 1000, 0));
         t2.addOrder(o2a);
 
         Order o2b = new Order(0);
-        o2b.addItem(new OrderItem("MemoryItem2", null, 1000));
+        o2b.addItem(new OrderItem("MemoryItem2", null, 1000, 0));
         t2.addOrder(o2b);
 
         memoryTickets.add(t2);
@@ -116,12 +116,12 @@ public class AnalysisServiceTest {
         List<Ticket> tickets = new ArrayList<>();
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("Item1", "none", 100));
+        o1.addItem(new OrderItem("Item1", "none", 100, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(0);
-        o2.addItem(new OrderItem("Item2", "none", 101));
+        o2.addItem(new OrderItem("Item2", "none", 101, 0));
         t2.addOrder(o2);
 
         tickets.add(t1);
@@ -191,9 +191,9 @@ public class AnalysisServiceTest {
     public void testRankings() throws IOException {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("Burger", "Fries", 1200));
-        o1.addItem(new OrderItem("Burger", "Salad", 1200));
-        o1.addItem(new OrderItem("Soda", "none", 200));
+        o1.addItem(new OrderItem("Burger", "Fries", 1000, 200));
+        o1.addItem(new OrderItem("Burger", "Salad", 1000, 200));
+        o1.addItem(new OrderItem("Soda", "none", 200, 0));
         t1.addOrder(o1);
 
         List<Ticket> tickets = new ArrayList<>();
@@ -208,7 +208,7 @@ public class AnalysisServiceTest {
         assertEquals(2, items.size());
         assertEquals("Burger", items.get(0).getName());
         assertEquals(2, items.get(0).getCount());
-        assertEquals(2400, items.get(0).getTotalRevenueCents());
+        assertEquals(2000, items.get(0).getTotalRevenueCents());
 
         List<SideRank> sides = report.getSideRankings();
         assertEquals(2, sides.size());
@@ -221,19 +221,19 @@ public class AnalysisServiceTest {
         Ticket t1 = new Ticket(1);
         t1.setCreatedAt(Instant.parse("2023-01-01T10:00:00Z"));
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("Item1", "none", 1000));
+        o1.addItem(new OrderItem("Item1", "none", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         t2.setCreatedAt(Instant.parse("2023-01-02T10:00:00Z"));
         Order o2 = new Order(0);
-        o2.addItem(new OrderItem("Item1", "none", 2000));
+        o2.addItem(new OrderItem("Item1", "none", 2000, 0));
         t2.addOrder(o2);
 
         Ticket t3 = new Ticket(3);
         t3.setCreatedAt(Instant.parse("2023-01-03T10:00:00Z"));
         Order o3 = new Order(0);
-        o3.addItem(new OrderItem("Item1", "none", 500));
+        o3.addItem(new OrderItem("Item1", "none", 500, 0));
         t3.addOrder(o3);
 
         DailyTicketLog log1 = new DailyTicketLog(Collections.emptyMap(), List.of(t1), 1000, 1000, 1, 1);
@@ -261,13 +261,13 @@ public class AnalysisServiceTest {
     public void testPersistedTotals() throws IOException {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("Item1", "none", 1000));
+        o1.addItem(new OrderItem("Item1", "none", 1000, 0));
         t1.addOrder(o1);
 
         List<Ticket> tickets = new ArrayList<>();
         tickets.add(t1);
 
-        String json = "{\"tickets\":[{\"id\":1,\"subtotal\":1000,\"total\":1100,\"orders\":[{\"items\":[{\"name\":\"Item1\",\"price\":1000}]}]}]}";
+        String json = "{\"tickets\":[{\"id\":1,\"subtotal\":1000,\"total\":1100,\"orders\":[{\"items\":[{\"name\":\"Item1\",\"mainPrice\":1000,\"sidePrice\":0}]}]}]}";
 
         File dailyFile = new File(TEST_DIR + "/2023-01-01.json");
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();

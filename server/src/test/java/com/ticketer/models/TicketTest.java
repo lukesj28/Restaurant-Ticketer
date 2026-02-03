@@ -31,10 +31,10 @@ public class TicketTest {
         Ticket ticket = new Ticket(1);
 
         Order order1 = new Order(1000);
-        order1.addItem(new OrderItem("A", null, 1000));
+        order1.addItem(new OrderItem("A", null, 1000, 0));
 
         Order order2 = new Order(1000);
-        order2.addItem(new OrderItem("B", null, 500));
+        order2.addItem(new OrderItem("B", null, 500, 0));
 
         ticket.addOrder(order1);
         assertEquals(1000, ticket.getSubtotal());
@@ -66,12 +66,12 @@ public class TicketTest {
         Ticket ticket = new Ticket(1);
 
         Order orderZeroTax = new Order(0);
-        orderZeroTax.addItem(new OrderItem("Item", null, 10000));
+        orderZeroTax.addItem(new OrderItem("Item", null, 10000, 0));
         ticket.addOrder(orderZeroTax);
         assertEquals(10000, ticket.getTotal());
 
         Order orderHighTax = new Order(2500);
-        orderHighTax.addItem(new OrderItem("Item", null, 10000));
+        orderHighTax.addItem(new OrderItem("Item", null, 10000, 0));
         ticket.addOrder(orderHighTax);
 
         assertEquals(22500, ticket.getTotal());
@@ -81,7 +81,7 @@ public class TicketTest {
     public void testRemoveOrder() {
         Ticket ticket = new Ticket(1);
         Order order = new Order(1000);
-        order.addItem(new OrderItem("Item", null, 10000));
+        order.addItem(new OrderItem("Item", null, 10000, 0));
 
         ticket.addOrder(order);
         assertEquals(11000, ticket.getTotal());

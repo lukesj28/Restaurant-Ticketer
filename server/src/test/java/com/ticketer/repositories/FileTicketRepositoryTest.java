@@ -169,14 +169,14 @@ public class FileTicketRepositoryTest {
 
         Ticket t1 = new Ticket(1);
         com.ticketer.models.Order o1 = new com.ticketer.models.Order();
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
-        o1.addItem(new com.ticketer.models.OrderItem("Soda", null, 200));
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 800, 200));
+        o1.addItem(new com.ticketer.models.OrderItem("Soda", null, 200, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         com.ticketer.models.Order o2 = new com.ticketer.models.Order();
-        o2.addItem(new com.ticketer.models.OrderItem("Burger", null, 1000));
-        o2.addItem(new com.ticketer.models.OrderItem("Fries", "Ranch", 500));
+        o2.addItem(new com.ticketer.models.OrderItem("Burger", null, 1000, 0));
+        o2.addItem(new com.ticketer.models.OrderItem("Fries", "Ranch", 500, 0));
         t2.addOrder(o2);
 
         repository.save(t1);

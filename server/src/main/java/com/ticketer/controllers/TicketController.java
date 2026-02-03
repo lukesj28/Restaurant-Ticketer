@@ -98,7 +98,7 @@ public class TicketController {
     public ApiResponse<TicketDto> removeItemFromOrder(@PathVariable("ticketId") int ticketId,
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.AddItemRequest request) {
-        OrderItem item = new OrderItem(request.name(), request.selectedSide(), 0);
+        OrderItem item = new OrderItem(request.name(), request.selectedSide(), 0, 0);
         ticketService.removeItemFromOrder(ticketId, orderIndex, item);
         return getTicket(ticketId);
     }

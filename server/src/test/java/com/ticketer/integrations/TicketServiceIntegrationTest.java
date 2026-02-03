@@ -143,7 +143,7 @@ public class TicketServiceIntegrationTest {
 
         assertEquals(1, ticket.getOrders().size());
 
-        OrderItem item = new OrderItem("Burger", "Fries", 1000);
+        OrderItem item = new OrderItem("Burger", "Fries", 800, 200);
         order.addItem(item);
 
         assertEquals(1000, order.getSubtotal());
@@ -198,7 +198,7 @@ public class TicketServiceIntegrationTest {
         Ticket t1 = service.createTicket("T1");
 
         Order order = new Order(1000);
-        OrderItem item = new OrderItem("Burger", "Fries", 1000);
+        OrderItem item = new OrderItem("Burger", "Fries", 800, 200);
         order.addItem(item);
         service.addOrderToTicket(t1.getId(), order);
 
@@ -289,7 +289,7 @@ public class TicketServiceIntegrationTest {
         Ticket t = service.createTicket("T1");
         service.addOrderToTicket(t.getId(), new Order(0));
 
-        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100);
+        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100, 0);
         service.addItemToOrder(t.getId(), 0, item);
 
         assertEquals(1, t.getOrders().get(0).getItems().size());
@@ -299,7 +299,7 @@ public class TicketServiceIntegrationTest {
     @Test
     public void testAddItemToOrderTicketNotFound() {
         assertThrows(EntityNotFoundException.class, () -> {
-            service.addItemToOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100));
+            service.addItemToOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100, 0));
         });
     }
 
@@ -307,7 +307,7 @@ public class TicketServiceIntegrationTest {
     public void testAddItemToOrderInvalidIndex() {
         Ticket t = service.createTicket("T1");
         assertThrows(EntityNotFoundException.class, () -> {
-            service.addItemToOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
+            service.addItemToOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100, 0));
         });
     }
 
@@ -315,7 +315,7 @@ public class TicketServiceIntegrationTest {
     public void testRemoveItemFromOrder() {
         Ticket t = service.createTicket("T1");
         Order o = new Order(0);
-        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100);
+        com.ticketer.models.OrderItem item = new com.ticketer.models.OrderItem("I", "S", 100, 0);
         o.addItem(item);
         service.addOrderToTicket(t.getId(), o);
 
@@ -326,7 +326,7 @@ public class TicketServiceIntegrationTest {
     @Test
     public void testRemoveItemFromOrderTicketNotFound() {
         assertThrows(EntityNotFoundException.class, () -> {
-            service.removeItemFromOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100));
+            service.removeItemFromOrder(999, 0, new com.ticketer.models.OrderItem("I", "S", 100, 0));
         });
     }
 
@@ -334,7 +334,7 @@ public class TicketServiceIntegrationTest {
     public void testRemoveItemFromOrderInvalidIndex() {
         Ticket t = service.createTicket("T1");
         assertThrows(EntityNotFoundException.class, () -> {
-            service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
+            service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100, 0));
         });
     }
 
@@ -343,7 +343,7 @@ public class TicketServiceIntegrationTest {
         Ticket t = service.createTicket("T1");
         service.addOrderToTicket(t.getId(), new Order(0));
         assertThrows(EntityNotFoundException.class, () -> {
-            service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100));
+            service.removeItemFromOrder(t.getId(), 0, new com.ticketer.models.OrderItem("I", "S", 100, 0));
         });
     }
 }

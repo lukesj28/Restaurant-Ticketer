@@ -99,7 +99,7 @@ public class TicketControllerTest {
                 when(menuService.getItem("TestItem")).thenReturn(menuItem);
 
                 when(menuService.createOrderItem("TestItem", "Fries"))
-                                .thenReturn(new OrderItem("TestItem", "Fries", 1200));
+                                .thenReturn(new OrderItem("TestItem", "Fries", 1000, 200));
 
                 doAnswer(invocation -> {
                         OrderItem item = invocation.getArgument(2);
@@ -214,8 +214,8 @@ public class TicketControllerTest {
         public void testTicketTally() throws Exception {
                 Ticket ticket = new Ticket(1);
                 Order order = new Order();
-                order.addItem(new OrderItem("Burger", "Fries", 1000));
-                order.addItem(new OrderItem("Soda", null, 200));
+                order.addItem(new OrderItem("Burger", "Fries", 800, 200));
+                order.addItem(new OrderItem("Soda", null, 200, 0));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);

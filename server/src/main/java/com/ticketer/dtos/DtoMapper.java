@@ -19,7 +19,7 @@ public class DtoMapper {
     }
 
     public static OrderItemDto toOrderItemDto(OrderItem item) {
-        return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getPrice());
+        return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getMainPrice(), item.getSidePrice());
     }
 
     public static OrderDto toOrderDto(Order order) {

@@ -138,7 +138,7 @@ public class AnalysisService {
                             new ItemRank(item.getName(), 0, 0));
                     ItemRank itemRank = itemMap.get(item.getName());
                     itemRank.setCount(itemRank.getCount() + 1);
-                    itemRank.setTotalRevenueCents(itemRank.getTotalRevenueCents() + item.getPrice());
+                    itemRank.setTotalRevenueCents(itemRank.getTotalRevenueCents() + item.getMainPrice());
 
                     String side = item.getSelectedSide();
                     if (side != null && !side.isEmpty() && !"none".equalsIgnoreCase(side)) {

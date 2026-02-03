@@ -6,35 +6,44 @@ import static org.junit.Assert.*;
 public class OrderItemTest {
 
     @Test
-    public void testToString() {
-        OrderItem item = new OrderItem("Name", "Side", 1000);
-        assertNotNull(item.toString());
-
-        OrderItem item2 = new OrderItem("Name", null, 1000);
-        assertNotNull(item2.toString());
-    }
-
-    @Test
-    public void testGetName() {
-        OrderItem item = new OrderItem("Burger", "Fries", 1550);
+    public void testConstructorAndGetters() {
+        OrderItem item = new OrderItem("Burger", "Fries", 1200, 300);
         assertEquals("Burger", item.getName());
-    }
-
-    @Test
-    public void testGetSelectedSide() {
-        OrderItem item = new OrderItem("Burger", "Fries", 1550);
         assertEquals("Fries", item.getSelectedSide());
+        assertEquals(1200, item.getMainPrice());
+        assertEquals(300, item.getSidePrice());
+        assertEquals(1500, item.getPrice());
     }
 
     @Test
-    public void testGetSelectedSideNull() {
-        OrderItem item = new OrderItem("Burger", null, 1550);
+    public void testConstructorWithNoSide() {
+        OrderItem item = new OrderItem("Soda", null, 200, 0);
+        assertEquals("Soda", item.getName());
         assertNull(item.getSelectedSide());
+        assertEquals(200, item.getMainPrice());
+        assertEquals(0, item.getSidePrice());
+        assertEquals(200, item.getPrice());
     }
 
     @Test
-    public void testGetPrice() {
-        OrderItem item = new OrderItem("Burger", "Fries", 1550);
-        assertEquals(1550, item.getPrice());
+    public void testToString() {
+        OrderItem item = new OrderItem("Burger", "Fries", 1200, 300);
+        String str = item.toString();
+        assertNotNull(str);
+        assertTrue(str.contains("Burger"));
+        assertTrue(str.contains("Fries"));
+        assertTrue(str.contains("12.00"));
+        assertTrue(str.contains("3.00"));
+        assertTrue(str.contains("15.00"));
+    }
+
+    @Test
+    public void testToStringNoSide() {
+        OrderItem item = new OrderItem("Soda", null, 200, 0);
+        String str = item.toString();
+        assertNotNull(str);
+        assertTrue(str.contains("Soda"));
+        assertTrue(str.contains("2.00"));
+        assertFalse(str.contains("Side:"));
     }
 }

@@ -193,12 +193,12 @@ public class TicketServiceTest {
     public void testGetClosedTicketsSubtotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(0);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
@@ -211,12 +211,12 @@ public class TicketServiceTest {
     public void testGetClosedTicketsTotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(1000);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(2000);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
@@ -229,12 +229,12 @@ public class TicketServiceTest {
     public void testGetActiveAndCompletedTicketsSubtotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(0);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
@@ -248,12 +248,12 @@ public class TicketServiceTest {
     public void testGetActiveAndCompletedTicketsTotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(1000);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000));
+        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(2000);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000));
+        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));

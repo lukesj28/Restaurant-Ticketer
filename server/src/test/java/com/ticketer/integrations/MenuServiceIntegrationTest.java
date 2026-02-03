@@ -117,6 +117,9 @@ public class MenuServiceIntegrationTest {
 
         assertNotNull(item);
         assertEquals(name, item.getName());
+        assertEquals(1000, item.getMainPrice());
+        assertEquals(200, item.getSidePrice());
+        assertEquals(1200, item.getPrice());
     }
 
     @Test
