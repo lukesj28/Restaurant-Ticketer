@@ -145,7 +145,7 @@ public class AnalysisService {
 
                     if (side == null || side.isEmpty()) {
                     } else if ("none".equalsIgnoreCase(side)) {
-                        sideKey = "None";
+                        sideKey = "none";
                     } else {
                         sideKey = side;
                     }

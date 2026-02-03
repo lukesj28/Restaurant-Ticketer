@@ -19,7 +19,7 @@ public class AnalysisController {
         this.analysisService = analysisService;
     }
 
-    @PostMapping
+    @GetMapping
     public ApiResponse<AnalysisReport> getAnalysis(@RequestBody AnalysisRequest request) {
         LocalDate start = LocalDate.parse(request.startDate());
         LocalDate end = LocalDate.parse(request.endDate());

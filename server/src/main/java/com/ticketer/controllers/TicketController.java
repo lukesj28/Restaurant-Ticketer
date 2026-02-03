@@ -40,9 +40,9 @@ public class TicketController {
     }
 
     @PostMapping("")
-    public ApiResponse<TicketDto> createTicket(@RequestParam("tableNumber") String tableNumber) {
-        logger.info("Received request to create ticket for table: {}", tableNumber);
-        Ticket ticket = ticketService.createTicket(tableNumber);
+    public ApiResponse<TicketDto> createTicket(@RequestBody Requests.CreateTicketRequest request) {
+        logger.info("Received request to create ticket for table: {}", request.tableNumber());
+        Ticket ticket = ticketService.createTicket(request.tableNumber());
         return ApiResponse.success(DtoMapper.toTicketDto(ticket));
     }
 

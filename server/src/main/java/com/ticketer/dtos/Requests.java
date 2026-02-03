@@ -35,4 +35,7 @@ public class Requests {
 
     public record AnalysisRequest(String startDate, String endDate) {
     }
+
+    public record CreateTicketRequest(String tableNumber) {
+    }
 }

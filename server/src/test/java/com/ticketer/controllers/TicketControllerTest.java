@@ -62,7 +62,10 @@ public class TicketControllerTest {
                 when(ticketService.createTicket("Table1")).thenReturn(ticket);
                 when(ticketService.getTicket(1)).thenReturn(ticket);
 
-                mockMvc.perform(post("/api/tickets").param("tableNumber", "Table1"))
+                String json = "{\"tableNumber\":\"Table1\"}";
+                mockMvc.perform(post("/api/tickets")
+                                .contentType("application/json")
+                                .content(json))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.payload.tableNumber").value("Table1"));
                 verify(ticketService).createTicket("Table1");
@@ -231,8 +234,10 @@ public class TicketControllerTest {
         public void testExceptions() throws Exception {
                 when(ticketService.createTicket(anyString())).thenThrow(new RuntimeException("Generic Error"));
 
+                String json = "{\"tableNumber\":\"T1\"}";
                 mockMvc.perform(post("/api/tickets")
-                                .param("tableNumber", "T1"))
+                                .contentType("application/json")
+                                .content(json))
                                 .andExpect(status().isInternalServerError())
                                 .andExpect(jsonPath("$.status").value("ERROR"));
         }

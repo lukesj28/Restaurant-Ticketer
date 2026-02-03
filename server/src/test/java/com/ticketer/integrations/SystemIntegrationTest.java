@@ -48,8 +48,10 @@ public class SystemIntegrationTest {
 
     @Test
     public void testCreateTicket() throws Exception {
+        String json = "{\"tableNumber\":\"Table1\"}";
         mockMvc.perform(post("/api/tickets")
-                .param("tableNumber", "Table1"))
+                .contentType("application/json")
+                .content(json))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("SUCCESS")))
                 .andExpect(jsonPath("$.payload.tableNumber", is("Table1")));
