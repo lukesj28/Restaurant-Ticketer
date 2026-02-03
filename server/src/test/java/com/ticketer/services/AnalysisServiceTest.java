@@ -205,15 +205,29 @@ public class AnalysisServiceTest {
         AnalysisReport report = analysisService.generateReport(LocalDate.of(2023, 1, 1), LocalDate.of(2023, 1, 1));
 
         List<ItemRank> items = report.getItemRankings();
-        assertEquals(2, items.size());
+        assertEquals(4, items.size());
+
         assertEquals("Burger", items.get(0).getName());
         assertEquals(2, items.get(0).getCount());
         assertEquals(2000, items.get(0).getTotalRevenueCents());
 
-        List<SideRank> sides = report.getSideRankings();
-        assertEquals(2, sides.size());
-        assertTrue(sides.stream().anyMatch(s -> s.getName().equals("Fries")));
-        assertTrue(sides.stream().anyMatch(s -> s.getName().equals("Salad")));
+        ItemRank fries = items.stream().filter(i -> i.getName().equals("Fries")).findFirst().orElse(null);
+        assertNotNull(fries);
+        assertEquals(1, fries.getCount());
+        assertEquals(200, fries.getTotalRevenueCents());
+
+        ItemRank salad = items.stream().filter(i -> i.getName().equals("Salad")).findFirst().orElse(null);
+        assertNotNull(salad);
+        assertEquals(1, salad.getCount());
+        assertEquals(200, salad.getTotalRevenueCents());
+
+        Map<String, List<SideRank>> sideRankings = report.getSideRankings();
+
+        List<SideRank> burgerSides = sideRankings.get("Burger");
+        assertNotNull(burgerSides);
+        assertEquals(2, burgerSides.size());
+        assertTrue(burgerSides.stream().anyMatch(s -> s.getName().equals("Fries") && s.getCount() == 1));
+        assertTrue(burgerSides.stream().anyMatch(s -> s.getName().equals("Salad") && s.getCount() == 1));
     }
 
     @Test

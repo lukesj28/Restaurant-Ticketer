@@ -75,12 +75,13 @@ public class AnalysisIntegrationTest {
         t1.setClosedAt(Instant.parse("2023-01-01T10:30:00Z"));
         Order o1 = new Order(0);
         o1.addItem(new OrderItem("IntegrationBurger", "Fries", 1200, 300));
+        o1.addItem(new OrderItem("IntegrationBurger", "none", 1200, 0));
         t1.addOrder(o1);
 
         List<Ticket> tickets = new ArrayList<>();
         tickets.add(t1);
 
-        DailyTicketLog log = new DailyTicketLog(Collections.emptyMap(), tickets, 1500, 1500, 1, 1);
+        DailyTicketLog log = new DailyTicketLog(Collections.emptyMap(), tickets, 2700, 2700, 1, 1);
         mapper.writeValue(new File(TEST_DIR + "/2023-01-01.json"), log);
 
         AnalysisRequest request = new AnalysisRequest("2023-01-01", "2023-01-01");
@@ -91,8 +92,8 @@ public class AnalysisIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
                 .andExpect(jsonPath("$.payload.totalTicketCount").value(1))
-                .andExpect(jsonPath("$.payload.totalTotalCents").value(1500))
-                .andExpect(jsonPath("$.payload.totalSubtotalCents").value(1500))
+                .andExpect(jsonPath("$.payload.totalTotalCents").value(2700))
+                .andExpect(jsonPath("$.payload.totalSubtotalCents").value(2700))
                 .andExpect(jsonPath("$.payload.itemRankings[0].name").value("IntegrationBurger"));
     }
 }

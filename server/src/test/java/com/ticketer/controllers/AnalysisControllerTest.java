@@ -40,7 +40,7 @@ public class AnalysisControllerTest {
         report.setTotalSubtotalCents(4500);
         report.setHourlyTraffic(Collections.emptyMap());
         report.setItemRankings(Collections.emptyList());
-        report.setSideRankings(Collections.emptyList());
+        report.setSideRankings(Collections.emptyMap());
         report.setDayRankings(Collections.emptyList());
 
         when(analysisService.generateReport(any(LocalDate.class), any(LocalDate.class))).thenReturn(report);

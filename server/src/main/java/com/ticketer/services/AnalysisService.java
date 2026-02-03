@@ -128,8 +128,8 @@ public class AnalysisService {
             report.setAverageTurnoverTimeMinutes(0);
         }
 
+        Map<String, Map<String, Integer>> itemSideCounts = new java.util.HashMap<>();
         Map<String, ItemRank> itemMap = new java.util.HashMap<>();
-        Map<String, SideRank> sideMap = new java.util.HashMap<>();
 
         for (Ticket t : allTickets) {
             for (com.ticketer.models.Order o : t.getOrders()) {
@@ -141,10 +141,26 @@ public class AnalysisService {
                     itemRank.setTotalRevenueCents(itemRank.getTotalRevenueCents() + item.getMainPrice());
 
                     String side = item.getSelectedSide();
-                    if (side != null && !side.isEmpty() && !"none".equalsIgnoreCase(side)) {
-                        sideMap.putIfAbsent(side, new SideRank(side, 0));
-                        SideRank sideRank = sideMap.get(side);
-                        sideRank.setCount(sideRank.getCount() + 1);
+                    String sideKey = null;
+
+                    if (side == null || side.isEmpty()) {
+                    } else if ("none".equalsIgnoreCase(side)) {
+                        sideKey = "None";
+                    } else {
+                        sideKey = side;
+                    }
+
+                    if (sideKey != null) {
+                        itemSideCounts.putIfAbsent(item.getName(), new java.util.HashMap<>());
+                        itemSideCounts.get(item.getName()).merge(sideKey, 1, Integer::sum);
+
+                        if (!"None".equals(sideKey)) {
+                            itemMap.putIfAbsent(sideKey, new ItemRank(sideKey, 0, 0));
+                            ItemRank sideItemRank = itemMap.get(sideKey);
+                            sideItemRank.setCount(sideItemRank.getCount() + 1);
+                            sideItemRank
+                                    .setTotalRevenueCents(sideItemRank.getTotalRevenueCents() + item.getSidePrice());
+                        }
                     }
                 }
             }
@@ -154,9 +170,15 @@ public class AnalysisService {
         sortedItems.sort((a, b) -> b.getCount() - a.getCount());
         report.setItemRankings(sortedItems);
 
-        List<SideRank> sortedSides = new ArrayList<>(sideMap.values());
-        sortedSides.sort((a, b) -> b.getCount() - a.getCount());
-        report.setSideRankings(sortedSides);
+        Map<String, List<SideRank>> finalSideRankings = new java.util.HashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : itemSideCounts.entrySet()) {
+            List<SideRank> ranks = entry.getValue().entrySet().stream()
+                    .map(e -> new SideRank(e.getKey(), e.getValue()))
+                    .sorted((a, b) -> b.getCount() - a.getCount())
+                    .collect(Collectors.toList());
+            finalSideRankings.put(entry.getKey(), ranks);
+        }
+        report.setSideRankings(finalSideRankings);
 
         Map<String, Integer> dailyTotals = allTickets.stream()
                 .collect(Collectors.groupingBy(

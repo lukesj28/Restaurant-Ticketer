@@ -15,7 +15,7 @@ public class AnalysisReport {
     private int averageTurnoverTimeMinutes;
     private Map<Integer, Integer> hourlyTraffic;
     private List<ItemRank> itemRankings;
-    private List<SideRank> sideRankings;
+    private Map<String, List<SideRank>> sideRankings;
     private List<DayRank> dayRankings;
 
     public AnalysisReport() {
@@ -109,11 +109,11 @@ public class AnalysisReport {
         this.itemRankings = itemRankings;
     }
 
-    public List<SideRank> getSideRankings() {
+    public Map<String, List<SideRank>> getSideRankings() {
         return sideRankings;
     }
 
-    public void setSideRankings(List<SideRank> sideRankings) {
+    public void setSideRankings(Map<String, List<SideRank>> sideRankings) {
         this.sideRankings = sideRankings;
     }
 
