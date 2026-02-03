@@ -14,6 +14,12 @@ public class Ticket {
     private Instant createdAt;
     private Instant closedAt;
 
+    @com.fasterxml.jackson.annotation.JsonProperty("subtotal")
+    private Integer persistedSubtotal;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("total")
+    private Integer persistedTotal;
+
     @SuppressWarnings("unused")
     private Ticket() {
         this.orders = new ArrayList<>();
@@ -52,11 +58,21 @@ public class Ticket {
         return new ArrayList<>(orders);
     }
 
+    public void setOrders(List<Order> orders) {
+        this.orders = orders;
+    }
+
     public int getSubtotal() {
+        if (persistedSubtotal != null) {
+            return persistedSubtotal;
+        }
         return orders.stream().mapToInt(Order::getSubtotal).sum();
     }
 
     public int getTotal() {
+        if (persistedTotal != null) {
+            return persistedTotal;
+        }
         return orders.stream().mapToInt(Order::getTotal).sum();
     }
 

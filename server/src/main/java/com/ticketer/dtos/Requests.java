@@ -32,4 +32,7 @@ public class Requests {
 
     public record AddItemRequest(String name, String selectedSide) {
     }
+
+    public record AnalysisRequest(String startDate, String endDate) {
+    }
 }

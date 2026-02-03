@@ -141,7 +141,7 @@ public class FileTicketRepositoryTest {
         java.util.List<Ticket> initialTickets = new java.util.ArrayList<>();
         initialTickets.add(new Ticket(1));
         com.ticketer.models.DailyTicketLog log = new com.ticketer.models.DailyTicketLog(new java.util.HashMap<>(),
-                initialTickets, 0, 0);
+                initialTickets, 0, 0, initialTickets.size(), 0);
 
         try (java.io.FileWriter writer = new java.io.FileWriter(dailyFile)) {
             mapper.writeValue(writer, log);

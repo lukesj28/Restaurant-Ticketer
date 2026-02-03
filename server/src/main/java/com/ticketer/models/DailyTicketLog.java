@@ -4,21 +4,26 @@ import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
-@JsonPropertyOrder({ "subtotal", "total", "tally", "tickets" })
+@JsonPropertyOrder({ "ticketCount", "orderCount", "subtotal", "total", "tally", "tickets" })
 public class DailyTicketLog {
     private Map<String, Integer> tally;
     private List<Ticket> tickets;
     private int subtotal;
     private int total;
+    private int ticketCount;
+    private int orderCount;
 
     public DailyTicketLog() {
     }
 
-    public DailyTicketLog(Map<String, Integer> tally, List<Ticket> tickets, int subtotal, int total) {
+    public DailyTicketLog(Map<String, Integer> tally, List<Ticket> tickets, int subtotal, int total, int ticketCount,
+            int orderCount) {
         this.tally = tally;
         this.tickets = tickets;
         this.subtotal = subtotal;
         this.total = total;
+        this.ticketCount = ticketCount;
+        this.orderCount = orderCount;
     }
 
     public Map<String, Integer> getTally() {
@@ -51,5 +56,21 @@ public class DailyTicketLog {
 
     public void setTotal(int total) {
         this.total = total;
+    }
+
+    public int getTicketCount() {
+        return ticketCount;
+    }
+
+    public void setTicketCount(int ticketCount) {
+        this.ticketCount = ticketCount;
+    }
+
+    public int getOrderCount() {
+        return orderCount;
+    }
+
+    public void setOrderCount(int orderCount) {
+        this.orderCount = orderCount;
     }
 }

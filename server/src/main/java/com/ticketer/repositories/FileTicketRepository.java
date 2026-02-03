@@ -187,6 +187,7 @@ public class FileTicketRepository implements TicketRepository {
             java.util.Map<String, Integer> dailyTally = new java.util.HashMap<>();
             int dailySubtotalCents = 0;
             int dailyTotalCents = 0;
+            int orderCount = 0;
 
             for (Ticket ticket : allTickets) {
                 java.util.Map<String, Integer> ticketTally = ticket.getTally();
@@ -194,10 +195,11 @@ public class FileTicketRepository implements TicketRepository {
 
                 dailySubtotalCents += ticket.getSubtotal();
                 dailyTotalCents += ticket.getTotal();
+                orderCount += ticket.getOrders().size();
             }
 
             com.ticketer.models.DailyTicketLog log = new com.ticketer.models.DailyTicketLog(dailyTally, allTickets,
-                    dailySubtotalCents, dailyTotalCents);
+                    dailySubtotalCents, dailyTotalCents, allTickets.size(), orderCount);
 
             try (FileWriter writer = new FileWriter(filename)) {
                 objectMapper.writeValue(writer, log);
@@ -222,11 +224,19 @@ public class FileTicketRepository implements TicketRepository {
 
     @Override
     public synchronized void moveToClosed(int id) {
+        moveToClosed(id, true);
+    }
+
+    public synchronized void moveToClosed(int id, boolean setTimestamp) {
         Optional<Ticket> ticketOpt = activeTickets.stream().filter(t -> t.getId() == id).findFirst();
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             activeTickets.remove(ticket);
-            ticket.setClosedAt(java.time.Instant.now(clock));
+            if (setTimestamp) {
+                ticket.setClosedAt(java.time.Instant.now(clock));
+            } else {
+                ticket.setClosedAt(null);
+            }
             closedTickets.add(ticket);
             appendLog(new LogEntry(LogType.MOVE_CLOSED, id));
             return;
@@ -235,7 +245,11 @@ public class FileTicketRepository implements TicketRepository {
         if (ticketOpt.isPresent()) {
             Ticket ticket = ticketOpt.get();
             completedTickets.remove(ticket);
-            ticket.setClosedAt(java.time.Instant.now(clock));
+            if (setTimestamp) {
+                ticket.setClosedAt(java.time.Instant.now(clock));
+            } else {
+                ticket.setClosedAt(null);
+            }
             closedTickets.add(ticket);
             appendLog(new LogEntry(LogType.MOVE_CLOSED, id));
         }

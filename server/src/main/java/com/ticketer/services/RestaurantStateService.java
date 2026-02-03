@@ -230,7 +230,7 @@ public class RestaurantStateService {
 
         logger.info("Finalizing closing sequence. Moving remaining tickets to closed.");
         ticketService.discardActiveTickets();
-        ticketService.moveCompletedToClosed();
+        ticketService.forceCloseCompletedTickets();
         ticketService.serializeClosedTickets();
         ticketService.deleteRecoveryFile();
         logger.info("Closing sequence completed.");

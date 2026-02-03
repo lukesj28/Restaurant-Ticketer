@@ -229,6 +229,18 @@ public class TicketService {
         }
     }
 
+    public void forceCloseCompletedTickets() {
+        if (ticketRepository instanceof com.ticketer.repositories.FileTicketRepository) {
+            com.ticketer.repositories.FileTicketRepository repo = (com.ticketer.repositories.FileTicketRepository) ticketRepository;
+            List<Ticket> completed = new java.util.ArrayList<>(repo.findAllCompleted());
+            for (Ticket t : completed) {
+                repo.moveToClosed(t.getId(), false);
+            }
+        } else {
+            moveCompletedToClosed();
+        }
+    }
+
     public void discardActiveTickets() {
         logger.info("Discarding all active tickets.");
         List<Ticket> active = new java.util.ArrayList<>(ticketRepository.findAllActive());
