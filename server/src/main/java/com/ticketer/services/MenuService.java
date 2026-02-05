@@ -133,6 +133,13 @@ public class MenuService {
         }
         MenuItem item = getItem(oldName);
         item.name = newName;
+
+        List<String> kitchenItems = currentMenu.getKitchenItems();
+        if (kitchenItems.contains(oldName)) {
+            kitchenItems.remove(oldName);
+            kitchenItems.add(newName);
+        }
+
         menuRepository.saveMenu(currentMenu);
     }
 
@@ -141,6 +148,13 @@ public class MenuService {
         String category = getCategoryOfItem(itemName);
         List<MenuItem> items = currentMenu.getCategory(category);
         items.removeIf(i -> i.name.equals(itemName));
+
+        if (items.isEmpty()) {
+            currentMenu.getCategories().remove(category);
+        }
+
+        currentMenu.getKitchenItems().remove(itemName);
+
         menuRepository.saveMenu(currentMenu);
     }
 
@@ -182,6 +196,10 @@ public class MenuService {
 
         oldItems.remove(item);
 
+        if (oldItems.isEmpty()) {
+            currentMenu.getCategories().remove(oldCategory);
+        }
+
         Map<String, List<MenuItem>> categories = currentMenu.getCategories();
         List<MenuItem> newItems = categories.get(newCategory);
         if (newItems == null) {
@@ -217,4 +235,49 @@ public class MenuService {
 
         menuRepository.saveMenu(currentMenu);
     }
+
+    public List<String> getKitchenItems() {
+        return currentMenu.getKitchenItems();
+    }
+
+    public void addKitchenItem(String itemName) {
+        logger.info("Adding item {} to kitchen list", itemName);
+        getItem(itemName);
+
+        List<String> kitchenItems = currentMenu.getKitchenItems();
+        if (!kitchenItems.contains(itemName)) {
+            kitchenItems.add(itemName);
+            menuRepository.saveMenu(currentMenu);
+        }
+    }
+
+    public void removeKitchenItem(String itemName) {
+        logger.info("Removing item {} from kitchen list", itemName);
+        List<String> kitchenItems = currentMenu.getKitchenItems();
+        if (kitchenItems.remove(itemName)) {
+            menuRepository.saveMenu(currentMenu);
+        }
+    }
+
+    public void deleteCategory(String categoryName) {
+        logger.info("Deleting category {}", categoryName);
+        categoryName = categoryName.toLowerCase();
+        Map<String, List<MenuItem>> categories = currentMenu.getCategories();
+
+        if (!categories.containsKey(categoryName)) {
+            throw new EntityNotFoundException("Category not found: " + categoryName);
+        }
+
+        List<MenuItem> items = categories.remove(categoryName);
+
+        List<String> kitchenItems = currentMenu.getKitchenItems();
+        if (items != null) {
+            for (MenuItem item : items) {
+                kitchenItems.remove(item.name);
+            }
+        }
+
+        menuRepository.saveMenu(currentMenu);
+    }
+
 }

@@ -12,9 +12,11 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -218,11 +220,10 @@ public class TicketControllerTest {
         }
 
         @Test
-        public void testTicketTally() throws Exception {
+        public void testGetTicketTally() throws Exception {
                 Ticket ticket = new Ticket(1);
-                Order order = new Order();
-                order.addItem(new OrderItem("Burger", "Fries", 800, 200));
-                order.addItem(new OrderItem("Soda", null, 200, 0));
+                Order order = new Order(1300);
+                order.addItem(new OrderItem("Burger", "Fries", 1000, 0));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);
@@ -230,8 +231,31 @@ public class TicketControllerTest {
                 mockMvc.perform(get("/api/tickets/1/tally"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.payload.Burger").value(1))
-                                .andExpect(jsonPath("$.payload.Fries").value(1))
-                                .andExpect(jsonPath("$.payload.Soda").value(1));
+                                .andExpect(jsonPath("$.payload.Fries").value(1));
+        }
+
+        @Test
+        public void testGetTicketKitchenTally() throws Exception {
+                Ticket ticket = new Ticket(1);
+                Order order = new Order(1300);
+                order.addItem(new OrderItem("Burger", "Fries", 1000, 0));
+                order.addItem(new OrderItem("Pizza", "None", 1200, 0));
+                order.addItem(new OrderItem("Coke", "None", 200, 0));
+                ticket.addOrder(order);
+
+                when(ticketService.getTicket(1)).thenReturn(ticket);
+
+                List<String> kitchenItems = new ArrayList<>();
+                kitchenItems.add("Burger");
+                kitchenItems.add("Pizza");
+                when(menuService.getKitchenItems()).thenReturn(kitchenItems);
+
+                mockMvc.perform(get("/api/tickets/1/tally/kitchen"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload.Burger").value(1))
+                                .andExpect(jsonPath("$.payload.Pizza").value(1))
+                                .andExpect(jsonPath("$.payload.Fries").doesNotExist())
+                                .andExpect(jsonPath("$.payload.Coke").doesNotExist());
         }
 
         @Test

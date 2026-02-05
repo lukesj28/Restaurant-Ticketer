@@ -190,8 +190,7 @@ public class MenuServiceIntegrationTest {
         assertNotNull(catItems);
         assertTrue(catItems.stream().anyMatch(i -> i.name.equals(name)));
 
-        List<MenuItem> oldCatItems = service.getCategory(oldCat.toLowerCase());
-        assertFalse(oldCatItems.stream().anyMatch(i -> i.name.equals(name)));
+        assertThrows(EntityNotFoundException.class, () -> service.getCategory(oldCat.toLowerCase()));
     }
 
     @Test

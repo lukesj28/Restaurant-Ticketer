@@ -137,4 +137,27 @@ public class MenuController {
         MenuItem item = menuService.getItem(itemName);
         return ApiResponse.success(DtoMapper.toItemDto(item));
     }
+
+    @DeleteMapping("/categories/{categoryName}")
+    public ApiResponse<List<String>> deleteCategory(@PathVariable String categoryName) {
+        menuService.deleteCategory(categoryName);
+        return ApiResponse.success(java.util.Collections.emptyList());
+    }
+
+    @GetMapping("/kitchen-items")
+    public ApiResponse<List<String>> getKitchenItems() {
+        return ApiResponse.success(menuService.getKitchenItems());
+    }
+
+    @PostMapping("/kitchen-items/{itemName}")
+    public ApiResponse<List<String>> addKitchenItem(@PathVariable String itemName) {
+        menuService.addKitchenItem(itemName);
+        return ApiResponse.success(menuService.getKitchenItems());
+    }
+
+    @DeleteMapping("/kitchen-items/{itemName}")
+    public ApiResponse<List<String>> removeKitchenItem(@PathVariable String itemName) {
+        menuService.removeKitchenItem(itemName);
+        return ApiResponse.success(menuService.getKitchenItems());
+    }
 }

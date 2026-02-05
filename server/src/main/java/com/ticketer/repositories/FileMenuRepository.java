@@ -45,17 +45,32 @@ public class FileMenuRepository implements MenuRepository {
         File file = new File(filePath);
         if (!file.exists()) {
             logger.warn("Menu file not found at {}, returning empty menu", filePath);
-            return new Menu(new HashMap<>());
+            return new Menu(new HashMap<>(), new ArrayList<>());
         }
 
         try (FileReader reader = new FileReader(file)) {
-            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(reader);
+            JsonNode root = objectMapper.readTree(reader);
             if (root == null || root.isNull()) {
-                return new Menu(new HashMap<>());
+                return new Menu(new HashMap<>(), new ArrayList<>());
             }
 
             Map<String, List<MenuItem>> categories = new HashMap<>();
-            Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
+            List<String> keyItems = new ArrayList<>();
+
+            JsonNode categoriesNode;
+            if (root.has("categories")) {
+                categoriesNode = root.get("categories");
+                if (root.has("kitchenItems")) {
+                    keyItems = objectMapper.convertValue(root.get("kitchenItems"), new TypeReference<List<String>>() {
+                    });
+                }
+            } else {
+                logger.warn("Menu file {} uses invalid format or is missing 'categories' field. Returning empty menu.",
+                        filePath);
+                return new Menu(new HashMap<>(), new ArrayList<>());
+            }
+
+            Iterator<Map.Entry<String, JsonNode>> fields = categoriesNode.fields();
 
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> categoryEntry = fields.next();
@@ -86,7 +101,7 @@ public class FileMenuRepository implements MenuRepository {
                 categories.put(categoryName, items);
             }
             logger.info("Successfully loaded menu from {}", filePath);
-            return new Menu(categories);
+            return new Menu(categories, keyItems);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load menu from " + filePath, e);
         }
@@ -96,6 +111,7 @@ public class FileMenuRepository implements MenuRepository {
     public void saveMenu(Menu menu) {
         try (FileWriter writer = new FileWriter(filePath)) {
             ObjectNode root = objectMapper.createObjectNode();
+            ObjectNode categoriesNode = objectMapper.createObjectNode();
 
             for (Map.Entry<String, List<MenuItem>> categoryEntry : menu.getCategories()
                     .entrySet()) {
@@ -111,8 +127,12 @@ public class FileMenuRepository implements MenuRepository {
                     }
                     categoryNode.set(item.name, itemNode);
                 }
-                root.set(categoryEntry.getKey(), categoryNode);
+                categoriesNode.set(categoryEntry.getKey(), categoryNode);
             }
+
+            root.set("categories", categoriesNode);
+            root.set("kitchenItems", objectMapper.valueToTree(menu.getKitchenItems()));
+
             objectMapper.writeValue(writer, root);
             logger.info("Successfully saved menu to {}", filePath);
         } catch (IOException e) {

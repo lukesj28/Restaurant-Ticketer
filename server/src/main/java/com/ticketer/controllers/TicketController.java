@@ -64,6 +64,26 @@ public class TicketController {
         return ApiResponse.success(ticket.getTally());
     }
 
+    @GetMapping("/{ticketId}/tally/kitchen")
+    public ApiResponse<java.util.Map<String, Integer>> getTicketKitchenTally(@PathVariable("ticketId") int ticketId) {
+        Ticket ticket = ticketService.getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket not found");
+        }
+
+        java.util.Map<String, Integer> fullTally = ticket.getTally();
+        List<String> kitchenItems = menuService.getKitchenItems();
+
+        java.util.Map<String, Integer> kitchenTally = new java.util.HashMap<>();
+        for (String item : kitchenItems) {
+            if (fullTally.containsKey(item)) {
+                kitchenTally.put(item, fullTally.get(item));
+            }
+        }
+
+        return ApiResponse.success(kitchenTally);
+    }
+
     @PostMapping("/{ticketId}/orders")
     public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId) {
         logger.info("Received request to add order to ticket: {}", ticketId);

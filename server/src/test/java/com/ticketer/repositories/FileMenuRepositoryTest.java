@@ -34,6 +34,7 @@ public class FileMenuRepositoryTest {
         Menu menu = repo.getMenu();
         assertNotNull(menu);
         assertTrue(menu.getCategories().isEmpty());
+        assertTrue(menu.getKitchenItems().isEmpty());
     }
 
     @Test
@@ -46,7 +47,7 @@ public class FileMenuRepositoryTest {
     @Test
     public void testSaveAndLoad() {
         FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
-        Menu menu = new Menu(new java.util.HashMap<>());
+        Menu menu = new Menu(new java.util.HashMap<>(), new java.util.ArrayList<>());
         repo.saveMenu(menu);
 
         File f = new File(TEST_FILE);
@@ -55,5 +56,26 @@ public class FileMenuRepositoryTest {
         Menu loaded = repo.getMenu();
         assertNotNull(loaded);
         assertTrue(loaded.getCategories().isEmpty());
+    }
+
+    @Test
+    public void testLoadMenu() throws IOException {
+        String json = "{" +
+                "\"categories\": {" +
+                "\"mains\": {" +
+                "\"Burger\": { \"price\": 1000, \"available\": true }" +
+                "}" +
+                "}," +
+                "\"kitchenItems\": [\"Burger\"]" +
+                "}";
+        Files.write(new File(TEST_FILE).toPath(), json.getBytes());
+
+        FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
+        Menu loaded = repo.getMenu();
+
+        assertNotNull(loaded);
+        assertTrue(loaded.getCategories().containsKey("mains"));
+        assertEquals(1, loaded.getKitchenItems().size());
+        assertEquals("Burger", loaded.getKitchenItems().get(0));
     }
 }

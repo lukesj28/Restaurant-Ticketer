@@ -5,19 +5,29 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
 
 public class Menu {
     private Map<String, List<MenuItem>> categories;
+    private List<String> kitchenItems;
 
     @JsonCreator
-    public Menu(Map<String, List<MenuItem>> categories) {
+    public Menu(
+            @com.fasterxml.jackson.annotation.JsonProperty("categories") Map<String, List<MenuItem>> categories,
+            @com.fasterxml.jackson.annotation.JsonProperty("kitchenItems") List<String> kitchenItems) {
         this.categories = categories;
+        this.kitchenItems = kitchenItems != null ? kitchenItems : new ArrayList<>();
     }
 
-    @JsonValue
     public Map<String, List<MenuItem>> getCategories() {
         return categories;
+    }
+
+    public List<String> getKitchenItems() {
+        return kitchenItems;
+    }
+
+    public void setKitchenItems(List<String> kitchenItems) {
+        this.kitchenItems = kitchenItems;
     }
 
     public List<MenuItem> getCategory(String categoryName) {

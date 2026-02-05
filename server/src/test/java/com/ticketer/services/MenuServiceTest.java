@@ -37,7 +37,7 @@ public class MenuServiceTest {
         items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
         data.put("entrees", items);
 
-        when(menuRepository.getMenu()).thenReturn(new Menu(data));
+        when(menuRepository.getMenu()).thenReturn(new Menu(data, null));
         menuService = new MenuService(menuRepository);
 
         Map<String, List<MenuItem>> categories = menuService.getCategories();
@@ -55,7 +55,7 @@ public class MenuServiceTest {
         items.add(burger);
         data.put("entrees", items);
 
-        when(menuRepository.getMenu()).thenReturn(new Menu(data));
+        when(menuRepository.getMenu()).thenReturn(new Menu(data, null));
         menuService = new MenuService(menuRepository);
 
         MenuItem found = menuService.getItem("Burger");
@@ -65,7 +65,7 @@ public class MenuServiceTest {
 
     @Test
     public void testGetItemNotFound() {
-        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>()));
+        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>(), null));
         menuService = new MenuService(menuRepository);
         assertThrows(EntityNotFoundException.class, () -> menuService.getItem("Burger"));
     }
@@ -77,7 +77,7 @@ public class MenuServiceTest {
         items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
         data.put("entrees", items);
 
-        when(menuRepository.getMenu()).thenReturn(new Menu(data));
+        when(menuRepository.getMenu()).thenReturn(new Menu(data, null));
         menuService = new MenuService(menuRepository);
 
         List<MenuItemView> allItems = menuService.getAllItems();
@@ -92,19 +92,19 @@ public class MenuServiceTest {
         items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
         data.put("entrees", items);
 
-        Menu menu = new Menu(data);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
         menuService.removeItem("Burger");
 
-        assertTrue(data.get("entrees").isEmpty());
+        assertFalse(data.containsKey("entrees"));
         verify(menuRepository).saveMenu(menu);
     }
 
     @Test
     public void testRemoveItemNotFound() {
-        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>()));
+        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>(), null));
         menuService = new MenuService(menuRepository);
         assertThrows(EntityNotFoundException.class, () -> menuService.removeItem("Burger"));
     }
@@ -112,7 +112,7 @@ public class MenuServiceTest {
     @Test
     public void testAddItem() {
         Map<String, List<MenuItem>> data = new HashMap<>();
-        Menu menu = new Menu(data);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
@@ -131,7 +131,7 @@ public class MenuServiceTest {
         items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
         data.put("entrees", items);
 
-        Menu menu = new Menu(data);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
@@ -148,7 +148,7 @@ public class MenuServiceTest {
         items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
         data.put("entrees", items);
 
-        Menu menu = new Menu(data);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
@@ -165,7 +165,7 @@ public class MenuServiceTest {
         items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
         data.put("entrees", items);
 
-        Menu menu = new Menu(data);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
@@ -180,7 +180,7 @@ public class MenuServiceTest {
         Map<String, List<MenuItem>> data = new HashMap<>();
         data.put("entrees", new ArrayList<>());
 
-        Menu menu = new Menu(data);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
@@ -193,8 +193,131 @@ public class MenuServiceTest {
 
     @Test
     public void testRenameCategoryNotFound() {
-        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>()));
+        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>(), null));
         menuService = new MenuService(menuRepository);
         assertThrows(EntityNotFoundException.class, () -> menuService.renameCategory("Entrees", "Mains"));
+    }
+
+    @Test
+    public void testKitchenItemsManagement() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+
+        Menu menu = new Menu(data, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.addKitchenItem("Burger");
+        assertTrue(menuService.getKitchenItems().contains("Burger"));
+        verify(menuRepository, times(1)).saveMenu(menu);
+
+        menuService.addKitchenItem("Burger");
+        verify(menuRepository, times(1)).saveMenu(menu);
+
+        menuService.removeKitchenItem("Burger");
+        assertFalse(menuService.getKitchenItems().contains("Burger"));
+        verify(menuRepository, times(2)).saveMenu(menu);
+    }
+
+    @Test
+    public void testKitchenItemSyncOnRename() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+        List<String> kitchenItems = new ArrayList<>();
+        kitchenItems.add("Burger");
+
+        Menu menu = new Menu(data, kitchenItems);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.renameItem("Burger", "Cheeseburger");
+
+        assertFalse(menuService.getKitchenItems().contains("Burger"));
+        assertTrue(menuService.getKitchenItems().contains("Cheeseburger"));
+    }
+
+    @Test
+    public void testKitchenItemSyncOnRemove() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+        List<String> kitchenItems = new ArrayList<>();
+        kitchenItems.add("Burger");
+
+        Menu menu = new Menu(data, kitchenItems);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.removeItem("Burger");
+
+        assertFalse(menuService.getKitchenItems().contains("Burger"));
+    }
+
+    @Test
+    public void testRemoveItemEmptyCategory() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+
+        Menu menu = new Menu(data, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.removeItem("Burger");
+
+        assertFalse(data.containsKey("entrees"));
+        verify(menuRepository).saveMenu(menu);
+    }
+
+    @Test
+    public void testChangeCategoryEmptyOldCategory() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+
+        Menu menu = new Menu(data, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.changeCategory("Burger", "Mains");
+
+        assertFalse(data.containsKey("entrees"));
+        assertTrue(data.containsKey("mains"));
+        assertEquals(1, data.get("mains").size());
+        verify(menuRepository).saveMenu(menu);
+    }
+
+    @Test
+    public void testDeleteCategory() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, new HashMap<>()));
+        data.put("entrees", items);
+        List<String> kitchenItems = new ArrayList<>();
+        kitchenItems.add("Burger");
+
+        Menu menu = new Menu(data, kitchenItems);
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.deleteCategory("Entrees");
+
+        assertFalse(data.containsKey("entrees"));
+        assertFalse(menuService.getKitchenItems().contains("Burger"));
+        verify(menuRepository).saveMenu(menu);
+    }
+
+    @Test
+    public void testDeleteCategoryNotFound() {
+        when(menuRepository.getMenu()).thenReturn(new Menu(new HashMap<>(), null));
+        menuService = new MenuService(menuRepository);
+        assertThrows(EntityNotFoundException.class, () -> menuService.deleteCategory("Entrees"));
     }
 }
