@@ -1,5 +1,8 @@
 package com.ticketer.integrations;
 
+import com.ticketer.exceptions.InvalidInputException;
+import com.ticketer.exceptions.EntityNotFoundException;
+
 import com.ticketer.models.Settings;
 import com.ticketer.repositories.FileSettingsRepository;
 import com.ticketer.services.SettingsService;
@@ -70,7 +73,7 @@ public class SettingsServiceIntegrationTest {
     @Test
     public void testSetOpeningHours() throws IOException {
         String day = "mon";
-        String newHours = "00:00-23:59";
+        String newHours = "00:00 - 23:59";
 
         service.setOpeningHours(day, newHours);
         assertEquals(newHours, service.getOpeningHours(day));
@@ -104,9 +107,8 @@ public class SettingsServiceIntegrationTest {
         }
     }
 
-    @Test
     public void testSetTaxInvalid() {
-        assertThrows(com.ticketer.exceptions.ValidationException.class, () -> {
+        assertThrows(InvalidInputException.class, () -> {
             service.setTax(-1);
         });
     }
@@ -121,7 +123,7 @@ public class SettingsServiceIntegrationTest {
             public void saveSettings(Settings s) {
             }
         });
-        assertThrows(com.ticketer.exceptions.EntityNotFoundException.class, () -> {
+        assertThrows(EntityNotFoundException.class, () -> {
             errorService.getSettings();
         });
     }

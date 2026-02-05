@@ -4,6 +4,7 @@ import com.ticketer.models.Order;
 import com.ticketer.models.Ticket;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
+import com.ticketer.exceptions.ActionNotAllowedException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -138,31 +139,31 @@ public class TicketServiceTest {
     }
 
     @Test
-    public void testAddOrderToClosedTicket() {
+    void testAddOrderToClosedTicket() {
         Ticket t1 = new Ticket(1);
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1));
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-        assertThrows(IllegalArgumentException.class, () -> ticketService.addOrderToTicket(1, new Order(1000)));
+        assertThrows(ActionNotAllowedException.class, () -> ticketService.addOrderToTicket(1, new Order(1000)));
     }
 
     @Test
-    public void testMoveClosedToCompletedShouldFail() {
+    void testMoveClosedToCompletedShouldFail() {
         Ticket t1 = new Ticket(1);
         t1.setClosedAt(Instant.now());
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-        assertThrows(IllegalArgumentException.class, () -> ticketService.moveToCompleted(1));
+        assertThrows(ActionNotAllowedException.class, () -> ticketService.moveToCompleted(1));
     }
 
     @Test
-    public void testMoveClosedToActiveShouldFail() {
+    void testMoveClosedToActiveShouldFail() {
         Ticket t1 = new Ticket(1);
         t1.setClosedAt(Instant.now());
         when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
 
-        assertThrows(IllegalArgumentException.class, () -> ticketService.moveToActive(1));
+        assertThrows(ActionNotAllowedException.class, () -> ticketService.moveToActive(1));
     }
 
     @Test

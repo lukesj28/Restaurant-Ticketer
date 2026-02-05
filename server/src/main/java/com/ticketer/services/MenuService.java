@@ -7,6 +7,7 @@ import com.ticketer.models.MenuItem;
 import com.ticketer.models.MenuItemView;
 import com.ticketer.models.Side;
 import com.ticketer.exceptions.EntityNotFoundException;
+import com.ticketer.exceptions.InvalidInputException;
 
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,16 @@ public class MenuService {
 
     public void addItem(String category, String name, int price, Map<String, Integer> sides) {
         logger.info("Adding item {} to category {} with price {}", name, category, price);
+        if (name == null || name.trim().isEmpty()) {
+            throw new InvalidInputException("Item name cannot be empty");
+        }
+        if (category == null || category.trim().isEmpty()) {
+            throw new InvalidInputException("Category cannot be empty");
+        }
+        if (price < 0) {
+            throw new InvalidInputException("Price cannot be negative");
+        }
+
         category = category.toLowerCase();
         Map<String, List<MenuItem>> categories = currentMenu.getCategories();
 
@@ -100,6 +111,9 @@ public class MenuService {
 
     public void editItemPrice(String itemName, int newPrice) {
         logger.info("Editing price for item {} to {}", itemName, newPrice);
+        if (newPrice < 0) {
+            throw new InvalidInputException("Price cannot be negative");
+        }
         MenuItem item = getItem(itemName);
         item.price = newPrice;
         menuRepository.saveMenu(currentMenu);
@@ -114,6 +128,9 @@ public class MenuService {
 
     public void renameItem(String oldName, String newName) {
         logger.info("Renaming item {} to {}", oldName, newName);
+        if (newName == null || newName.trim().isEmpty()) {
+            throw new InvalidInputException("New name cannot be empty");
+        }
         MenuItem item = getItem(oldName);
         item.name = newName;
         menuRepository.saveMenu(currentMenu);
@@ -129,6 +146,9 @@ public class MenuService {
 
     public void renameCategory(String oldCategory, String newCategory) {
         logger.info("Renaming category {} to {}", oldCategory, newCategory);
+        if (newCategory == null || newCategory.trim().isEmpty()) {
+            throw new InvalidInputException("New category name cannot be empty");
+        }
         oldCategory = oldCategory.toLowerCase();
         newCategory = newCategory.toLowerCase();
         Map<String, List<MenuItem>> categories = currentMenu.getCategories();
@@ -148,6 +168,9 @@ public class MenuService {
 
     public void changeCategory(String itemName, String newCategory) {
         logger.info("Changing category for item {} to {}", itemName, newCategory);
+        if (newCategory == null || newCategory.trim().isEmpty()) {
+            throw new InvalidInputException("New category name cannot be empty");
+        }
         String oldCategory = getCategoryOfItem(itemName);
         newCategory = newCategory.toLowerCase();
 

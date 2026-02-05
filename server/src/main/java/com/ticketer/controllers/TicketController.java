@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.ticketer.api.ApiResponse;
 import com.ticketer.dtos.*;
+import com.ticketer.exceptions.EntityNotFoundException;
 import com.ticketer.models.Order;
 import com.ticketer.models.OrderItem;
 import com.ticketer.models.Ticket;
@@ -50,7 +51,7 @@ public class TicketController {
     public ApiResponse<TicketDto> getTicket(@PathVariable("ticketId") int ticketId) {
         Ticket ticket = ticketService.getTicket(ticketId);
         if (ticket == null)
-            throw new com.ticketer.exceptions.EntityNotFoundException("Ticket not found");
+            throw new EntityNotFoundException("Ticket not found");
         return ApiResponse.success(DtoMapper.toTicketDto(ticket));
     }
 
@@ -58,7 +59,7 @@ public class TicketController {
     public ApiResponse<java.util.Map<String, Integer>> getTicketTally(@PathVariable("ticketId") int ticketId) {
         Ticket ticket = ticketService.getTicket(ticketId);
         if (ticket == null) {
-            throw new com.ticketer.exceptions.EntityNotFoundException("Ticket not found");
+            throw new EntityNotFoundException("Ticket not found");
         }
         return ApiResponse.success(ticket.getTally());
     }

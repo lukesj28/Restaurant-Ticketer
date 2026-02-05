@@ -22,6 +22,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(404).body(ApiResponse.error(e.getMessage()));
     }
 
+    @ExceptionHandler(ActionNotAllowedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleActionNotAllowedException(ActionNotAllowedException e) {
+        logger.warn("ActionNotAllowedException", e);
+        return ResponseEntity.status(409).body(ApiResponse.error(e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidInputException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInvalidInputException(InvalidInputException e) {
+        logger.warn("InvalidInputException", e);
+        return ResponseEntity.status(400).body(ApiResponse.error(e.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException e) {
         logger.warn("IllegalArgumentException", e);

@@ -5,6 +5,8 @@ import com.ticketer.models.Order;
 import com.ticketer.models.OrderItem;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
+import com.ticketer.exceptions.InvalidInputException;
+import com.ticketer.exceptions.ActionNotAllowedException;
 
 import java.util.List;
 
@@ -73,6 +75,9 @@ public class TicketService {
     public Ticket createTicket(String tableNumber) {
         checkAndResetDailyCounter();
         logger.info("Creating ticket for table: {}", tableNumber);
+        if (tableNumber == null || tableNumber.trim().isEmpty()) {
+            throw new InvalidInputException("Table number cannot be empty");
+        }
         int id = generateTicketId();
         Ticket ticket = new Ticket(id);
         ticket.setTableNumber(tableNumber);
@@ -112,7 +117,7 @@ public class TicketService {
         }
 
         if (ticketRepository.findAllClosed().contains(ticket)) {
-            throw new IllegalArgumentException("Cannot modify a closed ticket.");
+            throw new ActionNotAllowedException("Cannot modify a closed ticket.");
         }
 
         if (ticketRepository.findAllCompleted().contains(ticket)) {
@@ -125,6 +130,10 @@ public class TicketService {
 
     public void addItemToOrder(int ticketId, int orderIndex, OrderItem item) {
         logger.info("Adding item {} to order {} on ticket {}", item.getName(), orderIndex, ticketId);
+        if (item.getName() == null || item.getName().trim().isEmpty()) {
+            throw new InvalidInputException("Item name cannot be empty");
+        }
+
         Ticket ticket = getTicket(ticketId);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket " + ticketId + " not found");
@@ -187,7 +196,7 @@ public class TicketService {
                 () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
 
         if (ticket.getClosedAt() != null) {
-            throw new IllegalArgumentException("Cannot move a closed ticket to completed.");
+            throw new ActionNotAllowedException("Cannot move a closed ticket to completed.");
         }
         ticket.setStatus("COMPLETED");
         ticketRepository.save(ticket);
@@ -210,7 +219,7 @@ public class TicketService {
                 () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
 
         if (ticket.getClosedAt() != null) {
-            throw new IllegalArgumentException("Cannot move a closed ticket to active.");
+            throw new ActionNotAllowedException("Cannot move a closed ticket to active.");
         }
         ticket.setStatus("ACTIVE");
         ticketRepository.save(ticket);

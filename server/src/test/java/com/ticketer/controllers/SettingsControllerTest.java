@@ -16,6 +16,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.ticketer.exceptions.InvalidInputException;
+import com.ticketer.exceptions.GlobalExceptionHandler;
 import com.ticketer.models.Settings;
 import com.ticketer.services.RestaurantStateService;
 import com.ticketer.services.SettingsService;
@@ -38,7 +40,7 @@ public class SettingsControllerTest {
         MockitoAnnotations.openMocks(this);
         settingsController = new SettingsController(settingsService, restaurantStateService);
         mockMvc = MockMvcBuilders.standaloneSetup(settingsController)
-                .setControllerAdvice(new com.ticketer.exceptions.GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
@@ -54,7 +56,7 @@ public class SettingsControllerTest {
         Settings settings = new Settings(1000, hours);
         when(settingsService.getSettings()).thenReturn(settings);
 
-        mockMvc.perform(post("/api/settings/refresh"))
+        mockMvc.perform(get("/api/settings/refresh"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.payload").exists());
 
@@ -135,5 +137,33 @@ public class SettingsControllerTest {
 
         verify(settingsService).setOpeningHours("Monday", "10:00 - 20:00");
         verify(restaurantStateService).checkAndScheduleState();
+    }
+
+    @Test
+    public void testSetTaxInvalid() throws Exception {
+        doThrow(new InvalidInputException("Tax cannot be negative"))
+                .when(settingsService).setTax(anyInt());
+
+        String json = "{\"tax\":-100}";
+        mockMvc.perform(put("/api/settings/tax")
+                .contentType("application/json")
+                .content(json))
+                .andExpect(status().isBadRequest());
+
+        verify(settingsService).setTax(-100);
+    }
+
+    @Test
+    public void testSetOpeningHoursInvalid() throws Exception {
+        doThrow(new InvalidInputException("Invalid format"))
+                .when(settingsService).setOpeningHours(anyString(), anyString());
+
+        String json = "{\"hours\":\"invalid-format\"}";
+        mockMvc.perform(put("/api/settings/hours/Monday")
+                .contentType("application/json")
+                .content(json))
+                .andExpect(status().isBadRequest());
+
+        verify(settingsService).setOpeningHours("Monday", "invalid-format");
     }
 }

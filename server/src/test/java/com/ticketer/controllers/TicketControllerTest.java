@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.ticketer.models.*;
 import com.ticketer.services.*;
+import com.ticketer.exceptions.InvalidInputException;
+import com.ticketer.exceptions.EntityNotFoundException;
+import com.ticketer.exceptions.GlobalExceptionHandler;
 
 public class TicketControllerTest {
 
@@ -46,7 +50,7 @@ public class TicketControllerTest {
         public void setUp() {
                 MockitoAnnotations.openMocks(this);
                 mockMvc = MockMvcBuilders.standaloneSetup(ticketController)
-                                .setControllerAdvice(new com.ticketer.exceptions.GlobalExceptionHandler())
+                                .setControllerAdvice(new GlobalExceptionHandler())
                                 .build();
         }
 
@@ -149,7 +153,7 @@ public class TicketControllerTest {
         public void testOrderExceptions() throws Exception {
                 when(menuService.getItem("MissingItem")).thenReturn(null);
                 when(menuService.createOrderItem("MissingItem", null))
-                                .thenThrow(new com.ticketer.exceptions.EntityNotFoundException(
+                                .thenThrow(new EntityNotFoundException(
                                                 "Item not found: MissingItem"));
 
                 String json = "{\"name\":\"MissingItem\"}";
@@ -289,11 +293,35 @@ public class TicketControllerTest {
         @Test
         public void testGetOrderNotFound() throws Exception {
                 when(ticketService.getOrder(1, 0))
-                                .thenThrow(new com.ticketer.exceptions.EntityNotFoundException("Order not found"));
+                                .thenThrow(new EntityNotFoundException("Order not found"));
 
                 mockMvc.perform(get("/api/tickets/1/orders/0"))
                                 .andExpect(status().isNotFound())
                                 .andExpect(jsonPath("$.status").value("ERROR"))
                                 .andExpect(jsonPath("$.message").value("Order not found"));
+        }
+
+        @Test
+        public void testCreateTicketInvalid() throws Exception {
+                doThrow(new InvalidInputException("Table number cannot be empty"))
+                                .when(ticketService).createTicket(anyString());
+
+                String json = "{\"tableNumber\":\"\"}";
+                mockMvc.perform(post("/api/tickets")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        public void testAddItemToOrderInvalid() throws Exception {
+                doThrow(new InvalidInputException("Item name cannot be empty"))
+                                .when(menuService).createOrderItem(any(), any());
+
+                String json = "{\"name\":\"\",\"selectedSide\":\"None\"}";
+                mockMvc.perform(post("/api/tickets/1/orders/0/items")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isBadRequest());
         }
 }

@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.ticketer.services.RestaurantStateService;
+import com.ticketer.exceptions.GlobalExceptionHandler;
 
 public class SystemControllerTest {
 
@@ -29,7 +30,7 @@ public class SystemControllerTest {
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         mockMvc = MockMvcBuilders.standaloneSetup(systemController)
-                .setControllerAdvice(new com.ticketer.exceptions.GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 

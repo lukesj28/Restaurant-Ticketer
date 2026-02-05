@@ -52,4 +52,12 @@ public class AnalysisControllerTest {
                 .andExpect(jsonPath("$.payload.totalTotalCents").value(5000))
                 .andExpect(jsonPath("$.payload.totalSubtotalCents").value(4500));
     }
+
+    @Test
+    public void testGetAnalysisInvalidDate() throws Exception {
+        mockMvc.perform(get("/api/analysis")
+                .param("startDate", "invalid-date")
+                .param("endDate", "2023-01-02"))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -2,7 +2,7 @@ package com.ticketer.services;
 
 import com.ticketer.models.Settings;
 import com.ticketer.repositories.SettingsRepository;
-import com.ticketer.exceptions.ValidationException;
+import com.ticketer.exceptions.InvalidInputException;
 import com.ticketer.exceptions.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,7 +67,9 @@ public class SettingsServiceTest {
 
     @Test
     public void testSetTaxInvalid() {
-        assertThrows(ValidationException.class, () -> settingsService.setTax(-1));
+        assertThrows(InvalidInputException.class, () -> {
+            settingsService.setTax(-1);
+        });
     }
 
     @Test

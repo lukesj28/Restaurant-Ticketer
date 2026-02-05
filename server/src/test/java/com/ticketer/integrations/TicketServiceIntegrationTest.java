@@ -5,6 +5,7 @@ import com.ticketer.models.Order;
 import com.ticketer.models.Ticket;
 import com.ticketer.repositories.FileTicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
+import com.ticketer.exceptions.ActionNotAllowedException;
 import com.ticketer.services.TicketService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -240,7 +241,7 @@ public class TicketServiceIntegrationTest {
         service.moveToClosed(id);
 
         Order order = new Order(1000);
-        assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(ActionNotAllowedException.class, () -> {
             service.addOrderToTicket(id, order);
         });
     }

@@ -3,7 +3,7 @@ package com.ticketer.services;
 import com.ticketer.models.Settings;
 import com.ticketer.repositories.SettingsRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
-import com.ticketer.exceptions.ValidationException;
+import com.ticketer.exceptions.InvalidInputException;
 
 import java.util.Map;
 
@@ -73,7 +73,7 @@ public class SettingsService {
     public void setTax(int taxBasisPoints) {
         logger.info("Setting tax to {}", taxBasisPoints);
         if (taxBasisPoints < 0) {
-            throw new ValidationException("Tax cannot be negative");
+            throw new InvalidInputException("Tax cannot be negative");
         }
         Settings settings = getSettings();
         Settings newSettings = new Settings(taxBasisPoints, settings.getHours());
@@ -83,6 +83,13 @@ public class SettingsService {
 
     public void setOpeningHours(String day, String hours) {
         logger.info("Setting opening hours for {}: {}", day, hours);
+        String pattern = "^([0-1][0-9]|2[0-3]):[0-5][0-9] - ([0-1][0-9]|2[0-3]):[0-5][0-9]$|^closed$";
+
+        if (!hours.matches(pattern)) {
+            throw new InvalidInputException(
+                    "Invalid hours format. Expected 'HH:MM - HH:MM' or 'closed'");
+        }
+
         day = day.toLowerCase();
         Settings settings = getSettings();
         java.util.Map<String, String> currentHours = settings.getHours();
