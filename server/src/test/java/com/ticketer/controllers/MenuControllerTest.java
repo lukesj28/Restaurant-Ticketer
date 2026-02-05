@@ -198,13 +198,13 @@ public class MenuControllerTest {
         MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>());
         when(menuService.getItem("Item")).thenReturn(item);
 
-        String json = "{\"newPrice\":500}";
+        String json = "{\"price\":500}";
         mockMvc.perform(put("/api/menu/items/Item/sides/Side")
                 .contentType("application/json")
                 .content(json))
                 .andExpect(status().isOk());
 
-        verify(menuService).updateSide("Item", "Side", 500);
+        verify(menuService).updateSide("Item", "Side", 500, null);
     }
 
     @Test

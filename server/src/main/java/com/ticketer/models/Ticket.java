@@ -14,6 +14,8 @@ public class Ticket {
     private Instant createdAt;
     private Instant closedAt;
 
+    private String status = "ACTIVE";
+
     @com.fasterxml.jackson.annotation.JsonProperty("subtotal")
     private Integer persistedSubtotal;
 
@@ -24,6 +26,7 @@ public class Ticket {
     private Ticket() {
         this.orders = new ArrayList<>();
         this.createdAt = Instant.now();
+        this.status = "ACTIVE";
     }
 
     public Ticket(int id) {
@@ -32,6 +35,15 @@ public class Ticket {
         this.orders = new ArrayList<>();
         this.createdAt = Instant.now();
         this.closedAt = null;
+        this.status = "ACTIVE";
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public void addOrder(Order order) {

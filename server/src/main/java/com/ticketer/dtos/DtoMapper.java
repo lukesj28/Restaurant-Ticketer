@@ -45,6 +45,7 @@ public class DtoMapper {
                 orders,
                 ticket.getSubtotal(),
                 ticket.getTotal(),
+                ticket.getStatus(),
                 ticket.getCreatedAt() != null ? ticket.getCreatedAt().atZone(zone).format(formatter) : null,
                 ticket.getClosedAt() != null ? ticket.getClosedAt().atZone(zone).format(formatter) : null);
     }

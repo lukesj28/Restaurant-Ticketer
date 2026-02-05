@@ -76,6 +76,7 @@ public class TicketService {
         int id = generateTicketId();
         Ticket ticket = new Ticket(id);
         ticket.setTableNumber(tableNumber);
+        ticket.setStatus("ACTIVE");
         return ticketRepository.save(ticket);
     }
 
@@ -131,6 +132,10 @@ public class TicketService {
         if (orderIndex < 0 || orderIndex >= ticket.getOrders().size()) {
             throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
         }
+        if (ticketRepository.findAllCompleted().contains(ticket)) {
+            ticketRepository.moveToActive(ticket.getId());
+        }
+
         ticket.getOrders().get(orderIndex).addItem(item);
         ticketRepository.save(ticket);
     }
@@ -184,14 +189,18 @@ public class TicketService {
         if (ticket.getClosedAt() != null) {
             throw new IllegalArgumentException("Cannot move a closed ticket to completed.");
         }
+        ticket.setStatus("COMPLETED");
+        ticketRepository.save(ticket);
         ticketRepository.moveToCompleted(ticketId);
     }
 
     public void moveToClosed(int ticketId) {
         logger.info("Moving ticket {} to closed", ticketId);
-        if (ticketRepository.findById(ticketId).isEmpty()) {
-            throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
-        }
+        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+                () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
+
+        ticket.setStatus("CLOSED");
+        ticketRepository.save(ticket);
         ticketRepository.moveToClosed(ticketId);
     }
 
@@ -203,6 +212,8 @@ public class TicketService {
         if (ticket.getClosedAt() != null) {
             throw new IllegalArgumentException("Cannot move a closed ticket to active.");
         }
+        ticket.setStatus("ACTIVE");
+        ticketRepository.save(ticket);
         ticketRepository.moveToActive(ticketId);
     }
 

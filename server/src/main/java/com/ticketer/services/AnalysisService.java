@@ -154,7 +154,7 @@ public class AnalysisService {
                         itemSideCounts.putIfAbsent(item.getName(), new java.util.HashMap<>());
                         itemSideCounts.get(item.getName()).merge(sideKey, 1, Integer::sum);
 
-                        if (!"None".equals(sideKey)) {
+                        if (!"none".equals(sideKey)) {
                             itemMap.putIfAbsent(sideKey, new ItemRank(sideKey, 0, 0));
                             ItemRank sideItemRank = itemMap.get(sideKey);
                             sideItemRank.setCount(sideItemRank.getCount() + 1);

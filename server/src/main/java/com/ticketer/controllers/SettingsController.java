@@ -26,7 +26,7 @@ public class SettingsController {
         this.restaurantStateService = restaurantStateService;
     }
 
-    @PostMapping("/refresh")
+    @GetMapping("/refresh")
     public ApiResponse<Settings> refreshSettings() {
         return ApiResponse.success(settingsService.getSettings());
     }

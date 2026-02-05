@@ -133,7 +133,7 @@ public class MenuController {
     @PutMapping("/items/{itemName}/sides/{sideName}")
     public ApiResponse<ItemDto> updateSide(@PathVariable String itemName, @PathVariable String sideName,
             @RequestBody Requests.SideUpdateRequest request) {
-        menuService.updateSide(itemName, sideName, request.newPrice());
+        menuService.updateSide(itemName, sideName, request.price(), request.available());
         MenuItem item = menuService.getItem(itemName);
         return ApiResponse.success(DtoMapper.toItemDto(item));
     }

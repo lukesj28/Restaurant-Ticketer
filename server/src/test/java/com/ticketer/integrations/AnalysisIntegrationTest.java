@@ -1,7 +1,6 @@
 package com.ticketer.integrations;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ticketer.dtos.Requests.AnalysisRequest;
 import com.ticketer.models.DailyTicketLog;
 import com.ticketer.models.Order;
 import com.ticketer.models.OrderItem;
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -22,7 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -84,11 +82,9 @@ public class AnalysisIntegrationTest {
         DailyTicketLog log = new DailyTicketLog(Collections.emptyMap(), tickets, 2700, 2700, 1, 1);
         mapper.writeValue(new File(TEST_DIR + "/2023-01-01.json"), log);
 
-        AnalysisRequest request = new AnalysisRequest("2023-01-01", "2023-01-01");
-
-        mockMvc.perform(post("/api/analysis")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(mapper.writeValueAsString(request)))
+        mockMvc.perform(get("/api/analysis")
+                .param("startDate", "2023-01-01")
+                .param("endDate", "2023-01-01"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
                 .andExpect(jsonPath("$.payload.totalTicketCount").value(1))

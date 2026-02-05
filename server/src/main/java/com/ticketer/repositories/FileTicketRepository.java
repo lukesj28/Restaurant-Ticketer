@@ -309,6 +309,10 @@ public class FileTicketRepository implements TicketRepository {
                 logger.error("Failed to load recovery state", e);
             }
         }
+
+        activeTickets.forEach(t -> t.setStatus("ACTIVE"));
+        completedTickets.forEach(t -> t.setStatus("COMPLETED"));
+        closedTickets.forEach(t -> t.setStatus("CLOSED"));
     }
 
     private void replayLogEntry(LogEntry entry) {
@@ -357,6 +361,7 @@ public class FileTicketRepository implements TicketRepository {
         Optional<Ticket> t = activeTickets.stream().filter(x -> x.getId() == id).findFirst();
         if (t.isPresent()) {
             activeTickets.remove(t.get());
+            t.get().setStatus("COMPLETED");
             completedTickets.add(t.get());
         }
     }
@@ -368,6 +373,7 @@ public class FileTicketRepository implements TicketRepository {
             if (t.get().getClosedAt() == null) {
                 t.get().setClosedAt(java.time.Instant.now(clock));
             }
+            t.get().setStatus("CLOSED");
             closedTickets.add(t.get());
             return;
         }
@@ -377,6 +383,7 @@ public class FileTicketRepository implements TicketRepository {
             if (t.get().getClosedAt() == null) {
                 t.get().setClosedAt(java.time.Instant.now(clock));
             }
+            t.get().setStatus("CLOSED");
             closedTickets.add(t.get());
         }
     }
@@ -386,6 +393,7 @@ public class FileTicketRepository implements TicketRepository {
         if (t.isPresent()) {
             completedTickets.remove(t.get());
             t.get().setClosedAt(null);
+            t.get().setStatus("ACTIVE");
             activeTickets.add(t.get());
         }
     }

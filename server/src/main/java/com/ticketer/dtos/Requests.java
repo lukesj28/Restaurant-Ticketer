@@ -21,7 +21,7 @@ public class Requests {
     public record ItemCategoryUpdateRequest(String newCategory) {
     }
 
-    public record SideUpdateRequest(int newPrice) {
+    public record SideUpdateRequest(Integer price, Boolean available) {
     }
 
     public record TaxUpdateRequest(int tax) {

@@ -201,7 +201,7 @@ public class MenuServiceIntegrationTest {
         sides.put("Fries", 200);
         service.addItem("SideCat", name, 1000, sides);
 
-        service.updateSide(name, "Fries", 500);
+        service.updateSide(name, "Fries", 500, true);
 
         MenuItem item = service.getItem(name);
         assertNotNull(item.sideOptions);

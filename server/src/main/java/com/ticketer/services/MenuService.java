@@ -170,17 +170,27 @@ public class MenuService {
         menuRepository.saveMenu(currentMenu);
     }
 
-    public void updateSide(String itemName, String sideName, int newPrice) {
-        logger.info("Updating side {} for item {} to {}", sideName, itemName, newPrice);
+    public void updateSide(String itemName, String sideName, Integer price, Boolean available) {
+        logger.info("Updating side {} for item {}: price={}, available={}", sideName, itemName, price, available);
         MenuItem item = getItem(itemName);
         if (item.sideOptions == null) {
             item.sideOptions = new java.util.HashMap<>();
         }
 
-        Side side = new Side();
-        side.price = newPrice;
-        side.available = true;
-        item.sideOptions.put(sideName, side);
+        Side side = item.sideOptions.get(sideName);
+        if (side == null) {
+            side = new Side();
+            side.available = true;
+            side.price = 0;
+            item.sideOptions.put(sideName, side);
+        }
+
+        if (price != null) {
+            side.price = price;
+        }
+        if (available != null) {
+            side.available = available;
+        }
 
         menuRepository.saveMenu(currentMenu);
     }

@@ -1,0 +1,63 @@
+.menu-item-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s;
+}
+
+.menu-item-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-accent);
+}
+
+.menu-item-card.unavailable {
+    opacity: 0.6;
+    background-color: var(--color-bg-tertiary);
+    border-left: 4px solid var(--color-text-muted);
+}
+
+.menu-item-content {
+    flex: 1;
+}
+
+.menu-item-top {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    color: var(--color-text-primary);
+}
+
+.menu-item-status {
+    font-size: 0.8em;
+    color: var(--color-text-secondary);
+    font-family: var(--font-body);
+    font-weight: 400;
+}
+
+.menu-item-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+/* Make it more compact for lists */
+.menu-category-section {
+    margin-bottom: var(--spacing-xxl);
+}
+
+.menu-category-title {
+    border-bottom: 2px solid var(--color-accent);
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: var(--spacing-lg);
+    color: var(--color-brand-primary);
+    font-size: 2rem;
+    text-transform: uppercase;
+}
