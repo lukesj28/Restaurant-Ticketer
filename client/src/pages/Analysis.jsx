@@ -26,6 +26,19 @@ const Analysis = () => {
     const [showAllItems, setShowAllItems] = useState(false);
     const [showAllSides, setShowAllSides] = useState(false);
 
+    // Sorting state
+    const [itemSortType, setItemSortType] = useState('revenue'); // 'revenue' or 'count'
+    const [itemSortDirection, setItemSortDirection] = useState('desc'); // 'asc' or 'desc'
+
+    const handleSort = (type) => {
+        if (itemSortType === type) {
+            setItemSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+        } else {
+            setItemSortType(type);
+            setItemSortDirection('desc');
+        }
+    };
+
     // Limits for initial display
     const DAY_LIMIT = 10;
     const ITEM_LIMIT = 10;
@@ -400,7 +413,7 @@ const Analysis = () => {
                                     <tbody>
                                         {(() => {
                                             const sortedDays = (report.dayRankings || [])
-                                                .sort((a, b) => new Date(b.date) - new Date(a.date));
+                                                .sort((a, b) => b.totalTotalCents - a.totalTotalCents);
                                             const displayDays = showAllDays ? sortedDays : sortedDays.slice(0, DAY_LIMIT);
                                             return displayDays.map((day) => (
                                                 <tr key={day.date}>
@@ -429,14 +442,34 @@ const Analysis = () => {
                             <thead>
                                 <tr>
                                     <th>Item</th>
-                                    <th>Count</th>
-                                    <th>Revenue</th>
+                                    <th
+                                        onClick={() => handleSort('count')}
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        title="Sort by count"
+                                    >
+                                        Count {itemSortType === 'count' && (itemSortDirection === 'desc' ? '↓' : '↑')}
+                                    </th>
+                                    <th
+                                        onClick={() => handleSort('revenue')}
+                                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                                        title="Sort by revenue"
+                                    >
+                                        Revenue {itemSortType === 'revenue' && (itemSortDirection === 'desc' ? '↓' : '↑')}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {(() => {
                                     const sortedItems = (report.itemRankings || [])
-                                        .sort((a, b) => b.totalRevenueCents - a.totalRevenueCents);
+                                        .sort((a, b) => {
+                                            let diff = 0;
+                                            if (itemSortType === 'count') {
+                                                diff = b.count - a.count;
+                                            } else {
+                                                diff = b.totalRevenueCents - a.totalRevenueCents;
+                                            }
+                                            return itemSortDirection === 'desc' ? diff : -diff;
+                                        });
                                     const displayItems = showAllItems ? sortedItems : sortedItems.slice(0, ITEM_LIMIT);
                                     return displayItems.map((stats) => (
                                         <tr key={stats.name}>
