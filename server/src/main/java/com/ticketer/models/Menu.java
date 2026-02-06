@@ -9,13 +9,16 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 public class Menu {
     private Map<String, List<MenuItem>> categories;
     private List<String> kitchenItems;
+    private List<String> categoryOrder;
 
     @JsonCreator
     public Menu(
             @com.fasterxml.jackson.annotation.JsonProperty("categories") Map<String, List<MenuItem>> categories,
-            @com.fasterxml.jackson.annotation.JsonProperty("kitchenItems") List<String> kitchenItems) {
+            @com.fasterxml.jackson.annotation.JsonProperty("kitchenItems") List<String> kitchenItems,
+            @com.fasterxml.jackson.annotation.JsonProperty("categoryOrder") List<String> categoryOrder) {
         this.categories = categories;
         this.kitchenItems = kitchenItems != null ? kitchenItems : new ArrayList<>();
+        this.categoryOrder = categoryOrder != null ? categoryOrder : new ArrayList<>(categories.keySet());
     }
 
     public Map<String, List<MenuItem>> getCategories() {
@@ -23,11 +26,61 @@ public class Menu {
     }
 
     public List<String> getKitchenItems() {
-        return kitchenItems;
+        List<String> sortedKitchenItems = new ArrayList<>();
+
+        for (String category : categoryOrder) {
+            List<MenuItem> items = categories.get(category);
+            if (items != null) {
+                for (MenuItem item : items) {
+                    if (this.kitchenItems.contains(item.name)) {
+                        sortedKitchenItems.add(item.name);
+                    }
+                }
+            }
+        }
+
+        for (String category : categories.keySet()) {
+            if (!categoryOrder.contains(category)) {
+                List<MenuItem> items = categories.get(category);
+                if (items != null) {
+                    for (MenuItem item : items) {
+                        if (this.kitchenItems.contains(item.name)) {
+                            sortedKitchenItems.add(item.name);
+                        }
+                    }
+                }
+            }
+        }
+
+        return sortedKitchenItems;
     }
 
     public void setKitchenItems(List<String> kitchenItems) {
         this.kitchenItems = kitchenItems;
+    }
+
+    public List<String> getCategoryOrder() {
+        return categoryOrder;
+    }
+
+    public void setCategoryOrder(List<String> categoryOrder) {
+        this.categoryOrder = categoryOrder;
+    }
+
+    public boolean addKitchenItem(String itemName) {
+        if (!this.kitchenItems.contains(itemName)) {
+            this.kitchenItems.add(itemName);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean removeKitchenItem(String itemName) {
+        return this.kitchenItems.remove(itemName);
+    }
+
+    public boolean isKitchenItem(String itemName) {
+        return this.kitchenItems.contains(itemName);
     }
 
     public List<MenuItem> getCategory(String categoryName) {

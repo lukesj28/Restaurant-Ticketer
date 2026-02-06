@@ -62,7 +62,7 @@ public class MenuControllerTest {
 
         @Test
         public void testGetItem() throws Exception {
-                MenuItem item = new MenuItem("TestItem", 1000, true, new HashMap<>());
+                MenuItem item = new MenuItem("TestItem", 1000, true, new HashMap<>(), null);
                 when(menuService.getItem("TestItem")).thenReturn(item);
 
                 mockMvc.perform(get("/api/menu/items/TestItem"))
@@ -73,7 +73,7 @@ public class MenuControllerTest {
         @Test
         public void testGetCategory() throws Exception {
                 List<MenuItem> items = new ArrayList<>();
-                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>()));
+                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>(), null));
                 when(menuService.getCategory("Entrees")).thenReturn(items);
 
                 mockMvc.perform(get("/api/menu/categories/Entrees"))
@@ -86,7 +86,8 @@ public class MenuControllerTest {
                 List<MenuItemView> list = new ArrayList<>();
                 list.add(new MenuItemView("TestItem", 1000, true));
                 when(menuService.getAllItems()).thenReturn(list);
-                when(menuService.getItem("TestItem")).thenReturn(new MenuItem("TestItem", 1000, true, new HashMap<>()));
+                when(menuService.getItem("TestItem"))
+                                .thenReturn(new MenuItem("TestItem", 1000, true, new HashMap<>(), null));
 
                 mockMvc.perform(get("/api/menu/items"))
                                 .andExpect(status().isOk())
@@ -97,7 +98,7 @@ public class MenuControllerTest {
         public void testGetCategories() throws Exception {
                 Map<String, List<MenuItem>> map = new HashMap<>();
                 List<MenuItem> items = new ArrayList<>();
-                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>()));
+                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>(), null));
                 map.put("Entrees", items);
                 when(menuService.getCategories()).thenReturn(map);
 
@@ -108,7 +109,7 @@ public class MenuControllerTest {
 
         @Test
         public void testAddItem() throws Exception {
-                MenuItem item = new MenuItem("NewItem", 1000, true, new HashMap<>());
+                MenuItem item = new MenuItem("NewItem", 1000, true, new HashMap<>(), null);
                 when(menuService.getItem("NewItem")).thenReturn(item);
 
                 String json = "{\"category\":\"Entrees\",\"name\":\"NewItem\",\"price\":1000,\"sides\":{}}";
@@ -122,7 +123,7 @@ public class MenuControllerTest {
 
         @Test
         public void testEditItemPrice() throws Exception {
-                MenuItem item = new MenuItem("TestItem", 1200, true, new HashMap<>());
+                MenuItem item = new MenuItem("TestItem", 1200, true, new HashMap<>(), null);
                 when(menuService.getItem("TestItem")).thenReturn(item);
 
                 String json = "{\"newPrice\":1200}";
@@ -136,7 +137,7 @@ public class MenuControllerTest {
 
         @Test
         public void testEditItemAvailability() throws Exception {
-                MenuItem item = new MenuItem("TestItem", 1000, false, new HashMap<>());
+                MenuItem item = new MenuItem("TestItem", 1000, false, new HashMap<>(), null);
                 when(menuService.getItem("TestItem")).thenReturn(item);
 
                 String json = "{\"available\":false}";
@@ -150,7 +151,7 @@ public class MenuControllerTest {
 
         @Test
         public void testRenameItem() throws Exception {
-                MenuItem item = new MenuItem("NewName", 1000, true, new HashMap<>());
+                MenuItem item = new MenuItem("NewName", 1000, true, new HashMap<>(), null);
                 when(menuService.getItem("NewName")).thenReturn(item);
 
                 String json = "{\"newName\":\"NewName\"}";
@@ -184,7 +185,7 @@ public class MenuControllerTest {
 
         @Test
         public void testChangeCategory() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>());
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
                 when(menuService.getItem("Item")).thenReturn(item);
 
                 String json = "{\"newCategory\":\"NewCat\"}";
@@ -198,7 +199,7 @@ public class MenuControllerTest {
 
         @Test
         public void testUpdateSide() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>());
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
                 when(menuService.getItem("Item")).thenReturn(item);
 
                 String json = "{\"price\":500}";
@@ -298,7 +299,7 @@ public class MenuControllerTest {
 
         @Test
         public void testAddSide() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>());
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
                 when(menuService.getItem("Item")).thenReturn(item);
 
                 String json = "{\"name\":\"chips\",\"price\":299}";
@@ -312,12 +313,55 @@ public class MenuControllerTest {
 
         @Test
         public void testRemoveSide() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>());
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
                 when(menuService.getItem("Item")).thenReturn(item);
 
                 mockMvc.perform(delete("/api/menu/items/Item/sides/chips"))
                                 .andExpect(status().isOk());
 
                 verify(menuService).removeSide("Item", "chips");
+        }
+
+        @Test
+        public void testReorderCategories() throws Exception {
+                java.util.List<String> order = java.util.Arrays.asList("Cat1", "Cat2");
+                when(menuService.getCategoryOrder()).thenReturn(order);
+
+                String json = "{\"order\":[\"Cat1\",\"Cat2\"]}";
+                mockMvc.perform(put("/api/menu/categories/reorder")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk());
+
+                verify(menuService).reorderCategories(order);
+        }
+
+        @Test
+        public void testReorderItemsInCategory() throws Exception {
+                java.util.List<String> order = java.util.Arrays.asList("Item1", "Item2");
+                when(menuService.getCategory("Cat1")).thenReturn(new ArrayList<>());
+
+                String json = "{\"order\":[\"Item1\",\"Item2\"]}";
+                mockMvc.perform(put("/api/menu/categories/Cat1/items/reorder")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk());
+
+                verify(menuService).reorderItemsInCategory("Cat1", order);
+        }
+
+        @Test
+        public void testReorderSidesInItem() throws Exception {
+                java.util.List<String> order = java.util.Arrays.asList("Side1", "Side2");
+                MenuItem item = new MenuItem("Item", 100, true, new HashMap<>(), null);
+                when(menuService.getItem("Item")).thenReturn(item);
+
+                String json = "{\"order\":[\"Side1\",\"Side2\"]}";
+                mockMvc.perform(put("/api/menu/items/Item/sides/reorder")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk());
+
+                verify(menuService).reorderSidesInItem("Item", order);
         }
 }

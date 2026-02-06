@@ -1,5 +1,6 @@
 package com.ticketer.dtos;
 
+import java.util.List;
 import java.util.Map;
 
 public class Requests {
@@ -40,5 +41,14 @@ public class Requests {
     }
 
     public record CreateTicketRequest(String tableNumber) {
+    }
+
+    public record CategoryReorderRequest(List<String> order) {
+    }
+
+    public record ItemReorderRequest(List<String> order) {
+    }
+
+    public record SideReorderRequest(List<String> order) {
     }
 }

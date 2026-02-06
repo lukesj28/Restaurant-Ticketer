@@ -104,7 +104,7 @@ public class TicketControllerTest {
                 fries.price = 200;
                 fries.available = true;
                 sides.put("Fries", fries);
-                MenuItem menuItem = new MenuItem("TestItem", 1000, true, sides);
+                MenuItem menuItem = new MenuItem("TestItem", 1000, true, sides, null);
                 when(menuService.getItem("TestItem")).thenReturn(menuItem);
 
                 when(menuService.createOrderItem("TestItem", "Fries"))

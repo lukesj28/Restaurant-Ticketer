@@ -177,4 +177,34 @@ public class MenuController {
         menuService.removeKitchenItem(itemName);
         return ApiResponse.success(menuService.getKitchenItems());
     }
+
+    @PutMapping("/categories/reorder")
+    public ApiResponse<List<String>> reorderCategories(@RequestBody Requests.CategoryReorderRequest request) {
+        menuService.reorderCategories(request.order());
+        return ApiResponse.success(menuService.getCategoryOrder());
+    }
+
+    @PutMapping("/categories/{categoryName}/items/reorder")
+    public ApiResponse<List<ItemDto>> reorderItemsInCategory(@PathVariable String categoryName,
+            @RequestBody Requests.ItemReorderRequest request) {
+        menuService.reorderItemsInCategory(categoryName, request.order());
+        List<MenuItem> items = menuService.getCategory(categoryName);
+        List<ItemDto> dtos = items.stream()
+                .map(DtoMapper::toItemDto)
+                .collect(Collectors.toList());
+        return ApiResponse.success(dtos);
+    }
+
+    @PutMapping("/items/{itemName}/sides/reorder")
+    public ApiResponse<ItemDto> reorderSidesInItem(@PathVariable String itemName,
+            @RequestBody Requests.SideReorderRequest request) {
+        menuService.reorderSidesInItem(itemName, request.order());
+        MenuItem item = menuService.getItem(itemName);
+        return ApiResponse.success(DtoMapper.toItemDto(item));
+    }
+
+    @GetMapping("/category-order")
+    public ApiResponse<List<String>> getCategoryOrder() {
+        return ApiResponse.success(menuService.getCategoryOrder());
+    }
 }

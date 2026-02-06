@@ -47,7 +47,7 @@ public class FileMenuRepositoryTest {
     @Test
     public void testSaveAndLoad() {
         FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
-        Menu menu = new Menu(new java.util.HashMap<>(), new java.util.ArrayList<>());
+        Menu menu = new Menu(new java.util.HashMap<>(), new java.util.ArrayList<>(), null);
         repo.saveMenu(menu);
 
         File f = new File(TEST_FILE);

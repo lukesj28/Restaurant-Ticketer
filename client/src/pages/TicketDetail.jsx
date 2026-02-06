@@ -13,6 +13,7 @@ const TicketDetail = () => {
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
     const [menu, setMenu] = useState({}); // Categories -> Items
+    const [categoryOrder, setCategoryOrder] = useState([]); // Explicit order
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedOrderIndex, setSelectedOrderIndex] = useState(0); // Default to last or specific
     const [selectedItemForSides, setSelectedItemForSides] = useState(null);
@@ -42,8 +43,12 @@ const TicketDetail = () => {
 
     const fetchMenu = async () => {
         try {
-            const data = await api.get('/menu/categories');
-            setMenu(data);
+            const [categoriesData, orderData] = await Promise.all([
+                api.get('/menu/categories'),
+                api.get('/menu/category-order')
+            ]);
+            setMenu(categoriesData);
+            setCategoryOrder(orderData || []);
         } catch (e) {
             console.error("Failed to fetch menu");
         }
@@ -199,30 +204,39 @@ const TicketDetail = () => {
                         </div>
                     </div>
                 ) : (
-                    Object.entries(menu).map(([category, items]) => (
-                        <div key={category} className="menu-category-block">
-                            <h4>{category}</h4>
-                            <div className="menu-items-grid">
-                                {items.map(item => (
-                                    <button
-                                        key={item.name}
-                                        className={`menu-item-btn ${!item.available ? 'unavailable' : ''}`}
-                                        disabled={!item.available}
-                                        onClick={() => {
-                                            if (item.sides && Object.keys(item.sides).length > 0) {
-                                                setSelectedItemForSides(item);
-                                            } else {
-                                                handleAddItem(item.name, null);
-                                            }
-                                        }}
-                                    >
-                                        <div className="item-name">{item.name}</div>
-                                        <div className="item-price">${(item.price / 100).toFixed(2)}</div>
-                                    </button>
-                                ))}
+                    Object.entries(menu)
+                        .sort(([catA], [catB]) => {
+                            const idxA = categoryOrder.indexOf(catA);
+                            const idxB = categoryOrder.indexOf(catB);
+                            if (idxA === -1 && idxB === -1) return catA.localeCompare(catB);
+                            if (idxA === -1) return 1;
+                            if (idxB === -1) return -1;
+                            return idxA - idxB;
+                        })
+                        .map(([category, items]) => (
+                            <div key={category} className="menu-category-block">
+                                <h4>{category}</h4>
+                                <div className="menu-items-grid">
+                                    {items.map(item => (
+                                        <button
+                                            key={item.name}
+                                            className={`menu-item-btn ${!item.available ? 'unavailable' : ''}`}
+                                            disabled={!item.available}
+                                            onClick={() => {
+                                                if (item.sides && Object.keys(item.sides).length > 0) {
+                                                    setSelectedItemForSides(item);
+                                                } else {
+                                                    handleAddItem(item.name, null);
+                                                }
+                                            }}
+                                        >
+                                            <div className="item-name">{item.name}</div>
+                                            <div className="item-price">${(item.price / 100).toFixed(2)}</div>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )))}
+                        )))}
             </div>
         </Modal>
     );

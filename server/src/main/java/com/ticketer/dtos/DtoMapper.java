@@ -64,6 +64,7 @@ public class DtoMapper {
                 item.name,
                 item.price,
                 item.available,
-                sides);
+                sides,
+                item.sideOrder);
     }
 }

@@ -6,9 +6,30 @@ import Modal from '../components/common/Modal';
 import { useToast } from '../context/ToastContext';
 import './Menu.css';
 
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragOverlay,
+    defaultDropAnimationSideEffects,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    rectSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 const Menu = () => {
     const { toast } = useToast();
-    const [categories, setCategories] = useState({});
+    const [categories, setCategories] = useState({}); // Map: category -> items[]
+    const [categoryOrder, setCategoryOrder] = useState([]); // Array of category names
     const [loading, setLoading] = useState(true);
     const [editItem, setEditItem] = useState(null); // Item being edited
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -41,6 +62,21 @@ const Menu = () => {
     const confirmAction = useRef(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // DnD Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // Require 8px movement before drag starts (prevents accidental drags on click)
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const [activeId, setActiveId] = useState(null); // ID of currently dragged item
+    const [activeDragType, setActiveDragType] = useState(null); // 'CATEGORY', 'ITEM', 'SIDE'
+
     useEffect(() => {
         fetchMenu();
         fetchKitchenItems();
@@ -49,10 +85,31 @@ const Menu = () => {
     const fetchMenu = async () => {
         setLoading(true);
         try {
-            const data = await api.get('/menu/categories');
-            setCategories(data);
+            const [categoriesData, orderData] = await Promise.all([
+                api.get('/menu/categories'),
+                api.get('/menu/category-order')
+            ]);
+            setCategories(categoriesData);
+
+            // If orderData is empty or missing keys, fallback to object keys (sorted roughly) or maintain existing
+            let order = orderData || [];
+            if (Object.keys(categoriesData).length > 0) {
+                const keys = Object.keys(categoriesData);
+                // If order is missing, use keys
+                if (!order || order.length === 0) {
+                    order = keys;
+                } else {
+                    // Ensure all current categories are in the order (handle new categories appearing before order sync)
+                    const missing = keys.filter(k => !order.includes(k.toLowerCase()) && !order.includes(k));
+                    if (missing.length > 0) order = [...order, ...missing];
+                }
+            }
+            // Ensure order uses correct casing from keys if possible, or just rely on backend normalization
+            setCategoryOrder(order);
+
         } catch (e) {
             console.error(e);
+            toast.error("Failed to load menu");
         } finally {
             setLoading(false);
         }
@@ -76,7 +133,8 @@ const Menu = () => {
             available: item.available,
             name: item.name,
             category: categoryName,
-            sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {} // Deep copy to avoid mutating original ref
+            sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {}, // Deep copy to avoid mutating original ref
+            sideOrder: item.sideOrder ? [...item.sideOrder] : [] // Clone explicit order
         });
         setNewSide({ name: '', price: '' });
         setSidesToDelete([]);
@@ -109,8 +167,205 @@ const Menu = () => {
         }
     };
 
+    const findContainer = (id) => {
+        if (id in categories) return id;
+        return Object.keys(categories).find(key =>
+            categories[key]?.find(item => item.name === id)
+        );
+    };
+
+    const handleDragStart = (event) => {
+        const { active } = event;
+        setActiveId(active.id);
+
+        // Determine type based on ID format or data
+        if (active.data.current?.type) {
+            setActiveDragType(active.data.current.type);
+        } else if (categoryOrder.includes(active.id)) {
+            setActiveDragType('CATEGORY');
+        } else {
+            setActiveDragType('ITEM');
+        }
+    };
+
+    const handleDragOver = (event) => {
+        const { active, over } = event;
+
+        // Fill in specific item moving logic if needed for visual smoothness across containers
+        // For items, we want to move them in the state as we drag over different containers
+        if (!over || active.id === over.id || activeDragType !== 'ITEM') return;
+
+        const activeContainer = findContainer(active.id);
+        const overContainer = findContainer(over.id) || (over.id in categories ? over.id : null); // If over a category container directly
+
+        if (!activeContainer || !overContainer || activeContainer === overContainer) {
+            return;
+        }
+
+        // Move item to new container in state
+        setCategories((prev) => {
+            const activeItems = prev[activeContainer];
+            const overItems = prev[overContainer];
+            const activeIndex = activeItems.findIndex(i => i.name === active.id);
+            const overIndex = overItems.findIndex(i => i.name === over.id);
+
+            let newIndex;
+            if (over.id in prev) {
+                newIndex = overItems.length + 1;
+            } else {
+                const isBelowOverItem =
+                    over &&
+                    active.rect.current.translated &&
+                    active.rect.current.translated.top >
+                    over.rect.top + over.rect.height;
+
+                const modifier = isBelowOverItem ? 1 : 0;
+                newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
+            }
+
+            return {
+                ...prev,
+                [activeContainer]: [...prev[activeContainer].filter(item => item.name !== active.id)],
+                [overContainer]: [
+                    ...prev[overContainer].slice(0, newIndex),
+                    activeItems[activeIndex], // Move the item object with its data
+                    ...prev[overContainer].slice(newIndex, prev[overContainer].length)
+                ]
+            };
+        });
+    };
+
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        const type = activeDragType; // capture current type
+        setActiveId(null);
+        setActiveDragType(null);
+
+        if (!over) return;
+
+        // Category Reordering
+        if (type === 'CATEGORY') {
+            if (active.id !== over.id) {
+                const oldIndex = categoryOrder.indexOf(active.id);
+                const newIndex = categoryOrder.indexOf(over.id);
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    const newOrder = arrayMove(categoryOrder, oldIndex, newIndex);
+                    setCategoryOrder(newOrder);
+                    try {
+                        await api.put('/menu/categories/reorder', { order: newOrder });
+                    } catch (e) {
+                        console.error(e);
+                        toast.error("Failed to reorder categories");
+                        fetchMenu();
+                    }
+                }
+            }
+            return;
+        }
+
+        // Item Reordering
+        if (type === 'ITEM') {
+            const activeContainer = findContainer(active.id);
+            const overContainer = findContainer(over.id) || (over.id in categories ? over.id : null);
+
+            if (activeContainer && overContainer) {
+                const activeIndex = categories[activeContainer].findIndex(i => i.name === active.id);
+                const overIndex = over.id in categories ? categories[overContainer].length + 1 : categories[overContainer].findIndex(i => i.name === over.id);
+
+                if (activeContainer === overContainer) {
+                    // Same container reorder
+                    if (activeIndex !== overIndex && activeIndex !== -1 && overIndex !== -1) {
+                        const newItems = arrayMove(categories[activeContainer], activeIndex, overIndex);
+                        setCategories(prev => ({
+                            ...prev,
+                            [activeContainer]: newItems
+                        }));
+
+                        // API Call
+                        try {
+                            await api.put(`/menu/categories/${activeContainer}/items/reorder`, {
+                                order: newItems.map(i => i.name)
+                            });
+                        } catch (e) {
+                            toast.error("Failed to reorder items");
+                            fetchMenu();
+                        }
+                    }
+                } else {
+                    // Different container (already handled in dragOver for state, but need to finalize via API)
+                    // Actually, if we handled it in dragOver, the active item is ALREADY in the overContainer in state!
+                    // So identifying "activeContainer" via findContainer might return the NEW container if we look at current state.
+                    // But we need to know it changed.
+
+                    // In dnd-kit, dragOver mutations persist. So activeContainer === overContainer usually at dragEnd.
+                    // We just need to persist the new order of the target category.
+                    // AND we need to call the API to update the item's category.
+
+                    // Problem: How do we know it changed category if the state is already updated?
+                    // We can compare with `active.data.current.category` (if we updated SortableItem to pass it).
+
+                    // Let's assume dragOver updated the state.
+                    // The item is now in `activeContainer` (which matches `overContainer`).
+                    // Use `active.data.current` to get ORIGINAL category.
+
+                    const originalCategory = active.data.current?.category;
+                    const currentCategory = activeContainer;
+
+                    if (originalCategory && currentCategory && originalCategory !== currentCategory) {
+                        // 1. Update backend category
+                        try {
+                            await api.put(`/menu/items/${active.id}/category`, { newCategory: currentCategory });
+                            // 2. Update backend order in new category
+                            const newItems = categories[currentCategory];
+                            await api.put(`/menu/categories/${currentCategory}/items/reorder`, {
+                                order: newItems.map(i => i.name)
+                            });
+                        } catch (e) {
+                            toast.error("Failed to save move");
+                            fetchMenu();
+                        }
+                    } else {
+                        // It was a reorder within the same category (after dragOver settled it)
+                        const newItems = categories[activeContainer];
+                        try {
+                            await api.put(`/menu/categories/${activeContainer}/items/reorder`, {
+                                order: newItems.map(i => i.name)
+                            });
+                        } catch (e) {
+                            // ignore trivial errors or revert
+                        }
+                    }
+                }
+            }
+        }
+
+        // Side Reordering
+        if (type === 'SIDE') {
+            const activeIdStripped = active.id.replace('side-', '');
+            const overIdStripped = over.id.replace('side-', '');
+
+            // We use editForm.sideOrder for state source of truth during edit
+            const currentOrder = editForm.sideOrder && editForm.sideOrder.length > 0
+                ? editForm.sideOrder
+                : Object.keys(editForm.sides || {}).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
+
+            const oldIndex = currentOrder.indexOf(activeIdStripped);
+            const newIndex = currentOrder.indexOf(overIdStripped);
+
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
+
+                setEditForm(prev => ({
+                    ...prev,
+                    sideOrder: newOrder
+                }));
+            }
+        }
+    };
+
     const handleCategoryDelete = async () => {
         confirmAction.current = async () => {
+            // ... existing delete logic
             try {
                 await api.delete(`/menu/categories/${editingCategory}`);
                 setIsCategoryModalOpen(false);
@@ -251,34 +506,54 @@ const Menu = () => {
             </div>
 
             {loading ? <div>Loading...</div> : (
-                <div className="menu-list">
-                    {Object.entries(categories).map(([category, items]) => (
-                        <div key={category} className="menu-category-section">
-                            <div className="menu-category-header">
-                                <h3 className="menu-category-title">{category}</h3>
-                                <button
-                                    className="category-edit-btn"
-                                    onClick={() => handleEditCategoryClick(category)}
-                                    aria-label={`Edit ${category} category`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="menu-grid">
-                                {items.map(item => (
-                                    <MenuItemCard
-                                        key={item.name}
-                                        item={item}
-                                        onEdit={(i) => handleEditClick(i, category)}
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={categoryOrder}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        <div className="menu-list">
+                            {categoryOrder.map(categoryName => {
+                                const items = categories[categoryName] || [];
+                                // Only render if category exists in map (it should)
+                                return (
+                                    <SortableCategory
+                                        key={categoryName}
+                                        category={categoryName}
+                                        items={items}
+                                        onEditCategory={handleEditCategoryClick}
+                                        onEditItem={handleEditClick}
                                     />
-                                ))}
-                            </div>
+                                );
+                            })}
                         </div>
-                    ))}
-                </div>
+                    </SortableContext>
+
+                    <DragOverlay>
+                        {activeId ? (
+                            activeDragType === 'CATEGORY' ? (
+                                <div className="menu-category-section" style={{ opacity: 0.8, background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)' }}>
+                                    <div className="menu-category-header">
+                                        <h3 className="menu-category-title">{activeId}</h3>
+                                    </div>
+                                </div>
+                            ) : activeDragType === 'ITEM' ? (
+                                <div style={{ width: '200px' }}>
+                                    {/* We don't have easy access to the item object here without searching. 
+                                         Ideally we pass it in active.data.current.item */}
+                                    <div className="menu-item-card" style={{ height: '100px', background: 'white', border: '1px solid #ccc' }}>
+                                        Dragging...
+                                    </div>
+                                </div>
+                            ) : null
+                        ) : null}
+                    </DragOverlay>
+                </DndContext>
             )}
 
             {/* Edit Modal */}
@@ -344,18 +619,29 @@ const Menu = () => {
                 <div className="sides-section">
                     <h4>Sides</h4>
                     <div className="sides-grid">
-                        {/* Existing sides (filter out 'none') */}
-                        {editForm.sides && Object.entries(editForm.sides)
-                            .filter(([sideName]) => sideName.toLowerCase() !== 'none' && !sidesToDelete.includes(sideName))
-                            .map(([sideName, sideData]) => (
-                                <div key={sideName} className="side-edit-row">
-                                    <span className="side-name">{sideName}</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        className="side-price-input"
-                                        value={sideData.price !== undefined ? (sideData.price / 100).toFixed(2) : ''}
-                                        onChange={e => {
+                        <SortableContext
+                            items={editForm.sideOrder || Object.keys(editForm.sides || {}).filter(k => k.toLowerCase() !== 'none')}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            {(() => {
+                                const sides = editForm.sides || {};
+                                const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
+                                // Use sideOrder if available, otherwise raw keys (and ensure data consistency)
+                                let orderedSides = [];
+                                if (editForm.sideOrder && editForm.sideOrder.length > 0) {
+                                    orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k));
+                                    const missing = rawSideNames.filter(k => !orderedSides.includes(k));
+                                    orderedSides = [...orderedSides, ...missing];
+                                } else {
+                                    orderedSides = rawSideNames;
+                                }
+
+                                return orderedSides.map(sideName => (
+                                    <SortableSideRow
+                                        key={sideName}
+                                        sideName={sideName}
+                                        sideData={sides[sideName]}
+                                        onPriceChange={e => {
                                             const newPrice = e.target.value;
                                             setEditForm(prev => ({
                                                 ...prev,
@@ -365,34 +651,21 @@ const Menu = () => {
                                                 }
                                             }));
                                         }}
+                                        onAvailableChange={e => {
+                                            const newAvail = e.target.checked;
+                                            setEditForm(prev => ({
+                                                ...prev,
+                                                sides: {
+                                                    ...prev.sides,
+                                                    [sideName]: { ...prev.sides[sideName], available: newAvail }
+                                                }
+                                            }));
+                                        }}
+                                        onDelete={() => setSidesToDelete(prev => [...prev, sideName])}
                                     />
-                                    <label className="side-avail-label">
-                                        <input
-                                            type="checkbox"
-                                            checked={sideData.available}
-                                            onChange={e => {
-                                                const newAvail = e.target.checked;
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    sides: {
-                                                        ...prev.sides,
-                                                        [sideName]: { ...prev.sides[sideName], available: newAvail }
-                                                    }
-                                                }));
-                                            }}
-                                        />
-                                        Avail
-                                    </label>
-                                    <button
-                                        type="button"
-                                        className="side-delete-btn"
-                                        onClick={() => setSidesToDelete(prev => [...prev, sideName])}
-                                        aria-label={`Delete ${sideName}`}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            ))}
+                                ));
+                            })()}
+                        </SortableContext>
                     </div>
                     {/* Add New Side */}
                     <div className="add-side-row">
@@ -549,6 +822,154 @@ const Menu = () => {
                 <p>{confirmationModal.message}</p>
             </Modal >
         </div >
+    );
+};
+
+const SortableCategory = ({ category, items, onEditCategory, onEditItem }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({
+        id: category,
+        data: {
+            type: 'CATEGORY',
+            category
+        }
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="menu-category-section">
+            <div className="menu-category-header" {...attributes} {...listeners}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Drag Handle Icon could go here, or just clicking header works */}
+                    <span style={{ cursor: 'grab' }}>:::</span>
+                    <h3 className="menu-category-title">{category}</h3>
+                </div>
+                <button
+                    className="category-edit-btn"
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent drag start when clicking edit
+                        onEditCategory(category);
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag start
+                    aria-label={`Edit ${category} category`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <SortableContext
+                id={category}
+                items={items.map(i => i.name)}
+                strategy={rectSortingStrategy}
+            >
+                <div className="menu-grid">
+                    {items.map(item => (
+                        <SortableItem
+                            key={item.name}
+                            item={item}
+                            category={category}
+                            onEdit={onEditItem}
+                        />
+                    ))}
+                </div>
+            </SortableContext>
+        </div>
+    );
+};
+
+const SortableItem = ({ item, category, onEdit }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({
+        id: item.name,
+        data: {
+            type: 'ITEM',
+            item,
+            category
+        }
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+            <MenuItemCard
+                item={item}
+                onEdit={(i) => onEdit(i, category)}
+            />
+        </div>
+    );
+};
+
+const SortableSideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onDelete }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({
+        id: `side-${sideName}`, // Prefix to avoid collision with items
+        data: {
+            type: 'SIDE',
+            sideName
+        }
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="side-edit-row" {...attributes} {...listeners}>
+            {/* Drag Handle via wrapper listeners */}
+            <span className="side-name">{sideName}</span>
+            <input
+                type="number"
+                step="0.01"
+                className="side-price-input"
+                value={sideData.price !== undefined ? (sideData.price / 100).toFixed(2) : ''}
+                onChange={onPriceChange}
+                onPointerDown={(e) => e.stopPropagation()} // Prevent drag
+            />
+            <label className="side-avail-label" onPointerDown={(e) => e.stopPropagation()}>
+                <input
+                    type="checkbox"
+                    checked={sideData.available}
+                    onChange={onAvailableChange}
+                />
+                Avail
+            </label>
+            <button
+                type="button"
+                className="side-delete-btn"
+                onClick={onDelete}
+                onPointerDown={(e) => e.stopPropagation()}
+                aria-label={`Delete ${sideName}`}
+            >
+                ×
+            </button>
+        </div>
     );
 };
 

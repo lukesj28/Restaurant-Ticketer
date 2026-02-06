@@ -105,7 +105,7 @@ public class MenuService {
             }
         }
 
-        items.add(new MenuItem(name, price, true, sideObjects));
+        items.add(new MenuItem(name, price, true, sideObjects, null));
         menuRepository.saveMenu(currentMenu);
     }
 
@@ -134,10 +134,9 @@ public class MenuService {
         MenuItem item = getItem(oldName);
         item.name = newName;
 
-        List<String> kitchenItems = currentMenu.getKitchenItems();
-        if (kitchenItems.contains(oldName)) {
-            kitchenItems.remove(oldName);
-            kitchenItems.add(newName);
+        if (currentMenu.isKitchenItem(oldName)) {
+            currentMenu.removeKitchenItem(oldName);
+            currentMenu.addKitchenItem(newName);
         }
 
         menuRepository.saveMenu(currentMenu);
@@ -153,7 +152,7 @@ public class MenuService {
             currentMenu.getCategories().remove(category);
         }
 
-        currentMenu.getKitchenItems().remove(itemName);
+        currentMenu.removeKitchenItem(itemName);
 
         menuRepository.saveMenu(currentMenu);
     }
@@ -297,17 +296,14 @@ public class MenuService {
         logger.info("Adding item {} to kitchen list", itemName);
         getItem(itemName);
 
-        List<String> kitchenItems = currentMenu.getKitchenItems();
-        if (!kitchenItems.contains(itemName)) {
-            kitchenItems.add(itemName);
+        if (currentMenu.addKitchenItem(itemName)) {
             menuRepository.saveMenu(currentMenu);
         }
     }
 
     public void removeKitchenItem(String itemName) {
         logger.info("Removing item {} from kitchen list", itemName);
-        List<String> kitchenItems = currentMenu.getKitchenItems();
-        if (kitchenItems.remove(itemName)) {
+        if (currentMenu.removeKitchenItem(itemName)) {
             menuRepository.saveMenu(currentMenu);
         }
     }
@@ -323,13 +319,95 @@ public class MenuService {
 
         List<MenuItem> items = categories.remove(categoryName);
 
-        List<String> kitchenItems = currentMenu.getKitchenItems();
         if (items != null) {
             for (MenuItem item : items) {
-                kitchenItems.remove(item.name);
+                currentMenu.removeKitchenItem(item.name);
             }
         }
 
+        List<String> categoryOrder = currentMenu.getCategoryOrder();
+        if (categoryOrder != null) {
+            categoryOrder.remove(categoryName);
+        }
+
+        menuRepository.saveMenu(currentMenu);
+    }
+
+    public List<String> getCategoryOrder() {
+        return currentMenu.getCategoryOrder();
+    }
+
+    public void reorderCategories(List<String> order) {
+        logger.info("Reordering categories: {}", order);
+        if (order == null || order.isEmpty()) {
+            throw new InvalidInputException("Order list cannot be empty");
+        }
+
+        Map<String, List<MenuItem>> categories = currentMenu.getCategories();
+        for (String categoryName : order) {
+            if (!categories.containsKey(categoryName.toLowerCase())) {
+                throw new EntityNotFoundException("Category not found: " + categoryName);
+            }
+        }
+
+        List<String> normalizedOrder = order.stream()
+                .map(String::toLowerCase)
+                .collect(java.util.stream.Collectors.toList());
+
+        currentMenu.setCategoryOrder(normalizedOrder);
+        menuRepository.saveMenu(currentMenu);
+    }
+
+    public void reorderItemsInCategory(String categoryName, List<String> order) {
+        logger.info("Reordering items in category {}: {}", categoryName, order);
+        if (order == null || order.isEmpty()) {
+            throw new InvalidInputException("Order list cannot be empty");
+        }
+
+        categoryName = categoryName.toLowerCase();
+        List<MenuItem> items = currentMenu.getCategory(categoryName);
+        if (items == null) {
+            throw new EntityNotFoundException("Category not found: " + categoryName);
+        }
+
+        Map<String, MenuItem> itemMap = new java.util.HashMap<>();
+        for (MenuItem item : items) {
+            itemMap.put(item.name, item);
+        }
+
+        for (String itemName : order) {
+            if (!itemMap.containsKey(itemName)) {
+                throw new EntityNotFoundException("Item not found in category: " + itemName);
+            }
+        }
+
+        List<MenuItem> reorderedItems = new java.util.ArrayList<>();
+        for (String itemName : order) {
+            reorderedItems.add(itemMap.get(itemName));
+        }
+
+        currentMenu.getCategories().put(categoryName, reorderedItems);
+        menuRepository.saveMenu(currentMenu);
+    }
+
+    public void reorderSidesInItem(String itemName, List<String> order) {
+        logger.info("Reordering sides in item {}: {}", itemName, order);
+        if (order == null || order.isEmpty()) {
+            throw new InvalidInputException("Order list cannot be empty");
+        }
+
+        MenuItem item = getItem(itemName);
+        if (item.sideOptions == null || item.sideOptions.isEmpty()) {
+            throw new EntityNotFoundException("Item has no sides: " + itemName);
+        }
+
+        for (String sideName : order) {
+            if (!item.sideOptions.containsKey(sideName)) {
+                throw new EntityNotFoundException("Side not found: " + sideName);
+            }
+        }
+
+        item.sideOrder = order;
         menuRepository.saveMenu(currentMenu);
     }
 
