@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/api';
 import Button from '../components/common/Button';
+import { useToast } from '../context/ToastContext';
 import './Settings.css';
 
 const Settings = () => {
+    const toast = useToast();
     // Fetched Server State
     const [settings, setSettings] = useState({ tax: 0, hours: {} });
     // Local Draft State
@@ -65,9 +67,9 @@ const Settings = () => {
         try {
             await api.post(action === 'open' ? '/open' : '/shutdown');
             fetchSystemStatus();
-            alert(`System ${action === 'open' ? 'opened' : 'shutdown'} successfully.`);
+            toast.success(`System ${action === 'open' ? 'opened' : 'shutdown'} successfully.`);
         } catch (e) {
-            alert('Action failed: ' + e.message);
+            toast.error('Action failed: ' + e.message);
         }
     };
 
@@ -87,18 +89,22 @@ const Settings = () => {
 
             await Promise.all(promises);
 
-            alert('Settings saved successfully.');
+            toast.success('Settings saved successfully.');
 
-            // Refresh settings immediately
-            await fetchSettings();
+            // Optimistically update local state so UI reflects changes immediately
+            const newSettings = {
+                tax: basisPoints,
+                hours: { ...draftHours }
+            };
+            setSettings(newSettings);
 
-            // Wait 1 second before refreshing system status to allow backend checks to complete
+            // Refresh system status - wait a bit longer to be safe
             setTimeout(() => {
                 fetchSystemStatus();
             }, 1000);
 
         } catch (e) {
-            alert('Failed to save settings: ' + e.message);
+            toast.error('Failed to save settings: ' + e.message);
         }
     };
 

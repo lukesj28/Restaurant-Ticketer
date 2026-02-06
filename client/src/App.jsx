@@ -7,24 +7,27 @@ import TicketDetail from './pages/TicketDetail';
 import Menu from './pages/Menu';
 import Analysis from './pages/Analysis';
 import Settings from './pages/Settings';
+import { ToastProvider } from './context/ToastContext';
 
 function App() {
   return (
-    <Router>
-      <div className="app-container">
-        <div className="content">
-          <Routes>
-            <Route path="/" element={<Navigate to="/tickets" replace />} />
-            <Route path="/tickets" element={<Tickets />} />
-            <Route path="/tickets/:id" element={<TicketDetail />} />
-            <Route path="/menu" element={<Menu />} />
-            <Route path="/analysis" element={<Analysis />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
+    <ToastProvider>
+      <Router>
+        <div className="app-container">
+          <div className="content">
+            <Routes>
+              <Route path="/" element={<Navigate to="/tickets" replace />} />
+              <Route path="/tickets" element={<Tickets />} />
+              <Route path="/tickets/:id" element={<TicketDetail />} />
+              <Route path="/menu" element={<Menu />} />
+              <Route path="/analysis" element={<Analysis />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </div>
+          <Navbar />
         </div>
-        <Navbar />
-      </div>
-    </Router>
+      </Router>
+    </ToastProvider>
   );
 }
 

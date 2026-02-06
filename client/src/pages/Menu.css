@@ -21,12 +21,40 @@
     gap: var(--spacing-xl);
 }
 
-.menu-category-section h3 {
+.menu-category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     border-bottom: 2px solid var(--color-border);
     padding-bottom: var(--spacing-sm);
     margin-bottom: var(--spacing-md);
+}
+
+.menu-category-title {
     color: var(--color-brand-secondary);
     font-family: var(--font-heading);
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.category-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+}
+
+.category-edit-btn:hover {
+    opacity: 1;
+    background-color: var(--color-bg-secondary);
+    color: var(--color-brand-primary);
 }
 
 .menu-grid {

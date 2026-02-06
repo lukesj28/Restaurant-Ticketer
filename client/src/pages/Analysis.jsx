@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { api } from '../api/api';
 import Button from '../components/common/Button';
+import { useToast } from '../context/ToastContext';
 import './Analysis.css';
 
 
 const Analysis = () => {
+    const { toast } = useToast();
     // Default to today or current range
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -20,7 +22,7 @@ const Analysis = () => {
             setReport(data);
         } catch (e) {
             console.error("Fetch report failed", e);
-            alert("Fetch failed: " + e.message);
+            toast.error("Fetch failed: " + e.message);
         } finally {
             setLoading(false);
         }

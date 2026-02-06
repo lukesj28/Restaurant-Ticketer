@@ -4,10 +4,12 @@ import { api } from '../api/api';
 import TicketCard from '../components/tickets/TicketCard';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+import { useToast } from '../context/ToastContext';
 import './Tickets.css';
 
 const Tickets = () => {
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('active');
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -52,7 +54,7 @@ const Tickets = () => {
             setIsCreateModalOpen(false);
             fetchTickets();
         } catch (error) {
-            alert('Failed to create ticket: ' + error.message);
+            toast.error('Failed to create ticket: ' + error.message);
         }
     };
 

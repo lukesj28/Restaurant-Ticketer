@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/api';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal'; // Will use for item selection
+import { useToast } from '../context/ToastContext';
 import './TicketDetail.css';
 
 const TicketDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
     const [menu, setMenu] = useState({}); // Categories -> Items
@@ -52,7 +54,7 @@ const TicketDetail = () => {
             await api.post(`/tickets/${id}/orders`);
             fetchTicket();
         } catch (e) {
-            alert(e.message);
+            toast.error(e.message);
         }
     };
 
@@ -81,7 +83,7 @@ const TicketDetail = () => {
             setIsMenuOpen(false);
             fetchTicket(); // refresh
         } catch (e) {
-            alert(e.message);
+            toast.error(e.message);
         }
     };
 
@@ -96,7 +98,7 @@ const TicketDetail = () => {
             }
             navigate('/tickets');
         } catch (e) {
-            alert(e.message);
+            toast.error(e.message);
         }
     };
 

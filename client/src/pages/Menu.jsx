@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api/api';
 import MenuItemCard from '../components/menu/MenuItemCard';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+import { useToast } from '../context/ToastContext';
 import './Menu.css';
 
 const Menu = () => {
+    const { toast } = useToast();
     const [categories, setCategories] = useState({});
     const [loading, setLoading] = useState(true);
     const [editItem, setEditItem] = useState(null); // Item being edited
@@ -18,8 +20,26 @@ const Menu = () => {
     // Edit Form State
     const [editForm, setEditForm] = useState({ price: '', available: true, name: '', category: '' });
 
+    const [editingCategory, setEditingCategory] = useState(null); // Category being edited
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+    // Kitchen Items State
+    const [kitchenItems, setKitchenItems] = useState([]);
+    const [isKitchenItem, setIsKitchenItem] = useState(false); // For Create/Edit modals
+
+    // Confirmation Modal State
+    const [confirmationModal, setConfirmationModal] = useState({
+        isOpen: false,
+        title: '',
+        message: ''
+    });
+    const confirmAction = useRef(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
     useEffect(() => {
         fetchMenu();
+        fetchKitchenItems();
     }, []);
 
     const fetchMenu = async () => {
@@ -34,8 +54,19 @@ const Menu = () => {
         }
     };
 
+    const fetchKitchenItems = async () => {
+        try {
+            const data = await api.get('/menu/kitchen-items');
+            setKitchenItems(data || []);
+        } catch (e) {
+            console.error("Failed to fetch kitchen items:", e);
+        }
+    };
+
     const handleEditClick = (item, categoryName) => {
         setEditItem({ ...item, originalName: item.name, originalCategory: categoryName });
+        const isKitchen = kitchenItems.includes(item.name);
+        setIsKitchenItem(isKitchen);
         setEditForm({
             price: (item.price / 100).toFixed(2),
             available: item.available,
@@ -44,6 +75,51 @@ const Menu = () => {
             sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {} // Deep copy to avoid mutating original ref
         });
         setIsEditModalOpen(true);
+    };
+
+    const handleEditCategoryClick = (categoryName) => {
+        setEditingCategory(categoryName);
+        setNewCategoryName(categoryName);
+        setIsCategoryModalOpen(true);
+    };
+
+    const handleCategoryRename = async () => {
+        if (!newCategoryName || !newCategoryName.trim()) {
+            toast.error('Category name cannot be empty');
+            return;
+        }
+        if (newCategoryName === editingCategory) {
+            setIsCategoryModalOpen(false);
+            return;
+        }
+
+        try {
+            await api.put(`/menu/categories/${editingCategory}/rename`, { newCategory: newCategoryName });
+            setIsCategoryModalOpen(false);
+            fetchMenu();
+            toast.success('Category renamed successfully');
+        } catch (e) {
+            toast.error('Failed to rename category: ' + (e.message || 'Unknown error'));
+        }
+    };
+
+    const handleCategoryDelete = async () => {
+        confirmAction.current = async () => {
+            try {
+                await api.delete(`/menu/categories/${editingCategory}`);
+                setIsCategoryModalOpen(false);
+                fetchMenu();
+                toast.success('Category deleted successfully');
+            } catch (e) {
+                toast.error('Failed to delete category: ' + (e.message || 'Unknown error'));
+            }
+        };
+
+        setConfirmationModal({
+            isOpen: true,
+            title: 'Delete Category',
+            message: `Are you sure you want to delete category "${editingCategory}"? ALL items in this category will be deleted!`
+        });
     };
 
     const handleSaveEdit = async () => {
@@ -69,6 +145,17 @@ const Menu = () => {
                 await api.put(`/menu/items/${currentName}/category`, { newCategory: editForm.category });
             }
 
+            // Kitchen Status
+            const wasKitchen = kitchenItems.includes(editItem.originalName);
+            // Note: If renamed, we use the new name for kitchen status update if needed, but the backend rename should handle the old name removal.
+            // However, renameItem in backend typically handles migrating the name in kitchenItems list.
+            // So we just need to check if the state changed.
+            if (isKitchenItem && !wasKitchen) {
+                await api.post(`/menu/kitchen-items/${currentName}`);
+            } else if (!isKitchenItem && wasKitchen) {
+                await api.delete(`/menu/kitchen-items/${currentName}`);
+            }
+
             // Sides
             if (editForm.sides) {
                 for (const [sideName, sideData] of Object.entries(editForm.sides)) {
@@ -84,8 +171,10 @@ const Menu = () => {
 
             setIsEditModalOpen(false);
             fetchMenu();
+            fetchKitchenItems();
+            toast.success('Item updated successfully');
         } catch (e) {
-            alert('Failed to update item: ' + e.message);
+            toast.error('Failed to update item: ' + e.message);
         }
     };
 
@@ -98,37 +187,73 @@ const Menu = () => {
                 price: Math.round(parseFloat(newItem.price) * 100),
                 sides: {} // Default empty
             });
+
+            if (isKitchenItem) {
+                await api.post(`/menu/kitchen-items/${newItem.name}`);
+            }
+
             setIsCreateModalOpen(false);
             setNewItem({ name: '', category: '', price: '' });
+            setIsKitchenItem(false);
             fetchMenu();
+            fetchKitchenItems();
+            toast.success('Item created successfully');
         } catch (error) {
-            alert('Failed to create item: ' + error.message);
+            toast.error('Failed to create item: ' + error.message);
         }
     };
 
     const handleDelete = async () => {
-        if (!window.confirm(`Are you sure you want to delete ${editItem.name}?`)) return;
-        try {
-            await api.delete(`/menu/items/${editItem.originalName}`);
-            setIsEditModalOpen(false);
-            fetchMenu();
-        } catch (e) {
-            alert(e.message);
-        }
+        confirmAction.current = async () => {
+            try {
+                await api.delete(`/menu/items/${editItem.originalName}`);
+                setIsEditModalOpen(false);
+                fetchMenu();
+                fetchKitchenItems();
+                toast.success('Item deleted successfully');
+            } catch (e) {
+                toast.error(e.message);
+            }
+        };
+
+        setConfirmationModal({
+            isOpen: true,
+            title: 'Delete Item',
+            message: `Are you sure you want to delete ${editItem.name}?`
+        });
+    };
+
+    const closeConfirmation = () => {
+        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
     };
 
     return (
         <div className="menu-page">
             <div className="menu-header">
                 <h1>Menu Management</h1>
-                <Button onClick={() => setIsCreateModalOpen(true)}>+ Add Item</Button>
+                <Button onClick={() => {
+                    setIsCreateModalOpen(true);
+                    setIsKitchenItem(false);
+                }}>+ Add Item</Button>
             </div>
 
             {loading ? <div>Loading...</div> : (
                 <div className="menu-list">
                     {Object.entries(categories).map(([category, items]) => (
                         <div key={category} className="menu-category-section">
-                            <h3 className="menu-category-title">{category} ({items.length})</h3>
+                            <div className="menu-category-header">
+                                <h3 className="menu-category-title">{category}</h3>
+                                <button
+                                    className="category-edit-btn"
+                                    onClick={() => handleEditCategoryClick(category)}
+                                    aria-label={`Edit ${category} category`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                             <div className="menu-grid">
                                 {items.map(item => (
                                     <MenuItemCard
@@ -191,6 +316,16 @@ const Menu = () => {
                         Available
                     </label>
                 </div>
+                <div className="form-group checkbox-group">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={isKitchenItem}
+                            onChange={e => setIsKitchenItem(e.target.checked)}
+                        />
+                        Kitchen Item
+                    </label>
+                </div>
 
                 {/* Sides Editing */}
                 {
@@ -242,6 +377,31 @@ const Menu = () => {
                 }
             </Modal >
 
+            {/* Category Edit Modal */}
+            <Modal
+                isOpen={isCategoryModalOpen}
+                onClose={() => setIsCategoryModalOpen(false)}
+                title="Edit Category"
+                footer={
+                    <div className="edit-footer">
+                        <Button variant="danger" onClick={handleCategoryDelete}>Delete Category</Button>
+                        <div className="edit-actions-right">
+                            <Button variant="secondary" onClick={() => setIsCategoryModalOpen(false)}>Cancel</Button>
+                            <Button variant="primary" onClick={handleCategoryRename}>Save</Button>
+                        </div>
+                    </div>
+                }
+            >
+                <div className="form-group">
+                    <label>Category Name</label>
+                    <input
+                        value={newCategoryName}
+                        onChange={e => setNewCategoryName(e.target.value)}
+                        placeholder="Category Name"
+                    />
+                </div>
+            </Modal>
+
             {/* Create Modal */}
             < Modal
                 isOpen={isCreateModalOpen}
@@ -282,7 +442,42 @@ const Menu = () => {
                             required
                         />
                     </div>
+                    <div className="form-group checkbox-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={isKitchenItem}
+                                onChange={e => setIsKitchenItem(e.target.checked)}
+                            />
+                            Kitchen Item
+                        </label>
+                    </div>
                 </form>
+            </Modal >
+
+            {/* Confirmation Modal */}
+            <Modal
+                isOpen={confirmationModal.isOpen}
+                onClose={closeConfirmation}
+                title={confirmationModal.title}
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={closeConfirmation} disabled={isProcessing}>Cancel</Button>
+                        <Button variant="danger" disabled={isProcessing} onClick={async () => {
+                            if (confirmAction.current) {
+                                setIsProcessing(true);
+                                try {
+                                    await confirmAction.current();
+                                } finally {
+                                    setIsProcessing(false);
+                                    closeConfirmation();
+                                }
+                            }
+                        }}>{isProcessing ? 'Processing...' : 'Confirm'}</Button>
+                    </>
+                }
+            >
+                <p>{confirmationModal.message}</p>
             </Modal >
         </div >
     );

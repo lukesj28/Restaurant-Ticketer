@@ -70,7 +70,7 @@ public class SettingsService {
         return settings.getHours();
     }
 
-    public void setTax(int taxBasisPoints) {
+    public synchronized void setTax(int taxBasisPoints) {
         logger.info("Setting tax to {}", taxBasisPoints);
         if (taxBasisPoints < 0) {
             throw new InvalidInputException("Tax cannot be negative");
@@ -81,7 +81,7 @@ public class SettingsService {
         settingsRepository.saveSettings(newSettings);
     }
 
-    public void setOpeningHours(String day, String hours) {
+    public synchronized void setOpeningHours(String day, String hours) {
         logger.info("Setting opening hours for {}: {}", day, hours);
         String pattern = "^([0-1][0-9]|2[0-3]):[0-5][0-9] - ([0-1][0-9]|2[0-3]):[0-5][0-9]$|^closed$";
 
