@@ -614,58 +614,51 @@ const Menu = () => {
                         Kitchen Item
                     </label>
                 </div>
-
                 {/* Sides Editing */}
                 <div className="sides-section">
                     <h4>Sides</h4>
                     <div className="sides-grid">
-                        <SortableContext
-                            items={editForm.sideOrder || Object.keys(editForm.sides || {}).filter(k => k.toLowerCase() !== 'none')}
-                            strategy={verticalListSortingStrategy}
-                        >
-                            {(() => {
-                                const sides = editForm.sides || {};
-                                const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
-                                // Use sideOrder if available, otherwise raw keys (and ensure data consistency)
-                                let orderedSides = [];
-                                if (editForm.sideOrder && editForm.sideOrder.length > 0) {
-                                    orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k));
-                                    const missing = rawSideNames.filter(k => !orderedSides.includes(k));
-                                    orderedSides = [...orderedSides, ...missing];
-                                } else {
-                                    orderedSides = rawSideNames;
-                                }
+                        {(() => {
+                            const sides = editForm.sides || {};
+                            const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
+                            let orderedSides = [];
+                            if (editForm.sideOrder && editForm.sideOrder.length > 0) {
+                                orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k));
+                                const missing = rawSideNames.filter(k => !orderedSides.includes(k));
+                                orderedSides = [...orderedSides, ...missing];
+                            } else {
+                                orderedSides = rawSideNames;
+                            }
 
-                                return orderedSides.map(sideName => (
-                                    <SortableSideRow
-                                        key={sideName}
-                                        sideName={sideName}
-                                        sideData={sides[sideName]}
-                                        onPriceChange={e => {
-                                            const newPrice = e.target.value;
-                                            setEditForm(prev => ({
-                                                ...prev,
-                                                sides: {
-                                                    ...prev.sides,
-                                                    [sideName]: { ...prev.sides[sideName], price: Math.round(parseFloat(newPrice) * 100) }
-                                                }
-                                            }));
-                                        }}
-                                        onAvailableChange={e => {
-                                            const newAvail = e.target.checked;
-                                            setEditForm(prev => ({
-                                                ...prev,
-                                                sides: {
-                                                    ...prev.sides,
-                                                    [sideName]: { ...prev.sides[sideName], available: newAvail }
-                                                }
-                                            }));
-                                        }}
-                                        onDelete={() => setSidesToDelete(prev => [...prev, sideName])}
-                                    />
-                                ));
-                            })()}
-                        </SortableContext>
+                            return orderedSides.map(sideName => (
+                                <SideRow
+                                    key={sideName}
+                                    sideName={sideName}
+                                    sideData={sides[sideName]}
+                                    onPriceChange={e => {
+                                        const newPrice = e.target.value;
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            sides: {
+                                                ...prev.sides,
+                                                [sideName]: { ...prev.sides[sideName], price: Math.round(parseFloat(newPrice) * 100) }
+                                            }
+                                        }));
+                                    }}
+                                    onAvailableChange={e => {
+                                        const newAvail = e.target.checked;
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            sides: {
+                                                ...prev.sides,
+                                                [sideName]: { ...prev.sides[sideName], available: newAvail }
+                                            }
+                                        }));
+                                    }}
+                                    onDelete={() => setSidesToDelete(prev => [...prev, sideName])}
+                                />
+                            ));
+                        })()}
                     </div>
                     {/* Add New Side */}
                     <div className="add-side-row">
@@ -920,29 +913,9 @@ const SortableItem = ({ item, category, onEdit }) => {
     );
 };
 
-const SortableSideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onDelete }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({
-        id: `side-${sideName}`, // Prefix to avoid collision with items
-        data: {
-            type: 'SIDE',
-            sideName
-        }
-    });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
+const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onDelete }) => {
     return (
-        <div ref={setNodeRef} style={style} className="side-edit-row" {...attributes} {...listeners}>
-            {/* Drag Handle via wrapper listeners */}
+        <div className="side-edit-row">
             <span className="side-name">{sideName}</span>
             <input
                 type="number"
@@ -950,9 +923,8 @@ const SortableSideRow = ({ sideName, sideData, onPriceChange, onAvailableChange,
                 className="side-price-input"
                 value={sideData.price !== undefined ? (sideData.price / 100).toFixed(2) : ''}
                 onChange={onPriceChange}
-                onPointerDown={(e) => e.stopPropagation()} // Prevent drag
             />
-            <label className="side-avail-label" onPointerDown={(e) => e.stopPropagation()}>
+            <label className="side-avail-label">
                 <input
                     type="checkbox"
                     checked={sideData.available}
@@ -964,7 +936,6 @@ const SortableSideRow = ({ sideName, sideData, onPriceChange, onAvailableChange,
                 type="button"
                 className="side-delete-btn"
                 onClick={onDelete}
-                onPointerDown={(e) => e.stopPropagation()}
                 aria-label={`Delete ${sideName}`}
             >
                 ×

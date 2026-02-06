@@ -190,17 +190,27 @@ const TicketDetail = () => {
                             {/* The requirement said "sides" map in item has "none" if applicable, or we inject it?
                                  Looking at menu.json, "none" is explicit side with price 0.
                                  So we just iterate sides. */}
-                            {Object.entries(selectedItemForSides.sides || {}).map(([sideName, sideData]) => (
-                                <button
-                                    key={sideName}
-                                    className={`menu-item-btn ${!sideData.available ? 'unavailable' : ''}`}
-                                    disabled={!sideData.available}
-                                    onClick={() => handleAddItem(selectedItemForSides.name, sideName)}
-                                >
-                                    <div className="item-name">{sideName}</div>
-                                    <div className="item-price">${(sideData.price / 100).toFixed(2)}</div>
-                                </button>
-                            ))}
+                            {Object.entries(selectedItemForSides.sides || {})
+                                .sort(([sideA], [sideB]) => {
+                                    const order = selectedItemForSides.sideOrder || [];
+                                    const idxA = order.indexOf(sideA);
+                                    const idxB = order.indexOf(sideB);
+                                    if (idxA === -1 && idxB === -1) return 0; // Maintain original order if both missing
+                                    if (idxA === -1) return 1;
+                                    if (idxB === -1) return -1;
+                                    return idxA - idxB;
+                                })
+                                .map(([sideName, sideData]) => (
+                                    <button
+                                        key={sideName}
+                                        className={`menu-item-btn ${!sideData.available ? 'unavailable' : ''}`}
+                                        disabled={!sideData.available}
+                                        onClick={() => handleAddItem(selectedItemForSides.name, sideName)}
+                                    >
+                                        <div className="item-name">{sideName}</div>
+                                        <div className="item-price">${(sideData.price / 100).toFixed(2)}</div>
+                                    </button>
+                                ))}
                         </div>
                     </div>
                 ) : (
