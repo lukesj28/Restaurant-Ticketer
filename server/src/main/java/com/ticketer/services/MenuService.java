@@ -214,23 +214,76 @@ public class MenuService {
     public void updateSide(String itemName, String sideName, Integer price, Boolean available) {
         logger.info("Updating side {} for item {}: price={}, available={}", sideName, itemName, price, available);
         MenuItem item = getItem(itemName);
-        if (item.sideOptions == null) {
-            item.sideOptions = new java.util.HashMap<>();
+        if (item.sideOptions == null || !item.sideOptions.containsKey(sideName)) {
+            throw new EntityNotFoundException("Side not found: " + sideName);
         }
 
         Side side = item.sideOptions.get(sideName);
-        if (side == null) {
-            side = new Side();
-            side.available = true;
-            side.price = 0;
-            item.sideOptions.put(sideName, side);
-        }
-
         if (price != null) {
             side.price = price;
         }
         if (available != null) {
             side.available = available;
+        }
+
+        menuRepository.saveMenu(currentMenu);
+    }
+
+    public void addSide(String itemName, String sideName, int price) {
+        logger.info("Adding side {} to item {} with price {}", sideName, itemName, price);
+        if (sideName == null || sideName.trim().isEmpty()) {
+            throw new InvalidInputException("Side name cannot be empty");
+        }
+        if ("none".equalsIgnoreCase(sideName.trim())) {
+            throw new InvalidInputException("Cannot add 'none' side manually");
+        }
+        if (price < 0) {
+            throw new InvalidInputException("Side price cannot be negative");
+        }
+
+        MenuItem item = getItem(itemName);
+        if (item.sideOptions == null) {
+            item.sideOptions = new java.util.HashMap<>();
+        }
+
+        if (item.sideOptions.containsKey(sideName)) {
+            throw new InvalidInputException("Side already exists: " + sideName);
+        }
+
+        if (item.sideOptions.isEmpty() || (item.sideOptions.size() == 1 && item.sideOptions.containsKey("none"))) {
+            if (!item.sideOptions.containsKey("none")) {
+                Side noneSide = new Side();
+                noneSide.price = 0;
+                noneSide.available = true;
+                item.sideOptions.put("none", noneSide);
+            }
+        }
+
+        Side side = new Side();
+        side.price = price;
+        side.available = true;
+        item.sideOptions.put(sideName, side);
+
+        menuRepository.saveMenu(currentMenu);
+    }
+
+    public void removeSide(String itemName, String sideName) {
+        logger.info("Removing side {} from item {}", sideName, itemName);
+        if ("none".equalsIgnoreCase(sideName)) {
+            throw new InvalidInputException("Cannot remove 'none' side directly");
+        }
+
+        MenuItem item = getItem(itemName);
+        if (item.sideOptions == null || !item.sideOptions.containsKey(sideName)) {
+            throw new EntityNotFoundException("Side not found: " + sideName);
+        }
+
+        item.sideOptions.remove(sideName);
+
+        if (item.sideOptions.size() == 1 && item.sideOptions.containsKey("none")) {
+            item.sideOptions = null;
+        } else if (item.sideOptions.isEmpty()) {
+            item.sideOptions = null;
         }
 
         menuRepository.saveMenu(currentMenu);

@@ -124,6 +124,42 @@ public class TicketController {
         return getTicket(ticketId);
     }
 
+    @GetMapping("/active/kitchen")
+    public ApiResponse<List<KitchenTicketDto>> getActiveKitchenTickets() {
+        List<String> kitchenItems = menuService.getKitchenItems();
+        List<Ticket> activeTickets = ticketService.getActiveTickets();
+
+        List<KitchenTicketDto> kitchenTickets = activeTickets.stream().map(ticket -> {
+            java.util.Map<String, Integer> fullTally = ticket.getTally();
+            java.util.Map<String, Integer> kitchenTally = new java.util.LinkedHashMap<>();
+            for (String item : kitchenItems) {
+                if (fullTally.containsKey(item)) {
+                    kitchenTally.put(item, fullTally.get(item));
+                }
+            }
+
+            List<KitchenOrderDto> kitchenOrders = ticket.getOrders().stream().map(order -> {
+                List<KitchenOrderItemDto> filteredItems = order.getItems().stream()
+                        .filter(item -> kitchenItems.contains(item.getName()))
+                        .map(item -> new KitchenOrderItemDto(
+                                item.getName(),
+                                item.getSelectedSide()))
+                        .collect(Collectors.toList());
+                return new KitchenOrderDto(filteredItems);
+            }).filter(ko -> !ko.items().isEmpty())
+                    .collect(Collectors.toList());
+
+            return new KitchenTicketDto(
+                    ticket.getId(),
+                    ticket.getTableNumber(),
+                    kitchenTally,
+                    kitchenOrders,
+                    ticket.getCreatedAt() != null ? ticket.getCreatedAt().toString() : null);
+        }).collect(Collectors.toList());
+
+        return ApiResponse.success(kitchenTickets);
+    }
+
     @GetMapping("/active")
     public ApiResponse<List<TicketDto>> getActiveTickets() {
         return ApiResponse.success(

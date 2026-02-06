@@ -295,4 +295,29 @@ public class MenuControllerTest {
                                 .content(json))
                                 .andExpect(status().isBadRequest());
         }
+
+        @Test
+        public void testAddSide() throws Exception {
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>());
+                when(menuService.getItem("Item")).thenReturn(item);
+
+                String json = "{\"name\":\"chips\",\"price\":299}";
+                mockMvc.perform(post("/api/menu/items/Item/sides")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk());
+
+                verify(menuService).addSide("Item", "chips", 299);
+        }
+
+        @Test
+        public void testRemoveSide() throws Exception {
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>());
+                when(menuService.getItem("Item")).thenReturn(item);
+
+                mockMvc.perform(delete("/api/menu/items/Item/sides/chips"))
+                                .andExpect(status().isOk());
+
+                verify(menuService).removeSide("Item", "chips");
+        }
 }

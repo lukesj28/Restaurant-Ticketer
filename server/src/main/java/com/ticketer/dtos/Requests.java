@@ -24,6 +24,9 @@ public class Requests {
     public record SideUpdateRequest(Integer price, Boolean available) {
     }
 
+    public record SideCreateRequest(String name, int price) {
+    }
+
     public record TaxUpdateRequest(int tax) {
     }
 

@@ -179,3 +179,52 @@
     cursor: pointer;
     color: var(--color-text-secondary);
 }
+
+.side-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-danger, #dc3545);
+    font-size: 1.2rem;
+    font-weight: bold;
+    padding: 0 4px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.side-delete-btn:hover {
+    opacity: 1;
+}
+
+.add-side-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px dashed var(--color-border);
+}
+
+.side-name-input {
+    flex: 2;
+    min-width: 100px;
+    padding: 6px 8px;
+    font-size: 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+}
+
+.side-name-input:focus,
+.side-price-input:focus {
+    border-color: var(--color-accent);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.add-side-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}

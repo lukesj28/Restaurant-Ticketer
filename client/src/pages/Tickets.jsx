@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/api';
 import TicketCard from '../components/tickets/TicketCard';
+import KitchenTicketCard from '../components/tickets/KitchenTicketCard';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import { useToast } from '../context/ToastContext';
@@ -10,6 +11,7 @@ import './Tickets.css';
 const Tickets = () => {
     const navigate = useNavigate();
     const { toast } = useToast();
+    const [viewMode, setViewMode] = useState('front'); // 'front' | 'back'
     const [activeTab, setActiveTab] = useState('active');
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -19,21 +21,25 @@ const Tickets = () => {
     useEffect(() => {
         fetchTickets();
 
-        // Poll for active tickets to keep UI fresh
-        // Only poll if on active tab
+        // Poll for active tickets to keep UI fresh (both front active tab and back view)
         let interval;
-        if (activeTab === 'active') {
+        if (viewMode === 'back' || activeTab === 'active') {
             interval = setInterval(fetchTickets, 5000);
         }
         return () => clearInterval(interval);
-    }, [activeTab]);
+    }, [activeTab, viewMode]);
 
     const fetchTickets = async () => {
         setLoading(true);
         try {
-            let endpoint = '/tickets/active';
-            if (activeTab === 'completed') endpoint = '/tickets/completed';
-            if (activeTab === 'closed') endpoint = '/tickets/closed';
+            let endpoint;
+            if (viewMode === 'back') {
+                endpoint = '/tickets/active/kitchen';
+            } else {
+                endpoint = '/tickets/active';
+                if (activeTab === 'completed') endpoint = '/tickets/completed';
+                if (activeTab === 'closed') endpoint = '/tickets/closed';
+            }
 
             const data = await api.get(endpoint);
             // sort by ID descending for newest first
@@ -62,30 +68,60 @@ const Tickets = () => {
         navigate(`/tickets/${ticket.id}`);
     };
 
+    const handleCompleteKitchenTicket = async (ticketId) => {
+        try {
+            await api.put(`/tickets/${ticketId}/completed`);
+            fetchTickets();
+        } catch (error) {
+            toast.error('Failed to complete ticket: ' + error.message);
+        }
+    };
+
     return (
         <div className="tickets-page">
+            {/* View Mode Toggle */}
+            <div className="view-toggle">
+                <button
+                    className={`view-btn ${viewMode === 'front' ? 'active' : ''}`}
+                    onClick={() => setViewMode('front')}
+                >
+                    Front
+                </button>
+                <button
+                    className={`view-btn ${viewMode === 'back' ? 'active' : ''}`}
+                    onClick={() => setViewMode('back')}
+                >
+                    Back
+                </button>
+            </div>
+
             <div className="tickets-header">
-                <div className="tabs">
-                    <button
-                        className={`tab-btn ${activeTab === 'active' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('active')}
-                    >
-                        Active
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'completed' ? 'completed' : ''}`} // logic naming
-                        onClick={() => setActiveTab('completed')}
-                    >
-                        Completed
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'closed' ? 'active' : ''}`} // reusing active class for simplicity or custom
-                        onClick={() => setActiveTab('closed')}
-                    >
-                        Closed
-                    </button>
-                </div>
-                {activeTab === 'active' && (
+                {viewMode === 'front' && (
+                    <div className="tabs">
+                        <button
+                            className={`tab-btn ${activeTab === 'active' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('active')}
+                        >
+                            Active
+                        </button>
+                        <button
+                            className={`tab-btn ${activeTab === 'completed' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('completed')}
+                        >
+                            Completed
+                        </button>
+                        <button
+                            className={`tab-btn ${activeTab === 'closed' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('closed')}
+                        >
+                            Closed
+                        </button>
+                    </div>
+                )}
+                {viewMode === 'back' && (
+                    <div className="back-view-label">Active Kitchen Tickets</div>
+                )}
+                {viewMode === 'front' && activeTab === 'active' && (
                     <Button onClick={() => setIsCreateModalOpen(true)}>
                         + New Ticket
                     </Button>
@@ -93,11 +129,19 @@ const Tickets = () => {
             </div>
 
             <div className="tickets-grid">
-                {tickets.map(ticket => (
-                    <TicketCard key={ticket.id} ticket={ticket} onClick={handleTicketClick} />
-                ))}
+                {viewMode === 'front' ? (
+                    tickets.map(ticket => (
+                        <TicketCard key={ticket.id} ticket={ticket} onClick={handleTicketClick} />
+                    ))
+                ) : (
+                    tickets.map(ticket => (
+                        <KitchenTicketCard key={ticket.id} ticket={ticket} onComplete={handleCompleteKitchenTicket} />
+                    ))
+                )}
                 {tickets.length === 0 && !loading && (
-                    <div className="empty-state">No {activeTab} tickets found.</div>
+                    <div className="empty-state">
+                        {viewMode === 'back' ? 'No active kitchen tickets.' : `No ${activeTab} tickets found.`}
+                    </div>
                 )}
             </div>
 

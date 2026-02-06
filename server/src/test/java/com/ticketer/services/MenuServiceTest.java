@@ -320,4 +320,87 @@ public class MenuServiceTest {
         menuService = new MenuService(menuRepository);
         assertThrows(EntityNotFoundException.class, () -> menuService.deleteCategory("Entrees"));
     }
+
+    @Test
+    public void testAddSideAutoAddsNone() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, null));
+        data.put("entrees", items);
+
+        Menu menu = new Menu(data, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.addSide("Burger", "chips", 299);
+
+        MenuItem burger = menuService.getItem("Burger");
+        assertNotNull(burger.sideOptions);
+        assertTrue(burger.sideOptions.containsKey("chips"));
+        assertTrue(burger.sideOptions.containsKey("none"));
+        assertEquals(0, burger.sideOptions.get("none").price);
+        verify(menuRepository).saveMenu(menu);
+    }
+
+    @Test
+    public void testRemoveSideRemovesSidesWhenOnlyNoneRemains() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        Map<String, com.ticketer.models.Side> sides = new HashMap<>();
+        com.ticketer.models.Side chipsSide = new com.ticketer.models.Side();
+        chipsSide.price = 299;
+        chipsSide.available = true;
+        sides.put("chips", chipsSide);
+        com.ticketer.models.Side noneSide = new com.ticketer.models.Side();
+        noneSide.price = 0;
+        noneSide.available = true;
+        sides.put("none", noneSide);
+        items.add(new MenuItem("Burger", 100, true, sides));
+        data.put("entrees", items);
+
+        Menu menu = new Menu(data, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.removeSide("Burger", "chips");
+
+        MenuItem burger = menuService.getItem("Burger");
+        assertNull(burger.sideOptions);
+        verify(menuRepository).saveMenu(menu);
+    }
+
+    @Test
+    public void testRemoveSideNoneNotAllowed() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        Map<String, com.ticketer.models.Side> sides = new HashMap<>();
+        com.ticketer.models.Side noneSide = new com.ticketer.models.Side();
+        noneSide.price = 0;
+        noneSide.available = true;
+        sides.put("none", noneSide);
+        items.add(new MenuItem("Burger", 100, true, sides));
+        data.put("entrees", items);
+
+        Menu menu = new Menu(data, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        assertThrows(com.ticketer.exceptions.InvalidInputException.class,
+                () -> menuService.removeSide("Burger", "none"));
+    }
+
+    @Test
+    public void testAddSideNoneNotAllowed() {
+        Map<String, List<MenuItem>> data = new HashMap<>();
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem("Burger", 100, true, null));
+        data.put("entrees", items);
+
+        Menu menu = new Menu(data, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        assertThrows(com.ticketer.exceptions.InvalidInputException.class,
+                () -> menuService.addSide("Burger", "none", 0));
+    }
 }

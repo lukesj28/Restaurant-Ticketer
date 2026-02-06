@@ -138,6 +138,23 @@ public class MenuController {
         return ApiResponse.success(DtoMapper.toItemDto(item));
     }
 
+    @PostMapping("/items/{itemName}/sides")
+    public ApiResponse<ItemDto> addSide(@PathVariable String itemName,
+            @RequestBody Requests.SideCreateRequest request) {
+        logger.info("Received request to add side {} to item {}", request.name(), itemName);
+        menuService.addSide(itemName, request.name(), request.price());
+        MenuItem item = menuService.getItem(itemName);
+        return ApiResponse.success(DtoMapper.toItemDto(item));
+    }
+
+    @DeleteMapping("/items/{itemName}/sides/{sideName}")
+    public ApiResponse<ItemDto> removeSide(@PathVariable String itemName, @PathVariable String sideName) {
+        logger.info("Received request to remove side {} from item {}", sideName, itemName);
+        menuService.removeSide(itemName, sideName);
+        MenuItem item = menuService.getItem(itemName);
+        return ApiResponse.success(DtoMapper.toItemDto(item));
+    }
+
     @DeleteMapping("/categories/{categoryName}")
     public ApiResponse<List<String>> deleteCategory(@PathVariable String categoryName) {
         menuService.deleteCategory(categoryName);

@@ -28,6 +28,10 @@ const Menu = () => {
     const [kitchenItems, setKitchenItems] = useState([]);
     const [isKitchenItem, setIsKitchenItem] = useState(false); // For Create/Edit modals
 
+    // New Side Input State
+    const [newSide, setNewSide] = useState({ name: '', price: '' });
+    const [sidesToDelete, setSidesToDelete] = useState([]); // Track sides to delete on save
+
     // Confirmation Modal State
     const [confirmationModal, setConfirmationModal] = useState({
         isOpen: false,
@@ -74,6 +78,8 @@ const Menu = () => {
             category: categoryName,
             sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {} // Deep copy to avoid mutating original ref
         });
+        setNewSide({ name: '', price: '' });
+        setSidesToDelete([]);
         setIsEditModalOpen(true);
     };
 
@@ -156,17 +162,24 @@ const Menu = () => {
                 await api.delete(`/menu/kitchen-items/${currentName}`);
             }
 
-            // Sides
+            // Sides updates (only for existing sides that changed)
             if (editForm.sides) {
                 for (const [sideName, sideData] of Object.entries(editForm.sides)) {
+                    if (sideName === 'none') continue; // Skip none
+                    if (sidesToDelete.includes(sideName)) continue; // Will be deleted
                     const originalSide = editItem.sides && editItem.sides[sideName];
-                    if (!originalSide || originalSide.price !== sideData.price || originalSide.available !== sideData.available) {
+                    if (originalSide && (originalSide.price !== sideData.price || originalSide.available !== sideData.available)) {
                         await api.put(`/menu/items/${currentName}/sides/${sideName}`, {
                             price: sideData.price,
                             available: sideData.available
                         });
                     }
                 }
+            }
+
+            // Delete sides
+            for (const sideName of sidesToDelete) {
+                await api.delete(`/menu/items/${currentName}/sides/${encodeURIComponent(sideName)}`);
             }
 
             setIsEditModalOpen(false);
@@ -328,53 +341,109 @@ const Menu = () => {
                 </div>
 
                 {/* Sides Editing */}
-                {
-                    editForm.sides && Object.keys(editForm.sides).length > 0 && (
-                        <div className="sides-section">
-                            <h4>Sides</h4>
-                            <div className="sides-grid">
-                                {Object.entries(editForm.sides).map(([sideName, sideData]) => (
-                                    <div key={sideName} className="side-edit-row">
-                                        <span className="side-name">{sideName}</span>
+                <div className="sides-section">
+                    <h4>Sides</h4>
+                    <div className="sides-grid">
+                        {/* Existing sides (filter out 'none') */}
+                        {editForm.sides && Object.entries(editForm.sides)
+                            .filter(([sideName]) => sideName.toLowerCase() !== 'none' && !sidesToDelete.includes(sideName))
+                            .map(([sideName, sideData]) => (
+                                <div key={sideName} className="side-edit-row">
+                                    <span className="side-name">{sideName}</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="side-price-input"
+                                        value={sideData.price !== undefined ? (sideData.price / 100).toFixed(2) : ''}
+                                        onChange={e => {
+                                            const newPrice = e.target.value;
+                                            setEditForm(prev => ({
+                                                ...prev,
+                                                sides: {
+                                                    ...prev.sides,
+                                                    [sideName]: { ...prev.sides[sideName], price: Math.round(parseFloat(newPrice) * 100) }
+                                                }
+                                            }));
+                                        }}
+                                    />
+                                    <label className="side-avail-label">
                                         <input
-                                            type="number"
-                                            step="0.01"
-                                            className="side-price-input"
-                                            value={sideData.price !== undefined ? (sideData.price / 100).toFixed(2) : ''}
+                                            type="checkbox"
+                                            checked={sideData.available}
                                             onChange={e => {
-                                                const newPrice = e.target.value;
+                                                const newAvail = e.target.checked;
                                                 setEditForm(prev => ({
                                                     ...prev,
                                                     sides: {
                                                         ...prev.sides,
-                                                        [sideName]: { ...prev.sides[sideName], price: Math.round(parseFloat(newPrice) * 100) }
+                                                        [sideName]: { ...prev.sides[sideName], available: newAvail }
                                                     }
                                                 }));
                                             }}
                                         />
-                                        <label className="side-avail-label">
-                                            <input
-                                                type="checkbox"
-                                                checked={sideData.available}
-                                                onChange={e => {
-                                                    const newAvail = e.target.checked;
-                                                    setEditForm(prev => ({
-                                                        ...prev,
-                                                        sides: {
-                                                            ...prev.sides,
-                                                            [sideName]: { ...prev.sides[sideName], available: newAvail }
-                                                        }
-                                                    }));
-                                                }}
-                                            />
-                                            Avail
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )
-                }
+                                        Avail
+                                    </label>
+                                    <button
+                                        type="button"
+                                        className="side-delete-btn"
+                                        onClick={() => setSidesToDelete(prev => [...prev, sideName])}
+                                        aria-label={`Delete ${sideName}`}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                    </div>
+                    {/* Add New Side */}
+                    <div className="add-side-row">
+                        <input
+                            type="text"
+                            placeholder="Side name"
+                            className="side-name-input"
+                            value={newSide.name}
+                            onChange={e => setNewSide(prev => ({ ...prev, name: e.target.value }))}
+                        />
+                        <input
+                            type="number"
+                            step="0.01"
+                            placeholder="Price"
+                            className="side-price-input"
+                            value={newSide.price}
+                            onChange={e => setNewSide(prev => ({ ...prev, price: e.target.value }))}
+                        />
+                        <Button
+                            variant="secondary"
+                            className="add-side-btn"
+                            onClick={async () => {
+                                if (!newSide.name.trim()) {
+                                    toast.error('Side name is required');
+                                    return;
+                                }
+                                const priceCents = Math.round(parseFloat(newSide.price || '0') * 100);
+                                try {
+                                    await api.post(`/menu/items/${editForm.name}/sides`, {
+                                        name: newSide.name.trim(),
+                                        price: priceCents
+                                    });
+                                    // Update local state
+                                    setEditForm(prev => ({
+                                        ...prev,
+                                        sides: {
+                                            ...prev.sides,
+                                            [newSide.name.trim()]: { price: priceCents, available: true }
+                                        }
+                                    }));
+                                    setNewSide({ name: '', price: '' });
+                                    toast.success(`Side "${newSide.name}" added`);
+                                } catch (e) {
+                                    toast.error('Failed to add side: ' + e.message);
+                                }
+                            }}
+                        >
+                            Add
+                        </Button>
+                    </div>
+                </div>
             </Modal >
 
             {/* Category Edit Modal */}
