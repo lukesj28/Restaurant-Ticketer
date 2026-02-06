@@ -34,8 +34,11 @@ public class Order {
     }
 
     public boolean removeItem(OrderItem item) {
-        if (items.remove(item)) {
-            subtotal -= item.getPrice();
+        int index = items.indexOf(item);
+        if (index >= 0) {
+            OrderItem actualItem = items.get(index);
+            items.remove(index);
+            subtotal -= actualItem.getPrice();
             updateTotal();
             return true;
         }

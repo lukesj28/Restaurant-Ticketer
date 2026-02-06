@@ -227,9 +227,14 @@ public class TicketService {
     }
 
     public void removeTicket(int ticketId) {
-        if (!ticketRepository.deleteById(ticketId)) {
-            throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
+        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+                () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
+
+        if ("CLOSED".equalsIgnoreCase(ticket.getStatus())) {
+            throw new ActionNotAllowedException("Cannot delete closed tickets.");
         }
+
+        ticketRepository.deleteById(ticketId);
     }
 
     public void moveAllToClosed() {
@@ -322,5 +327,32 @@ public class TicketService {
         List<Ticket> completed = getCompletedTickets();
         return active.stream().mapToInt(Ticket::getTotal).sum() +
                 completed.stream().mapToInt(Ticket::getTotal).sum();
+    }
+
+    public void sendToKitchen(int ticketId) {
+        logger.info("Sending ticket {} to kitchen", ticketId);
+        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+                () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
+        ticketRepository.addTicketToKitchen(ticketId);
+    }
+
+    public void completeKitchenTicket(int ticketId) {
+        logger.info("Completing kitchen ticket {}", ticketId);
+        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+                () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
+
+        ticketRepository.removeTicketFromKitchen(ticketId);
+
+        if (ticketRepository.findAllActive().stream().anyMatch(t -> t.getId() == ticketId)) {
+            moveToCompleted(ticketId);
+        }
+    }
+
+    public void removeFromKitchen(int ticketId) {
+        ticketRepository.removeTicketFromKitchen(ticketId);
+    }
+
+    public List<Ticket> getKitchenTickets() {
+        return ticketRepository.findAllKitchen();
     }
 }

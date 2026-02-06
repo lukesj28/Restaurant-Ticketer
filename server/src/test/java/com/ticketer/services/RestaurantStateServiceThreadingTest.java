@@ -116,6 +116,16 @@ public class RestaurantStateServiceThreadingTest {
 
                 public void deleteRecoveryFile() {
                 }
+
+                public void addTicketToKitchen(int id) {
+                }
+
+                public void removeTicketFromKitchen(int id) {
+                }
+
+                public List<Ticket> findAllKitchen() {
+                    return Collections.emptyList();
+                }
             });
         }
 

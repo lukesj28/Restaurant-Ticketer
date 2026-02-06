@@ -197,3 +197,61 @@
     gap: var(--spacing-md);
     color: var(--color-text-primary);
 }
+
+.selected-order {
+    border: 2px solid var(--color-brand-primary);
+    box-shadow: 0 0 8px rgba(166, 0, 0, 0.2);
+}
+
+/* Delete Buttons */
+.delete-order-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 var(--spacing-xs);
+    font-size: 0.9rem;
+    opacity: 0.5;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.delete-order-btn:hover:not(:disabled) {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.delete-order-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+}
+
+.item-price-col {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.delete-item-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-danger);
+    font-size: 0.9rem;
+    opacity: 0.4;
+    transition: opacity 0.2s, color 0.2s;
+    padding: 0 var(--spacing-xs);
+}
+
+.delete-item-btn:hover:not(:disabled) {
+    opacity: 1;
+}
+
+.delete-item-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.2;
+}
+
+.status-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}

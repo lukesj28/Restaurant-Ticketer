@@ -9,7 +9,7 @@ import './TicketDetail.css';
 const TicketDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { toast } = useToast();
+    const toast = useToast();
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
     const [menu, setMenu] = useState({}); // Categories -> Items
@@ -59,20 +59,16 @@ const TicketDetail = () => {
     };
 
     const handleAddItem = async (itemName, sideName) => {
-        // Add to specific order. If no orders, create one first?
-        // Backend requirement: must add to existing order index.
+        // Add to the specifically selected order index.
         let orderIdx = selectedOrderIndex;
-        if (!ticket.orders || ticket.orders.length === 0) {
-            // Create order first
-            await api.post(`/tickets/${id}/orders`);
-            // Fetch to get the new order count, but efficient way is to assume index 0
-            orderIdx = 0;
-            // But simpler to just refresh and add.
-            const t = await api.get(`/tickets/${id}`);
-            setTicket(t);
-        } else {
-            // If selectedOrderIndex is out of bounds (e.g. from previous state), reset
-            orderIdx = ticket.orders.length - 1; // Default to last order for now
+        // If for some reason index is invalid (should not happen with UI), fallback to last
+        if (typeof orderIdx !== 'number' || orderIdx < 0) {
+            if (ticket.orders && ticket.orders.length > 0) {
+                orderIdx = ticket.orders.length - 1;
+            } else {
+                // No orders exist?
+                return;
+            }
         }
 
         try {
@@ -99,6 +95,71 @@ const TicketDetail = () => {
             navigate('/tickets');
         } catch (e) {
             toast.error(e.message);
+        }
+    };
+
+    const handleSendToKitchen = async () => {
+        try {
+            await api.post(`/tickets/${id}/kitchen`);
+            toast.success('Ticket sent to kitchen!');
+        } catch (e) {
+            toast.error(e.message);
+        }
+    };
+
+    // Confirmation modal state
+    const [confirmationModal, setConfirmationModal] = useState({
+        isOpen: false,
+        title: '',
+        message: ''
+    });
+    const confirmAction = React.useRef(null);
+    const [isProcessing, setIsProcessing] = React.useState(false);
+
+    const handleDeleteTicket = () => {
+        confirmAction.current = async () => {
+            try {
+                await api.delete(`/tickets/${id}`);
+                toast.success('Ticket deleted');
+                navigate('/tickets');
+                return true; // Signal that we navigated, don't fetch ticket
+            } catch (e) {
+                toast.error('Failed to delete ticket: ' + e.message);
+                return false;
+            }
+        };
+        setConfirmationModal({
+            isOpen: true,
+            title: 'Delete Ticket',
+            message: `Are you sure you want to delete Ticket #${ticket.id}? This cannot be undone.`
+        });
+    };
+
+    const handleDeleteOrder = (orderIndex) => {
+        confirmAction.current = async () => {
+            try {
+                await api.delete(`/tickets/${id}/orders/${orderIndex}`);
+                toast.success(`Order #${orderIndex + 1} deleted`);
+            } catch (e) {
+                toast.error('Failed to delete order: ' + e.message);
+            }
+        };
+        setConfirmationModal({
+            isOpen: true,
+            title: 'Delete Order',
+            message: `Are you sure you want to delete Order #${orderIndex + 1}?`
+        });
+    };
+
+    const handleDeleteItem = async (orderIndex, item) => {
+        try {
+            await api.delete(`/tickets/${id}/orders/${orderIndex}/items`, {
+                name: item.name,
+                selectedSide: item.selectedSide
+            });
+            fetchTicket();
+        } catch (e) {
+            toast.error('Failed to delete item: ' + e.message);
         }
     };
 
@@ -173,7 +234,10 @@ const TicketDetail = () => {
                 <h2>Table {ticket.tableNumber} <span className="id-sub">#{ticket.id}</span></h2>
                 <div className="header-actions">
                     {(!ticket.status || ticket.status === 'ACTIVE') && (
-                        <Button variant="success" onClick={() => handleStatusChange('completed')}>Complete</Button>
+                        <>
+                            <Button variant="warning" onClick={handleSendToKitchen}>Send to Kitchen</Button>
+                            <Button variant="success" onClick={() => handleStatusChange('completed')}>Complete</Button>
+                        </>
                     )}
                     <div className={`status-badge status-${ticket.status ? ticket.status.toLowerCase() : 'active'}`}>
                         {ticket.status || 'ACTIVE'}
@@ -183,12 +247,19 @@ const TicketDetail = () => {
 
             <div className="orders-list">
                 {(ticket.orders || []).map((order, idx) => (
-                    <div key={idx} className="order-block">
+                    <div key={idx} className={`order-block ${ticket.status !== 'CLOSED' && selectedOrderIndex === idx ? 'selected-order' : ''}`}>
                         <div className="order-header">
                             <span>Order #{idx + 1}</span>
                             <div className="order-totals">
                                 <span className="order-subtotal">Sub: ${(order.subtotal / 100).toFixed(2)}</span>
                                 <span className="order-total">Tot: ${(order.total / 100).toFixed(2)}</span>
+                                {ticket.status !== 'CLOSED' && (
+                                    <button
+                                        className="delete-order-btn"
+                                        onClick={() => handleDeleteOrder(idx)}
+                                        title="Delete Order"
+                                    >🗑️</button>
+                                )}
                             </div>
                         </div>
                         <div className="order-items">
@@ -200,15 +271,27 @@ const TicketDetail = () => {
                                             <span className="item-side"> + {item.selectedSide}</span>
                                         )}
                                     </div>
-                                    <span>${((item.mainPrice + item.sidePrice) / 100).toFixed(2)}</span>
+                                    <div className="item-price-col">
+                                        <span>${((item.mainPrice + item.sidePrice) / 100).toFixed(2)}</span>
+                                        {ticket.status !== 'CLOSED' && (
+                                            <button
+                                                className="delete-item-btn"
+                                                onClick={() => handleDeleteItem(idx, item)}
+                                                title="Remove Item"
+                                            >✕</button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="order-actions">
-                            <Button size="small" variant="secondary" onClick={() => {
-                                // Remove item logic?
-                            }}>Edit</Button>
-                        </div>
+                        {ticket.status !== 'CLOSED' && (
+                            <div className="order-actions">
+                                <Button size="small" variant="primary" onClick={() => {
+                                    setSelectedOrderIndex(idx);
+                                    setIsMenuOpen(true);
+                                }}>+ Add Item</Button>
+                            </div>
+                        )}
                     </div>
                 ))}
                 {(ticket.orders || []).length === 0 && <div className="empty-orders">No orders yet.</div>}
@@ -226,8 +309,9 @@ const TicketDetail = () => {
                     </div>
                 </div>
                 <div className="action-row">
-                    <Button variant="secondary" onClick={handleAddOrder} disabled={ticket.status === 'CLOSED'}>+ Add Order</Button>
-                    <Button variant="primary" onClick={() => setIsMenuOpen(true)} disabled={ticket.status === 'CLOSED'}>+ Add Item</Button>
+                    {ticket.status !== 'CLOSED' && (
+                        <Button variant="secondary" onClick={handleAddOrder}>+ Add Order</Button>
+                    )}
                 </div>
                 <div className="status-actions">
                     {ticket.status === 'COMPLETED' && (
@@ -236,11 +320,50 @@ const TicketDetail = () => {
                     {ticket.status !== 'CLOSED' && (
                         <Button variant="danger" onClick={() => handleStatusChange('closed')}>Close Ticket</Button>
                     )}
+                    {ticket.status !== 'CLOSED' && (
+                        <Button variant="danger" onClick={handleDeleteTicket}>Delete Ticket</Button>
+                    )}
                 </div>
             </div>
 
             {renderMenuModal()}
-        </div>
+
+            {/* Confirmation Modal */}
+            <Modal
+                isOpen={confirmationModal.isOpen}
+                onClose={() => !isProcessing && setConfirmationModal({ isOpen: false, title: '', message: '' })}
+                title={confirmationModal.title}
+            >
+                <p>{confirmationModal.message}</p>
+                <div className="modal-actions" style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    <Button variant="secondary" onClick={() => setConfirmationModal({ isOpen: false, title: '', message: '' })} disabled={isProcessing}>Cancel</Button>
+                    <Button variant="danger" disabled={isProcessing} onClick={async () => {
+                        if (confirmAction.current && !isProcessing) {
+                            setIsProcessing(true);
+                            const action = confirmAction.current;
+                            let navigated = false;
+                            try {
+                                navigated = await action();
+                            } catch (err) {
+                                console.error('Confirmation action failed:', err);
+                            } finally {
+                                setIsProcessing(false);
+                                // Always close modal after action completes
+                                setConfirmationModal({ isOpen: false, title: '', message: '' });
+                            }
+                            // Only refresh ticket data if we didn't navigate away
+                            if (!navigated) {
+                                try {
+                                    fetchTicket();
+                                } catch (err) {
+                                    console.error('Failed to refresh ticket:', err);
+                                }
+                            }
+                        }
+                    }}>{isProcessing ? 'Processing...' : 'Confirm'}</Button>
+                </div>
+            </Modal>
+        </div >
     );
 };
 

@@ -81,7 +81,7 @@ const Tickets = () => {
 
     const handleCompleteKitchenTicket = async (ticketId) => {
         try {
-            await api.put(`/tickets/${ticketId}/completed`);
+            await api.post(`/tickets/${ticketId}/kitchen/complete`);
             fetchTickets();
         } catch (error) {
             toast.error('Failed to complete ticket: ' + error.message);

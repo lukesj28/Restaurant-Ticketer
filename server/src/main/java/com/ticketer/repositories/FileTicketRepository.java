@@ -26,6 +26,7 @@ public class FileTicketRepository implements TicketRepository {
     private final List<Ticket> activeTickets = new CopyOnWriteArrayList<>();
     private final List<Ticket> completedTickets = new CopyOnWriteArrayList<>();
     private final List<Ticket> closedTickets = new CopyOnWriteArrayList<>();
+    private final List<Integer> kitchenTicketIds = new CopyOnWriteArrayList<>();
 
     private final String ticketsDir;
     private final String recoveryFilePath;
@@ -119,6 +120,8 @@ public class FileTicketRepository implements TicketRepository {
                 || completedTickets.removeIf(t -> t.getId() == id)
                 || closedTickets.removeIf(t -> t.getId() == id);
 
+        kitchenTicketIds.remove(Integer.valueOf(id));
+
         if (removed) {
             appendLog(new LogEntry(LogType.DELETE, id));
         }
@@ -130,6 +133,7 @@ public class FileTicketRepository implements TicketRepository {
         activeTickets.clear();
         completedTickets.clear();
         closedTickets.clear();
+        kitchenTicketIds.clear();
         synchronized (fileLock) {
             File file = new File(recoveryFilePath);
             if (file.exists()) {
@@ -267,6 +271,30 @@ public class FileTicketRepository implements TicketRepository {
         }
     }
 
+    @Override
+    public synchronized void addTicketToKitchen(int id) {
+        if (!kitchenTicketIds.contains(id)) {
+            kitchenTicketIds.add(id);
+            appendLog(new LogEntry(LogType.ADD_TO_KITCHEN, id));
+        }
+    }
+
+    @Override
+    public synchronized void removeTicketFromKitchen(int id) {
+        if (kitchenTicketIds.remove(Integer.valueOf(id))) {
+            appendLog(new LogEntry(LogType.REMOVE_FROM_KITCHEN, id));
+        }
+    }
+
+    @Override
+    public List<Ticket> findAllKitchen() {
+        List<Ticket> result = new java.util.ArrayList<>();
+        for (Integer id : kitchenTicketIds) {
+            findById(id).ifPresent(result::add);
+        }
+        return result;
+    }
+
     private void appendLog(LogEntry entry) {
         File file = new File(recoveryFilePath);
         File parent = file.getParentFile();
@@ -337,6 +365,14 @@ public class FileTicketRepository implements TicketRepository {
                 break;
             case DELETE:
                 deleteTicketInternal(entry.ticketId);
+                break;
+            case ADD_TO_KITCHEN:
+                if (!kitchenTicketIds.contains(entry.ticketId)) {
+                    kitchenTicketIds.add(entry.ticketId);
+                }
+                break;
+            case REMOVE_FROM_KITCHEN:
+                kitchenTicketIds.remove(Integer.valueOf(entry.ticketId));
                 break;
         }
     }
@@ -427,6 +463,6 @@ public class FileTicketRepository implements TicketRepository {
     }
 
     private enum LogType {
-        CREATE, UPDATE, MOVE_COMPLETED, MOVE_CLOSED, MOVE_ACTIVE, DELETE
+        CREATE, UPDATE, MOVE_COMPLETED, MOVE_CLOSED, MOVE_ACTIVE, DELETE, ADD_TO_KITCHEN, REMOVE_FROM_KITCHEN
     }
 }

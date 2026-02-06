@@ -127,9 +127,9 @@ public class TicketController {
     @GetMapping("/active/kitchen")
     public ApiResponse<List<KitchenTicketDto>> getActiveKitchenTickets() {
         List<String> kitchenItems = menuService.getKitchenItems();
-        List<Ticket> activeTickets = ticketService.getActiveTickets();
+        List<Ticket> kitchenTickets = ticketService.getKitchenTickets();
 
-        List<KitchenTicketDto> kitchenTickets = activeTickets.stream().map(ticket -> {
+        List<KitchenTicketDto> result = kitchenTickets.stream().map(ticket -> {
             java.util.Map<String, Integer> fullTally = ticket.getTally();
             java.util.Map<String, Integer> kitchenTally = new java.util.LinkedHashMap<>();
             for (String item : kitchenItems) {
@@ -173,7 +173,21 @@ public class TicketController {
                     ticket.getCreatedAt() != null ? ticket.getCreatedAt().toString() : null);
         }).collect(Collectors.toList());
 
-        return ApiResponse.success(kitchenTickets);
+        return ApiResponse.success(result);
+    }
+
+    @PostMapping("/{ticketId}/kitchen")
+    public ApiResponse<String> sendToKitchen(@PathVariable("ticketId") int ticketId) {
+        logger.info("Received request to send ticket {} to kitchen", ticketId);
+        ticketService.sendToKitchen(ticketId);
+        return ApiResponse.success("Ticket sent to kitchen.");
+    }
+
+    @PostMapping("/{ticketId}/kitchen/complete")
+    public ApiResponse<String> completeKitchenTicket(@PathVariable("ticketId") int ticketId) {
+        logger.info("Received request to complete kitchen ticket {}", ticketId);
+        ticketService.completeKitchenTicket(ticketId);
+        return ApiResponse.success("Kitchen ticket completed.");
     }
 
     @GetMapping("/active")

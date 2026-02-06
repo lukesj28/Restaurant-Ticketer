@@ -27,5 +27,11 @@ public interface TicketRepository {
 
     void moveToActive(int ticketId);
 
+    void addTicketToKitchen(int id);
+
+    void removeTicketFromKitchen(int id);
+
+    List<Ticket> findAllKitchen();
+
     void deleteRecoveryFile();
 }
