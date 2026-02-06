@@ -7,6 +7,6 @@ public record KitchenTicketDto(
                 int id,
                 String tableNumber,
                 Map<String, Integer> kitchenTally,
-                List<KitchenOrderDto> kitchenOrders,
+                List<KitchenItemDto> kitchenItems,
                 String createdAt) {
 }

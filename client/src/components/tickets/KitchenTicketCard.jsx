@@ -7,7 +7,7 @@ import './KitchenTicketCard.css';
  * Kitchen-view ticket card showing:
  * - Table number prominently
  * - Kitchen tally summary
- * - Kitchen items grouped by order (no prices)
+ * - Stacked kitchen items sorted by category (no order grouping)
  * - Complete button
  */
 const KitchenTicketCard = ({ ticket, onComplete }) => {
@@ -32,23 +32,19 @@ const KitchenTicketCard = ({ ticket, onComplete }) => {
                 </div>
             )}
 
-            <div className="kitchen-orders">
-                {(ticket.kitchenOrders || []).map((order, orderIdx) => (
-                    <div key={orderIdx} className="kitchen-order-block">
-                        <span className="order-label">Order {orderIdx + 1}</span>
-                        <ul className="order-items-list">
-                            {order.items.map((item, itemIdx) => (
-                                <li key={itemIdx} className="kitchen-item">
-                                    <span className="item-name">{item.name}</span>
-                                    {item.selectedSide && item.selectedSide !== 'none' && (
-                                        <span className="item-side"> + {item.selectedSide}</span>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+            <ul className="kitchen-items-list">
+                {(ticket.kitchenItems || []).map((item, idx) => (
+                    <li key={idx} className="kitchen-item">
+                        {item.quantity > 1 && (
+                            <span className="item-quantity">{item.quantity}× </span>
+                        )}
+                        <span className="item-name">{item.name}</span>
+                        {item.selectedSide && item.selectedSide !== 'none' && (
+                            <span className="item-side"> + {item.selectedSide}</span>
+                        )}
+                    </li>
                 ))}
-            </div>
+            </ul>
 
             <div className="kitchen-actions">
                 <Button variant="success" onClick={(e) => { e.stopPropagation(); onComplete(ticket.id); }}>
@@ -60,3 +56,4 @@ const KitchenTicketCard = ({ ticket, onComplete }) => {
 };
 
 export default KitchenTicketCard;
+

@@ -138,22 +138,38 @@ public class TicketController {
                 }
             }
 
-            List<KitchenOrderDto> kitchenOrders = ticket.getOrders().stream().map(order -> {
-                List<KitchenOrderItemDto> filteredItems = order.getItems().stream()
-                        .filter(item -> kitchenItems.contains(item.getName()))
-                        .map(item -> new KitchenOrderItemDto(
-                                item.getName(),
-                                item.getSelectedSide()))
-                        .collect(Collectors.toList());
-                return new KitchenOrderDto(filteredItems);
-            }).filter(ko -> !ko.items().isEmpty())
-                    .collect(Collectors.toList());
+            java.util.Map<String, java.util.Map<String, Integer>> itemCounts = new java.util.LinkedHashMap<>();
+
+            for (Order order : ticket.getOrders()) {
+                for (OrderItem item : order.getItems()) {
+                    if (kitchenItems.contains(item.getName())) {
+                        String name = item.getName();
+                        String side = item.getSelectedSide();
+                        String sideKey = side != null ? side : "";
+
+                        itemCounts.computeIfAbsent(name, k -> new java.util.HashMap<>());
+                        itemCounts.get(name).merge(sideKey, 1, Integer::sum);
+                    }
+                }
+            }
+
+            List<KitchenItemDto> flatItems = new java.util.ArrayList<>();
+            for (String kitchenItemName : kitchenItems) {
+                if (itemCounts.containsKey(kitchenItemName)) {
+                    java.util.Map<String, Integer> sideCounts = itemCounts.get(kitchenItemName);
+                    for (java.util.Map.Entry<String, Integer> entry : sideCounts.entrySet()) {
+                        String side = entry.getKey().isEmpty() ? null : entry.getKey();
+                        int quantity = entry.getValue();
+                        flatItems.add(new KitchenItemDto(kitchenItemName, side, quantity));
+                    }
+                }
+            }
 
             return new KitchenTicketDto(
                     ticket.getId(),
                     ticket.getTableNumber(),
                     kitchenTally,
-                    kitchenOrders,
+                    flatItems,
                     ticket.getCreatedAt() != null ? ticket.getCreatedAt().toString() : null);
         }).collect(Collectors.toList());
 

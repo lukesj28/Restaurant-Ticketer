@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/api';
 import TicketCard from '../components/tickets/TicketCard';
@@ -11,6 +11,13 @@ import './Tickets.css';
 const Tickets = () => {
     const navigate = useNavigate();
     const { toast } = useToast();
+    const mounted = useRef(false);
+
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
+
     const [viewMode, setViewMode] = useState('front'); // 'front' | 'back'
     const [activeTab, setActiveTab] = useState('active');
     const [tickets, setTickets] = useState([]);
@@ -30,6 +37,7 @@ const Tickets = () => {
     }, [activeTab, viewMode]);
 
     const fetchTickets = async () => {
+        if (!mounted.current) return;
         setLoading(true);
         try {
             let endpoint;
@@ -42,13 +50,16 @@ const Tickets = () => {
             }
 
             const data = await api.get(endpoint);
-            // sort by ID descending for newest first
-            const sorted = (data || []).sort((a, b) => b.id - a.id);
-            setTickets(sorted);
+
+            if (mounted.current) {
+                // sort by ID descending for newest first
+                const sorted = (data || []).sort((a, b) => b.id - a.id);
+                setTickets(sorted);
+            }
         } catch (error) {
-            console.error("Failed to fetch tickets:", error);
+            if (mounted.current) console.error("Failed to fetch tickets:", error);
         } finally {
-            setLoading(false);
+            if (mounted.current) setLoading(false);
         }
     };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api/api';
 import Button from '../components/common/Button';
 import { useToast } from '../context/ToastContext';
@@ -73,6 +73,15 @@ const Settings = () => {
         }
     };
 
+    // Timer ref for cleanup
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, []);
+
     // Global Save Handler
     const handleSaveAll = async () => {
         try {
@@ -99,7 +108,8 @@ const Settings = () => {
             setSettings(newSettings);
 
             // Refresh system status - wait a bit longer to be safe
-            setTimeout(() => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => {
                 fetchSystemStatus();
             }, 1000);
 
