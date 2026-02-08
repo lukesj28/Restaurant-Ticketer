@@ -103,7 +103,8 @@ public class TicketServiceTest {
 
     @Test
     public void testRemoveTicket() {
-
+        Ticket t1 = new Ticket(1);
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(t1));
         when(ticketRepository.deleteById(1)).thenReturn(true);
 
         ticketService.removeTicket(1);
@@ -113,8 +114,6 @@ public class TicketServiceTest {
 
     @Test
     public void testRemoveTicketNotFound() {
-        when(ticketRepository.deleteById(1)).thenReturn(false);
-
         assertThrows(EntityNotFoundException.class, () -> ticketService.removeTicket(1));
     }
 

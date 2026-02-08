@@ -124,8 +124,9 @@ public class TicketServiceIntegrationTest {
         Ticket t3 = service.createTicket("T3");
         service.moveToCompleted(t3.getId());
         service.moveToClosed(t3.getId());
-        service.removeTicket(t3.getId());
-        assertFalse(service.getClosedTickets().contains(t3));
+        assertThrows(ActionNotAllowedException.class, () -> {
+            service.removeTicket(t3.getId());
+        });
     }
 
     @Test

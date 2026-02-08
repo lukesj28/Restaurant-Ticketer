@@ -1,7 +1,5 @@
 # Runtime Data
-data/tickets/
-data/menu.json
-data/settings.json
+data/
 logs/
 
 # Maven

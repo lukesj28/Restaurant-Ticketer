@@ -78,7 +78,14 @@
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
             <version>0.8.12</version>
-
+            <configuration>
+                <includes>
+                    <include>com/ticketer/**/*</include>
+                </includes>
+                <excludes>
+                    <exclude>**/*MockitoMock*</exclude>
+                </excludes>
+            </configuration>
             <executions>
                 <execution>
                     <goals>
@@ -94,6 +101,7 @@
                 </execution>
             </executions>
         </plugin>
+
     </plugins>
   </build>
 </project>
