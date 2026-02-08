@@ -4,10 +4,10 @@ import java.util.List;
 import java.util.Map;
 
 public class Requests {
-    public record ItemCreateRequest(String category, String name, int price, Map<String, Integer> sides) {
+    public record ItemCreateRequest(String category, String name, long price, Map<String, Long> sides) {
     }
 
-    public record ItemPriceUpdateRequest(int newPrice) {
+    public record ItemPriceUpdateRequest(long newPrice) {
     }
 
     public record ItemAvailabilityUpdateRequest(boolean available) {
@@ -22,10 +22,10 @@ public class Requests {
     public record ItemCategoryUpdateRequest(String newCategory) {
     }
 
-    public record SideUpdateRequest(Integer price, Boolean available) {
+    public record SideUpdateRequest(Long price, Boolean available) {
     }
 
-    public record SideCreateRequest(String name, int price) {
+    public record SideCreateRequest(String name, long price) {
     }
 
     public record TaxUpdateRequest(int tax) {

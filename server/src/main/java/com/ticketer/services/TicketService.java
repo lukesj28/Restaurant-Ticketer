@@ -307,26 +307,26 @@ public class TicketService {
         return ticketRepository.findAllClosed();
     }
 
-    public int getClosedTicketsSubtotal() {
-        return getClosedTickets().stream().mapToInt(Ticket::getSubtotal).sum();
+    public long getClosedTicketsSubtotal() {
+        return getClosedTickets().stream().mapToLong(Ticket::getSubtotal).sum();
     }
 
-    public int getClosedTicketsTotal() {
-        return getClosedTickets().stream().mapToInt(Ticket::getTotal).sum();
+    public long getClosedTicketsTotal() {
+        return getClosedTickets().stream().mapToLong(Ticket::getTotal).sum();
     }
 
-    public int getActiveAndCompletedTicketsSubtotal() {
+    public long getActiveAndCompletedTicketsSubtotal() {
         List<Ticket> active = getActiveTickets();
         List<Ticket> completed = getCompletedTickets();
-        return active.stream().mapToInt(Ticket::getSubtotal).sum() +
-                completed.stream().mapToInt(Ticket::getSubtotal).sum();
+        return active.stream().mapToLong(Ticket::getSubtotal).sum() +
+                completed.stream().mapToLong(Ticket::getSubtotal).sum();
     }
 
-    public int getActiveAndCompletedTicketsTotal() {
+    public long getActiveAndCompletedTicketsTotal() {
         List<Ticket> active = getActiveTickets();
         List<Ticket> completed = getCompletedTickets();
-        return active.stream().mapToInt(Ticket::getTotal).sum() +
-                completed.stream().mapToInt(Ticket::getTotal).sum();
+        return active.stream().mapToLong(Ticket::getTotal).sum() +
+                completed.stream().mapToLong(Ticket::getTotal).sum();
     }
 
     public void sendToKitchen(int ticketId) {

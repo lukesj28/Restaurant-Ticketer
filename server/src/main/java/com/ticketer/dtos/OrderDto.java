@@ -3,8 +3,8 @@ package com.ticketer.dtos;
 import java.util.List;
 
 public record OrderDto(
-                List<OrderItemDto> items,
-                int subtotal,
-                int total,
-                int taxRate) {
+        List<OrderItemDto> items,
+        long subtotal,
+        long total,
+        int taxRate) {
 }

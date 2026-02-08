@@ -8,10 +8,10 @@ public class AnalysisReport {
     private String endDate;
     private int totalTicketCount;
     private int totalOrderCount;
-    private int totalSubtotalCents;
-    private int totalTotalCents;
-    private int averageTicketSubtotalCents;
-    private int averageTicketTotalCents;
+    private long totalSubtotalCents;
+    private long totalTotalCents;
+    private long averageTicketSubtotalCents;
+    private long averageTicketTotalCents;
     private int averageTurnoverTimeMinutes;
     private Map<Integer, Integer> hourlyTraffic;
     private List<ItemRank> itemRankings;
@@ -53,35 +53,35 @@ public class AnalysisReport {
         this.totalOrderCount = totalOrderCount;
     }
 
-    public int getTotalSubtotalCents() {
+    public long getTotalSubtotalCents() {
         return totalSubtotalCents;
     }
 
-    public void setTotalSubtotalCents(int totalSubtotalCents) {
+    public void setTotalSubtotalCents(long totalSubtotalCents) {
         this.totalSubtotalCents = totalSubtotalCents;
     }
 
-    public int getTotalTotalCents() {
+    public long getTotalTotalCents() {
         return totalTotalCents;
     }
 
-    public void setTotalTotalCents(int totalTotalCents) {
+    public void setTotalTotalCents(long totalTotalCents) {
         this.totalTotalCents = totalTotalCents;
     }
 
-    public int getAverageTicketSubtotalCents() {
+    public long getAverageTicketSubtotalCents() {
         return averageTicketSubtotalCents;
     }
 
-    public void setAverageTicketSubtotalCents(int averageTicketSubtotalCents) {
+    public void setAverageTicketSubtotalCents(long averageTicketSubtotalCents) {
         this.averageTicketSubtotalCents = averageTicketSubtotalCents;
     }
 
-    public int getAverageTicketTotalCents() {
+    public long getAverageTicketTotalCents() {
         return averageTicketTotalCents;
     }
 
-    public void setAverageTicketTotalCents(int averageTicketTotalCents) {
+    public void setAverageTicketTotalCents(long averageTicketTotalCents) {
         this.averageTicketTotalCents = averageTicketTotalCents;
     }
 
@@ -127,9 +127,9 @@ public class AnalysisReport {
 
     public static class DayRank {
         private String date;
-        private int totalTotalCents;
+        private long totalTotalCents;
 
-        public DayRank(String date, int totalTotalCents) {
+        public DayRank(String date, long totalTotalCents) {
             this.date = date;
             this.totalTotalCents = totalTotalCents;
         }
@@ -138,7 +138,7 @@ public class AnalysisReport {
             return date;
         }
 
-        public int getTotalTotalCents() {
+        public long getTotalTotalCents() {
             return totalTotalCents;
         }
     }
@@ -146,12 +146,12 @@ public class AnalysisReport {
     public static class ItemRank {
         private String name;
         private int count;
-        private int totalRevenueCents;
+        private long totalRevenueCents;
 
         public ItemRank() {
         }
 
-        public ItemRank(String name, int count, int totalRevenueCents) {
+        public ItemRank(String name, int count, long totalRevenueCents) {
             this.name = name;
             this.count = count;
             this.totalRevenueCents = totalRevenueCents;
@@ -173,11 +173,11 @@ public class AnalysisReport {
             this.count = count;
         }
 
-        public int getTotalRevenueCents() {
+        public long getTotalRevenueCents() {
             return totalRevenueCents;
         }
 
-        public void setTotalRevenueCents(int totalRevenueCents) {
+        public void setTotalRevenueCents(long totalRevenueCents) {
             this.totalRevenueCents = totalRevenueCents;
         }
     }

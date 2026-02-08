@@ -73,7 +73,7 @@ public class MenuService {
         return currentMenu.getAllItems();
     }
 
-    public void addItem(String category, String name, int price, Map<String, Integer> sides) {
+    public void addItem(String category, String name, long price, Map<String, Long> sides) {
         logger.info("Adding item {} to category {} with price {}", name, category, price);
         if (name == null || name.trim().isEmpty()) {
             throw new InvalidInputException("Item name cannot be empty");
@@ -97,7 +97,7 @@ public class MenuService {
         Map<String, Side> sideObjects = null;
         if (sides != null && !sides.isEmpty()) {
             sideObjects = new java.util.HashMap<>();
-            for (Map.Entry<String, Integer> entry : sides.entrySet()) {
+            for (Map.Entry<String, Long> entry : sides.entrySet()) {
                 Side side = new Side();
                 side.price = entry.getValue();
                 side.available = true;
@@ -109,7 +109,7 @@ public class MenuService {
         menuRepository.saveMenu(currentMenu);
     }
 
-    public void editItemPrice(String itemName, int newPrice) {
+    public void editItemPrice(String itemName, long newPrice) {
         logger.info("Editing price for item {} to {}", itemName, newPrice);
         if (newPrice < 0) {
             throw new InvalidInputException("Price cannot be negative");
@@ -210,7 +210,7 @@ public class MenuService {
         menuRepository.saveMenu(currentMenu);
     }
 
-    public void updateSide(String itemName, String sideName, Integer price, Boolean available) {
+    public void updateSide(String itemName, String sideName, Long price, Boolean available) {
         logger.info("Updating side {} for item {}: price={}, available={}", sideName, itemName, price, available);
         MenuItem item = getItem(itemName);
         if (item.sideOptions == null || !item.sideOptions.containsKey(sideName)) {
@@ -228,7 +228,7 @@ public class MenuService {
         menuRepository.saveMenu(currentMenu);
     }
 
-    public void addSide(String itemName, String sideName, int price) {
+    public void addSide(String itemName, String sideName, long price) {
         logger.info("Adding side {} to item {} with price {}", sideName, itemName, price);
         if (sideName == null || sideName.trim().isEmpty()) {
             throw new InvalidInputException("Side name cannot be empty");

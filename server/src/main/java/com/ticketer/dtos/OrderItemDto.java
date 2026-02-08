@@ -1,8 +1,8 @@
 package com.ticketer.dtos;
 
 public record OrderItemDto(
-                String name,
-                String selectedSide,
-                int mainPrice,
-                int sidePrice) {
+        String name,
+        String selectedSide,
+        long mainPrice,
+        long sidePrice) {
 }

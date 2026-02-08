@@ -6,14 +6,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class OrderItem {
     private String name;
     private String selectedSide;
-    private int mainPrice;
-    private int sidePrice;
+    private long mainPrice;
+    private long sidePrice;
 
     @JsonCreator
     public OrderItem(@JsonProperty("name") String name,
             @JsonProperty("selectedSide") String selectedSide,
-            @JsonProperty("mainPrice") int mainPrice,
-            @JsonProperty("sidePrice") int sidePrice) {
+            @JsonProperty("mainPrice") long mainPrice,
+            @JsonProperty("sidePrice") long sidePrice) {
         this.name = name;
         this.selectedSide = selectedSide;
         this.mainPrice = mainPrice;
@@ -38,15 +38,15 @@ public class OrderItem {
     }
 
     @com.fasterxml.jackson.annotation.JsonIgnore
-    public int getPrice() {
+    public long getPrice() {
         return mainPrice + sidePrice;
     }
 
-    public int getMainPrice() {
+    public long getMainPrice() {
         return mainPrice;
     }
 
-    public int getSidePrice() {
+    public long getSidePrice() {
         return sidePrice;
     }
 

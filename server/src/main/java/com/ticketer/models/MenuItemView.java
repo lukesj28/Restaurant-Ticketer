@@ -2,10 +2,10 @@ package com.ticketer.models;
 
 public class MenuItemView {
     public String name;
-    public int price;
+    public long price;
     public boolean available;
 
-    public MenuItemView(String name, int price, boolean available) {
+    public MenuItemView(String name, long price, boolean available) {
         this.name = name;
         this.price = price;
         this.available = available;

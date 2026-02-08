@@ -1,6 +1,6 @@
 package com.ticketer.models;
 
 public class Side {
-    public int price;
+    public long price;
     public boolean available;
 }

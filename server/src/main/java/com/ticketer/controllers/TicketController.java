@@ -243,22 +243,22 @@ public class TicketController {
     }
 
     @GetMapping("/closed/subtotal")
-    public ApiResponse<Integer> getClosedTicketsSubtotal() {
+    public ApiResponse<Long> getClosedTicketsSubtotal() {
         return ApiResponse.success(ticketService.getClosedTicketsSubtotal());
     }
 
     @GetMapping("/closed/total")
-    public ApiResponse<Integer> getClosedTicketsTotal() {
+    public ApiResponse<Long> getClosedTicketsTotal() {
         return ApiResponse.success(ticketService.getClosedTicketsTotal());
     }
 
     @GetMapping("/active-completed/subtotal")
-    public ApiResponse<Integer> getActiveAndCompletedTicketsSubtotal() {
+    public ApiResponse<Long> getActiveAndCompletedTicketsSubtotal() {
         return ApiResponse.success(ticketService.getActiveAndCompletedTicketsSubtotal());
     }
 
     @GetMapping("/active-completed/total")
-    public ApiResponse<Integer> getActiveAndCompletedTicketsTotal() {
+    public ApiResponse<Long> getActiveAndCompletedTicketsTotal() {
         return ApiResponse.success(ticketService.getActiveAndCompletedTicketsTotal());
     }
 }

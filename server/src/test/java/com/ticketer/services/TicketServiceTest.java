@@ -203,7 +203,7 @@ public class TicketServiceTest {
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
 
-        int subtotal = ticketService.getClosedTicketsSubtotal();
+        long subtotal = ticketService.getClosedTicketsSubtotal();
         assertEquals(3000, subtotal);
     }
 
@@ -221,7 +221,7 @@ public class TicketServiceTest {
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
 
-        int total = ticketService.getClosedTicketsTotal();
+        long total = ticketService.getClosedTicketsTotal();
         assertEquals(3500, total);
     }
 
@@ -240,7 +240,7 @@ public class TicketServiceTest {
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
         when(ticketRepository.findAllCompleted()).thenReturn(Arrays.asList(t2));
 
-        int subtotal = ticketService.getActiveAndCompletedTicketsSubtotal();
+        long subtotal = ticketService.getActiveAndCompletedTicketsSubtotal();
         assertEquals(3000, subtotal);
     }
 
@@ -259,7 +259,7 @@ public class TicketServiceTest {
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
         when(ticketRepository.findAllCompleted()).thenReturn(Arrays.asList(t2));
 
-        int total = ticketService.getActiveAndCompletedTicketsTotal();
+        long total = ticketService.getActiveAndCompletedTicketsTotal();
         assertEquals(3500, total);
     }
 }

@@ -177,7 +177,7 @@ public class PrintService {
         String subtotalLine = formatLine("Subtotal", formatPrice(ticket.getSubtotal()));
         escpos.writeLF(subtotalLine);
 
-        int tax = ticket.getTotal() - ticket.getSubtotal();
+        long tax = ticket.getTotal() - ticket.getSubtotal();
         String taxLine = formatLine("Tax", formatPrice(tax));
         escpos.writeLF(taxLine);
 
@@ -208,7 +208,7 @@ public class PrintService {
         return now.format(formatter);
     }
 
-    private String formatPrice(int cents) {
+    private String formatPrice(long cents) {
         return String.format("$%.2f", cents / 100.0);
     }
 

@@ -272,7 +272,7 @@ public class TicketControllerTest {
 
         @Test
         public void testGetClosedTicketsSubtotal() throws Exception {
-                when(ticketService.getClosedTicketsSubtotal()).thenReturn(5000);
+                when(ticketService.getClosedTicketsSubtotal()).thenReturn(5000L);
 
                 mockMvc.perform(get("/api/tickets/closed/subtotal"))
                                 .andExpect(status().isOk())
@@ -283,7 +283,7 @@ public class TicketControllerTest {
 
         @Test
         public void testGetClosedTicketsTotal() throws Exception {
-                when(ticketService.getClosedTicketsTotal()).thenReturn(5500);
+                when(ticketService.getClosedTicketsTotal()).thenReturn(5500L);
 
                 mockMvc.perform(get("/api/tickets/closed/total"))
                                 .andExpect(status().isOk())
@@ -294,7 +294,7 @@ public class TicketControllerTest {
 
         @Test
         public void testGetActiveAndCompletedTicketsSubtotal() throws Exception {
-                when(ticketService.getActiveAndCompletedTicketsSubtotal()).thenReturn(3000);
+                when(ticketService.getActiveAndCompletedTicketsSubtotal()).thenReturn(3000L);
 
                 mockMvc.perform(get("/api/tickets/active-completed/subtotal"))
                                 .andExpect(status().isOk())
@@ -305,7 +305,7 @@ public class TicketControllerTest {
 
         @Test
         public void testGetActiveAndCompletedTicketsTotal() throws Exception {
-                when(ticketService.getActiveAndCompletedTicketsTotal()).thenReturn(3300);
+                when(ticketService.getActiveAndCompletedTicketsTotal()).thenReturn(3300L);
 
                 mockMvc.perform(get("/api/tickets/active-completed/total"))
                                 .andExpect(status().isOk())

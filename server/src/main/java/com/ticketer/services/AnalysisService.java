@@ -49,8 +49,8 @@ public class AnalysisService {
         List<Ticket> allTickets = new ArrayList<>();
         int totalTicketCount = 0;
         int totalOrderCount = 0;
-        int totalSubtotalCents = 0;
-        int totalTotalCents = 0;
+        long totalSubtotalCents = 0;
+        long totalTotalCents = 0;
 
         LocalDate current = startDate;
         while (!current.isAfter(endDate)) {
@@ -80,8 +80,8 @@ public class AnalysisService {
         totalTicketCount = allTickets.size();
 
         totalTicketCount = allTickets.size();
-        totalSubtotalCents = allTickets.stream().mapToInt(Ticket::getSubtotal).sum();
-        totalTotalCents = allTickets.stream().mapToInt(Ticket::getTotal).sum();
+        totalSubtotalCents = allTickets.stream().mapToLong(Ticket::getSubtotal).sum();
+        totalTotalCents = allTickets.stream().mapToLong(Ticket::getTotal).sum();
         totalOrderCount = allTickets.stream().mapToInt(t -> t.getOrders().size()).sum();
 
         report.setTotalTicketCount(totalTicketCount);
@@ -90,8 +90,8 @@ public class AnalysisService {
         report.setTotalTotalCents(totalTotalCents);
 
         if (totalTicketCount > 0) {
-            report.setAverageTicketSubtotalCents((int) Math.round((double) totalSubtotalCents / totalTicketCount));
-            report.setAverageTicketTotalCents((int) Math.round((double) totalTotalCents / totalTicketCount));
+            report.setAverageTicketSubtotalCents(Math.round((double) totalSubtotalCents / totalTicketCount));
+            report.setAverageTicketTotalCents(Math.round((double) totalTotalCents / totalTicketCount));
         } else {
             report.setAverageTicketSubtotalCents(0);
             report.setAverageTicketTotalCents(0);
@@ -180,14 +180,14 @@ public class AnalysisService {
         }
         report.setSideRankings(finalSideRankings);
 
-        Map<String, Integer> dailyTotals = allTickets.stream()
+        Map<String, Long> dailyTotals = allTickets.stream()
                 .collect(Collectors.groupingBy(
                         t -> t.getCreatedAt().atZone(zoneId).toLocalDate().toString(),
-                        Collectors.summingInt(Ticket::getTotal)));
+                        Collectors.summingLong(Ticket::getTotal)));
 
         List<DayRank> dayRankings = dailyTotals.entrySet().stream()
                 .map(entry -> new DayRank(entry.getKey(), entry.getValue()))
-                .sorted(Comparator.comparingInt(DayRank::getTotalTotalCents).reversed())
+                .sorted(Comparator.comparingLong(DayRank::getTotalTotalCents).reversed())
                 .toList();
 
         report.setDayRankings(dayRankings);

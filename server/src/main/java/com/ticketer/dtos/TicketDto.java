@@ -3,12 +3,12 @@ package com.ticketer.dtos;
 import java.util.List;
 
 public record TicketDto(
-        int id,
-        String tableNumber,
-        List<OrderDto> orders,
-        int subtotal,
-        int total,
-        String status,
-        String createdAt,
-        String closedAt) {
+                int id,
+                String tableNumber,
+                List<OrderDto> orders,
+                long subtotal,
+                long total,
+                String status,
+                String createdAt,
+                String closedAt) {
 }

@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class MenuItem {
     public String name;
-    public int price;
+    public long price;
     public boolean available;
     @JsonProperty("sides")
     public Map<String, Side> sideOptions;
@@ -17,7 +17,7 @@ public class MenuItem {
 
     @JsonCreator
     public MenuItem(@JsonProperty("name") String name,
-            @JsonProperty("price") int price,
+            @JsonProperty("price") long price,
             @JsonProperty("available") boolean available,
             @JsonProperty("sides") Map<String, Side> sideOptions,
             @JsonProperty("sideOrder") List<String> sideOrder) {

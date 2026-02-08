@@ -108,9 +108,9 @@ public class MenuServiceIntegrationTest {
     @Test
     public void testGetItemWithSide() {
         String name = "ItemSideTest";
-        Map<String, Integer> sides = new HashMap<>();
-        sides.put("Fries", 200);
-        service.addItem("SideCat", name, 1000, sides);
+        Map<String, Long> sides = new HashMap<>();
+        sides.put("Fries", 200L);
+        service.addItem("SideCat", name, 1000L, sides);
 
         MenuItem menuItem = service.getItem(name);
         com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, "Fries");
@@ -196,11 +196,11 @@ public class MenuServiceIntegrationTest {
     @Test
     public void testUpdateSide() {
         String name = "ItemWithSide";
-        Map<String, Integer> sides = new HashMap<>();
-        sides.put("Fries", 200);
-        service.addItem("SideCat", name, 1000, sides);
+        Map<String, Long> sides = new HashMap<>();
+        sides.put("Fries", 200L);
+        service.addItem("SideCat", name, 1000L, sides);
 
-        service.updateSide(name, "Fries", 500, true);
+        service.updateSide(name, "Fries", 500L, true);
 
         MenuItem item = service.getItem(name);
         assertNotNull(item.sideOptions);

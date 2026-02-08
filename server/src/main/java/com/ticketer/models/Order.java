@@ -10,9 +10,9 @@ import java.util.List;
 public class Order {
     private List<OrderItem> items;
     @JsonIgnore
-    private int subtotal;
+    private long subtotal;
     @JsonIgnore
-    private int total;
+    private long total;
     @JsonIgnore
     private int taxRate;
 
@@ -46,7 +46,7 @@ public class Order {
     }
 
     private void updateTotal() {
-        int taxAmount = (subtotal * taxRate + 5000) / 10000;
+        long taxAmount = (subtotal * taxRate + 5000) / 10000;
         total = subtotal + taxAmount;
     }
 
@@ -63,11 +63,11 @@ public class Order {
         return new ArrayList<>(items);
     }
 
-    public int getSubtotal() {
+    public long getSubtotal() {
         return subtotal;
     }
 
-    public int getTotal() {
+    public long getTotal() {
         return total;
     }
 

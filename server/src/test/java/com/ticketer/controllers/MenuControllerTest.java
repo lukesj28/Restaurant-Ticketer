@@ -2,7 +2,7 @@ package com.ticketer.controllers;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -118,7 +118,7 @@ public class MenuControllerTest {
                                 .content(json))
                                 .andExpect(status().isOk());
 
-                verify(menuService).addItem(eq("Entrees"), eq("NewItem"), eq(1000), any());
+                verify(menuService).addItem(eq("Entrees"), eq("NewItem"), eq(1000L), any());
         }
 
         @Test
@@ -132,7 +132,7 @@ public class MenuControllerTest {
                                 .content(json))
                                 .andExpect(status().isOk());
 
-                verify(menuService).editItemPrice("TestItem", 1200);
+                verify(menuService).editItemPrice("TestItem", 1200L);
         }
 
         @Test
@@ -208,7 +208,7 @@ public class MenuControllerTest {
                                 .content(json))
                                 .andExpect(status().isOk());
 
-                verify(menuService).updateSide("Item", "Side", 500, null);
+                verify(menuService).updateSide("Item", "Side", 500L, null);
         }
 
         @Test
@@ -240,7 +240,7 @@ public class MenuControllerTest {
         @Test
         public void testAddItemInvalid() throws Exception {
                 doThrow(new InvalidInputException("Item name cannot be empty"))
-                                .when(menuService).addItem(any(), any(), anyInt(), any());
+                                .when(menuService).addItem(any(), any(), anyLong(), any());
 
                 String json = "{\"category\":\"\",\"name\":\"\",\"price\":-100,\"sides\":{}}";
                 mockMvc.perform(post("/api/menu/items")
@@ -252,7 +252,7 @@ public class MenuControllerTest {
         @Test
         public void testEditItemPriceInvalid() throws Exception {
                 doThrow(new InvalidInputException("Price cannot be negative"))
-                                .when(menuService).editItemPrice(any(), anyInt());
+                                .when(menuService).editItemPrice(any(), anyLong());
 
                 String json = "{\"newPrice\":-100}";
                 mockMvc.perform(put("/api/menu/items/Item/price")
