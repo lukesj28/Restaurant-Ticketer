@@ -34,6 +34,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(400).body(ApiResponse.error(e.getMessage()));
     }
 
+    @ExceptionHandler(PrinterException.class)
+    public ResponseEntity<ApiResponse<Object>> handlePrinterException(PrinterException e) {
+        logger.warn("PrinterException", e);
+        return ResponseEntity.status(503).body(ApiResponse.error(e.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException e) {
         logger.warn("IllegalArgumentException", e);

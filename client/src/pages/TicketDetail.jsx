@@ -112,6 +112,24 @@ const TicketDetail = () => {
         }
     };
 
+    const handlePrintReceipt = async () => {
+        try {
+            await api.post(`/print/ticket/${id}`);
+            toast.success('Receipt printed!');
+        } catch (e) {
+            toast.error('Print failed: ' + e.message);
+        }
+    };
+
+    const handlePrintOrder = async (orderIndex) => {
+        try {
+            await api.post(`/print/ticket/${id}/order/${orderIndex}`);
+            toast.success(`Order #${orderIndex + 1} receipt printed!`);
+        } catch (e) {
+            toast.error('Print failed: ' + e.message);
+        }
+    };
+
     // Confirmation modal state
     const [confirmationModal, setConfirmationModal] = useState({
         isOpen: false,
@@ -284,6 +302,13 @@ const TicketDetail = () => {
                                         title="Delete Order"
                                     >🗑️</button>
                                 )}
+                                {ticket.status === 'CLOSED' && (
+                                    <button
+                                        className="print-order-btn"
+                                        onClick={() => handlePrintOrder(idx)}
+                                        title="Print Order"
+                                    >🖨️</button>
+                                )}
                             </div>
                         </div>
                         <div className="order-items">
@@ -346,6 +371,9 @@ const TicketDetail = () => {
                     )}
                     {ticket.status !== 'CLOSED' && (
                         <Button variant="danger" onClick={handleDeleteTicket}>Delete Ticket</Button>
+                    )}
+                    {ticket.status === 'CLOSED' && (
+                        <Button variant="primary" onClick={handlePrintReceipt}>🖨️ Print Receipt</Button>
                     )}
                 </div>
             </div>
