@@ -22,6 +22,9 @@ public class Ticket {
     @com.fasterxml.jackson.annotation.JsonProperty("total")
     private Long persistedTotal;
 
+    @com.fasterxml.jackson.annotation.JsonProperty("tax")
+    private Long persistedTax;
+
     @SuppressWarnings("unused")
     private Ticket() {
         this.orders = new ArrayList<>();
@@ -86,6 +89,13 @@ public class Ticket {
             return persistedTotal;
         }
         return orders.stream().mapToLong(Order::getTotal).sum();
+    }
+
+    public long getTax() {
+        if (persistedTax != null) {
+            return persistedTax;
+        }
+        return orders.stream().mapToLong(Order::getTax).sum();
     }
 
     public Instant getCreatedAt() {

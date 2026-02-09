@@ -1,7 +1,6 @@
 package com.ticketer.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,17 +8,16 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Order {
     private List<OrderItem> items;
-    @JsonIgnore
     private long subtotal;
-    @JsonIgnore
     private long total;
-    @JsonIgnore
+    private long tax;
     private int taxRate;
 
     public Order(int taxRate) {
         this.items = new ArrayList<>();
         this.subtotal = 0;
         this.total = 0;
+        this.tax = 0;
         this.taxRate = taxRate;
     }
 
@@ -46,8 +44,8 @@ public class Order {
     }
 
     private void updateTotal() {
-        long taxAmount = (subtotal * taxRate + 5000) / 10000;
-        total = subtotal + taxAmount;
+        this.tax = (subtotal * taxRate + 5000) / 10000;
+        total = subtotal + tax;
     }
 
     public void setTaxRate(int taxRate) {
@@ -71,11 +69,16 @@ public class Order {
         return total;
     }
 
+    public long getTax() {
+        return tax;
+    }
+
     @JsonSetter("items")
     public void setItems(List<OrderItem> newItems) {
         this.items = new ArrayList<>();
         this.subtotal = 0;
         this.total = 0;
+        this.tax = 0;
         if (newItems != null) {
             for (OrderItem item : newItems) {
                 addItem(item);

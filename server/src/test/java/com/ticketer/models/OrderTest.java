@@ -56,9 +56,11 @@ public class OrderTest {
 
         assertEquals(1000, order.getSubtotal());
         assertEquals(1100, order.getTotal());
+        assertEquals(100, order.getTax());
         assertEquals(1000, order.getTaxRate());
 
         order.setTaxRate(2000);
         assertEquals(1200, order.getTotal());
+        assertEquals(200, order.getTax());
     }
 }

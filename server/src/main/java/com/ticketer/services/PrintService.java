@@ -177,7 +177,7 @@ public class PrintService {
         String subtotalLine = formatLine("Subtotal", formatPrice(ticket.getSubtotal()));
         escpos.writeLF(subtotalLine);
 
-        long tax = ticket.getTotal() - ticket.getSubtotal();
+        long tax = ticket.getTax();
         String taxLine = formatLine("Tax", formatPrice(tax));
         escpos.writeLF(taxLine);
 

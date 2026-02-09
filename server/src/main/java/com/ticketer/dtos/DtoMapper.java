@@ -26,7 +26,7 @@ public class DtoMapper {
         List<OrderItemDto> items = order.getItems().stream()
                 .map(DtoMapper::toOrderItemDto)
                 .collect(Collectors.toList());
-        return new OrderDto(items, order.getSubtotal(), order.getTotal(), order.getTaxRate());
+        return new OrderDto(items, order.getSubtotal(), order.getTotal(), order.getTax(), order.getTaxRate());
     }
 
     public static TicketDto toTicketDto(Ticket ticket) {
@@ -45,6 +45,7 @@ public class DtoMapper {
                 orders,
                 ticket.getSubtotal(),
                 ticket.getTotal(),
+                ticket.getTax(),
                 ticket.getStatus(),
                 ticket.getCreatedAt() != null ? ticket.getCreatedAt().atZone(zone).format(formatter) : null,
                 ticket.getClosedAt() != null ? ticket.getClosedAt().atZone(zone).format(formatter) : null);

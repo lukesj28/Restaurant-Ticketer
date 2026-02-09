@@ -14,6 +14,7 @@ public class TicketTest {
         assertEquals("", ticket.getTableNumber());
         assertEquals(0, ticket.getSubtotal());
         assertEquals(0, ticket.getTotal());
+        assertEquals(0, ticket.getTax());
         assertTrue(ticket.getOrders().isEmpty());
         assertNotNull(ticket.getCreatedAt());
         assertTrue(ticket.getCreatedAt().isAfter(java.time.Instant.now().minusSeconds(10)));
@@ -39,10 +40,12 @@ public class TicketTest {
         ticket.addOrder(order1);
         assertEquals(1000, ticket.getSubtotal());
         assertEquals(1100, ticket.getTotal());
+        assertEquals(100, ticket.getTax());
 
         ticket.addOrder(order2);
         assertEquals(1500, ticket.getSubtotal());
         assertEquals(1650, ticket.getTotal());
+        assertEquals(150, ticket.getTax());
 
         List<Order> orders = ticket.getOrders();
         assertEquals(2, orders.size());
@@ -69,12 +72,14 @@ public class TicketTest {
         orderZeroTax.addItem(new OrderItem("Item", null, 10000, 0));
         ticket.addOrder(orderZeroTax);
         assertEquals(10000, ticket.getTotal());
+        assertEquals(0, ticket.getTax());
 
         Order orderHighTax = new Order(2500);
         orderHighTax.addItem(new OrderItem("Item", null, 10000, 0));
         ticket.addOrder(orderHighTax);
 
         assertEquals(22500, ticket.getTotal());
+        assertEquals(2500, ticket.getTax());
     }
 
     @Test
@@ -85,10 +90,12 @@ public class TicketTest {
 
         ticket.addOrder(order);
         assertEquals(11000, ticket.getTotal());
+        assertEquals(1000, ticket.getTax());
 
         assertTrue(ticket.removeOrder(order));
         assertEquals(0, ticket.getTotal());
         assertEquals(0, ticket.getSubtotal());
+        assertEquals(0, ticket.getTax());
         assertTrue(ticket.getOrders().isEmpty());
 
         assertFalse(ticket.removeOrder(order));
