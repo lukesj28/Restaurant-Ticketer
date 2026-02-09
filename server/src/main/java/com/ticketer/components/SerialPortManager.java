@@ -1,4 +1,4 @@
-package com.ticketer.services;
+package com.ticketer.components;
 
 import com.fazecast.jSerialComm.SerialPort;
 import com.ticketer.exceptions.PrinterException;
@@ -32,6 +32,7 @@ public class SerialPortManager {
 
     public SerialPortManager() {
         this.printerPortName = "TM-m30II_020940";
+        Runtime.getRuntime().addShutdownHook(new Thread(this::closePort));
     }
 
     public OutputStream getOutputStream() {
@@ -48,40 +49,64 @@ public class SerialPortManager {
             return;
         }
 
-        serialPort = findPrinterPort();
-        if (serialPort == null) {
-            throw new PrinterException("Printer not found. Available ports: " + listAvailablePorts());
+        int maxRetries = 3;
+        int retryDelayMs = 1000;
+
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                serialPort = findPrinterPort();
+                if (serialPort != null) {
+                    configurePort(serialPort);
+                    if (serialPort.openPort()) {
+                        logger.info("Opened serial port {} at {} baud",
+                                serialPort.getSystemPortName(), serialPort.getBaudRate());
+                        return;
+                    } else {
+                        logger.warn("Failed to open port {}. Attempt {} of {}",
+                                serialPort.getSystemPortName(), i + 1, maxRetries);
+                    }
+                } else {
+                    logger.info("Printer port not found. Attempt {} of {}", i + 1, maxRetries);
+                }
+
+                if (i < maxRetries - 1) {
+                    Thread.sleep(retryDelayMs);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new PrinterException("Interrupted while connecting to printer", e);
+            }
         }
 
-        configurePort(serialPort);
-
-        if (!serialPort.openPort()) {
-            throw new PrinterException("Failed to open printer port: " + serialPort.getSystemPortName());
-        }
-
-        logger.info("Opened serial port {} at {} baud",
-                serialPort.getSystemPortName(), serialPort.getBaudRate());
+        throw new PrinterException(
+                "Printer not found or connection failed. Available ports: " + listAvailablePorts());
     }
 
     private SerialPort findPrinterPort() {
         SerialPort[] ports = SerialPort.getCommPorts();
 
+        if (ports.length > 0) {
+            StringBuilder sb = new StringBuilder("Available ports: ");
+            for (SerialPort port : ports) {
+                sb.append(port.getSystemPortName())
+                        .append(" (").append(port.getDescriptivePortName()).append("), ");
+            }
+            logger.debug(sb.toString());
+        } else {
+            logger.debug("No serial ports found");
+        }
+
         for (SerialPort port : ports) {
             String portName = port.getSystemPortName();
             String description = port.getDescriptivePortName();
-
-            logger.debug("Found port: {} ({})", portName, description);
 
             if (portName.contains(printerPortName) || description.contains(printerPortName)) {
                 logger.info("Found printer port: {} ({})", portName, description);
                 return port;
             }
-        }
 
-        for (SerialPort port : ports) {
-            String portName = port.getSystemPortName();
-            if (portName.startsWith("tty.") && portName.contains("TM")) {
-                logger.info("Found Epson TM printer port: {}", portName);
+            if (description.toUpperCase().contains("EPSON") || description.toUpperCase().contains("TM-M30")) {
+                logger.info("Found potential Epson printer port: {} ({})", portName, description);
                 return port;
             }
         }
@@ -95,10 +120,12 @@ public class SerialPortManager {
         port.setNumStopBits(STOP_BITS);
         port.setParity(PARITY);
 
+        port.setFlowControl(SerialPort.FLOW_CONTROL_RTS_ENABLED | SerialPort.FLOW_CONTROL_CTS_ENABLED);
+
         port.setComPortTimeouts(
-                SerialPort.TIMEOUT_NONBLOCKING,
+                SerialPort.TIMEOUT_WRITE_BLOCKING,
                 0,
-                0);
+                2000);
 
         logger.info("Configured port with baud rate: {}, data bits: {}, stop bits: {}, parity: none",
                 PREFERRED_BAUD_RATE, DATA_BITS, STOP_BITS);

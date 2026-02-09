@@ -9,6 +9,7 @@ import com.ticketer.exceptions.PrinterException;
 import com.ticketer.models.Order;
 import com.ticketer.models.OrderItem;
 import com.ticketer.models.Ticket;
+import com.ticketer.components.SerialPortManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
