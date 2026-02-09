@@ -97,7 +97,7 @@ const TicketDetail = () => {
             } else if (newStatus === 'active') {
                 await api.put(`/tickets/${id}/active`);
             }
-            navigate('/tickets');
+            fetchTicket();
         } catch (e) {
             toast.error(e.message);
         }

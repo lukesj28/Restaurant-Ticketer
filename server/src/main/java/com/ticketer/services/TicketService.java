@@ -12,6 +12,7 @@ import java.util.List;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -53,8 +54,8 @@ public class TicketService {
 
         Ticket maxTicket = getTicket(maxId);
         if (maxTicket != null) {
-            LocalDate ticketDate = LocalDate.ofInstant(maxTicket.getCreatedAt(), clock.getZone());
-            LocalDate today = LocalDate.now(clock);
+            LocalDate ticketDate = LocalDate.ofInstant(maxTicket.getCreatedAt(), ZoneId.systemDefault());
+            LocalDate today = LocalDate.now(clock.withZone(ZoneId.systemDefault()));
 
             if (!ticketDate.equals(today)) {
                 logger.info("Tickets from previous day (last ticket date: {}). Resetting counter and clearing tickets.",
@@ -68,7 +69,7 @@ public class TicketService {
             }
         } else {
             this.ticketIdCounter = 0;
-            this.lastTicketDate = LocalDate.now(clock);
+            this.lastTicketDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()));
         }
     }
 
@@ -90,7 +91,7 @@ public class TicketService {
     }
 
     private synchronized void checkAndResetDailyCounter() {
-        LocalDate today = LocalDate.now(clock);
+        LocalDate today = LocalDate.now(clock.withZone(ZoneId.systemDefault()));
         if (lastTicketDate != null && !lastTicketDate.equals(today)) {
             logger.info("New day detected (was: {}, now: {}). Resetting tickets.", lastTicketDate, today);
             serializeClosedTickets();

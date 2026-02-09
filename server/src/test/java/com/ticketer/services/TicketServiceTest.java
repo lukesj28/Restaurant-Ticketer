@@ -37,6 +37,7 @@ public class TicketServiceTest {
     public void setUp() {
         lenient().when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
         lenient().when(clock.instant()).thenReturn(Instant.parse("2023-01-01T12:00:00Z"));
+        lenient().when(clock.withZone(any(ZoneId.class))).thenReturn(clock);
 
         ticketService = new TicketService(ticketRepository, clock);
     }
