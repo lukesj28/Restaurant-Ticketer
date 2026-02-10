@@ -48,7 +48,7 @@ public class FileSettingsRepositoryTest {
     @Test
     public void testSaveAndLoad() {
         FileSettingsRepository repo = new FileSettingsRepository(TEST_FILE, mapper);
-        Settings settings = new Settings(1500, new java.util.HashMap<>());
+        Settings settings = new Settings(1500, new java.util.HashMap<>(), null);
         repo.saveSettings(settings);
 
         File f = new File(TEST_FILE);

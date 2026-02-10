@@ -19,11 +19,14 @@ public class SettingsController {
 
     private final SettingsService settingsService;
     private final RestaurantStateService restaurantStateService;
+    private final com.ticketer.components.SerialPortManager serialPortManager;
 
     @Autowired
-    public SettingsController(SettingsService settingsService, RestaurantStateService restaurantStateService) {
+    public SettingsController(SettingsService settingsService, RestaurantStateService restaurantStateService,
+            com.ticketer.components.SerialPortManager serialPortManager) {
         this.settingsService = settingsService;
         this.restaurantStateService = restaurantStateService;
+        this.serialPortManager = serialPortManager;
     }
 
     @GetMapping("/refresh")
@@ -69,6 +72,19 @@ public class SettingsController {
         logger.info("Received request to update opening hours for {}: {}", day, request.hours());
         settingsService.setOpeningHours(day, request.hours());
         restaurantStateService.checkAndScheduleState();
+        return ApiResponse.success(DtoMapper.toSettingsDto(settingsService.getSettings()));
+    }
+
+    @GetMapping("/printer/ports")
+    public ApiResponse<java.util.List<String>> getAvailablePorts() {
+        return ApiResponse.success(serialPortManager.getAvailablePorts());
+    }
+
+    @PutMapping("/printer")
+    public ApiResponse<SettingsDto> updatePrinterSettings(@RequestBody Settings.PrinterSettings printerSettings) {
+        logger.info("Received request to update printer settings");
+
+        settingsService.setPrinterSettings(printerSettings);
         return ApiResponse.success(DtoMapper.toSettingsDto(settingsService.getSettings()));
     }
 }

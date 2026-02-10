@@ -21,149 +21,153 @@ import com.ticketer.exceptions.GlobalExceptionHandler;
 import com.ticketer.models.Settings;
 import com.ticketer.services.RestaurantStateService;
 import com.ticketer.services.SettingsService;
+import com.ticketer.components.SerialPortManager;
 
 public class SettingsControllerTest {
 
-    @Mock
-    private SettingsService settingsService;
+        @Mock
+        private SettingsService settingsService;
 
-    @Mock
-    private RestaurantStateService restaurantStateService;
+        @Mock
+        private RestaurantStateService restaurantStateService;
 
-    @InjectMocks
-    private SettingsController settingsController;
+        @Mock
+        private SerialPortManager serialPortManager;
 
-    private MockMvc mockMvc;
+        @InjectMocks
+        private SettingsController settingsController;
 
-    @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
-        settingsController = new SettingsController(settingsService, restaurantStateService);
-        mockMvc = MockMvcBuilders.standaloneSetup(settingsController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
+        private MockMvc mockMvc;
 
-    @Test
-    public void testInitialization() {
-        assertNotNull(settingsController);
-    }
+        @BeforeEach
+        public void setUp() {
+                MockitoAnnotations.openMocks(this);
+                settingsController = new SettingsController(settingsService, restaurantStateService, serialPortManager);
+                mockMvc = MockMvcBuilders.standaloneSetup(settingsController)
+                                .setControllerAdvice(new GlobalExceptionHandler())
+                                .build();
+        }
 
-    @Test
-    public void testRefreshSettings() throws Exception {
-        Map<String, String> hours = new HashMap<>();
-        hours.put("monday", "09:00 - 22:00");
-        Settings settings = new Settings(1000, hours);
-        when(settingsService.getSettings()).thenReturn(settings);
+        @Test
+        public void testInitialization() {
+                assertNotNull(settingsController);
+        }
 
-        mockMvc.perform(get("/api/settings/refresh"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payload").exists());
+        @Test
+        public void testRefreshSettings() throws Exception {
+                Map<String, String> hours = new HashMap<>();
+                hours.put("monday", "09:00 - 22:00");
+                Settings settings = new Settings(1000, hours, null);
+                when(settingsService.getSettings()).thenReturn(settings);
 
-        verify(settingsService).getSettings();
-    }
+                mockMvc.perform(get("/api/settings/refresh"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").exists());
 
-    @Test
-    public void testGetTax() throws Exception {
-        when(settingsService.getTax()).thenReturn(1000);
+                verify(settingsService).getSettings();
+        }
 
-        mockMvc.perform(get("/api/settings/tax"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payload").value(1000));
+        @Test
+        public void testGetTax() throws Exception {
+                when(settingsService.getTax()).thenReturn(1000);
 
-        verify(settingsService).getTax();
-    }
+                mockMvc.perform(get("/api/settings/tax"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value(1000));
 
-    @Test
-    public void testGetOpeningHours() throws Exception {
-        Map<String, String> hours = new HashMap<>();
-        hours.put("monday", "09:00 - 22:00");
-        when(settingsService.getAllOpeningHours()).thenReturn(hours);
+                verify(settingsService).getTax();
+        }
 
-        mockMvc.perform(get("/api/settings/hours"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payload.monday").exists());
+        @Test
+        public void testGetOpeningHours() throws Exception {
+                Map<String, String> hours = new HashMap<>();
+                hours.put("monday", "09:00 - 22:00");
+                when(settingsService.getAllOpeningHours()).thenReturn(hours);
 
-        verify(settingsService).getAllOpeningHours();
-    }
+                mockMvc.perform(get("/api/settings/hours"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload.monday").exists());
 
-    @Test
-    public void testGetOpeningHoursForDay() throws Exception {
-        when(settingsService.getOpeningHours("monday")).thenReturn("09:00-22:00");
+                verify(settingsService).getAllOpeningHours();
+        }
 
-        mockMvc.perform(get("/api/settings/hours/monday"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payload").value("09:00-22:00"));
+        @Test
+        public void testGetOpeningHoursForDay() throws Exception {
+                when(settingsService.getOpeningHours("monday")).thenReturn("09:00-22:00");
 
-        verify(settingsService).getOpeningHours("monday");
-    }
+                mockMvc.perform(get("/api/settings/hours/monday"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value("09:00-22:00"));
 
-    @Test
-    public void testGetOpenCloseTime() throws Exception {
-        when(settingsService.getOpenTime("monday")).thenReturn("09:00");
-        when(settingsService.getCloseTime("monday")).thenReturn("22:00");
+                verify(settingsService).getOpeningHours("monday");
+        }
 
-        mockMvc.perform(get("/api/settings/hours/monday/open"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payload").value("09:00"));
+        @Test
+        public void testGetOpenCloseTime() throws Exception {
+                when(settingsService.getOpenTime("monday")).thenReturn("09:00");
+                when(settingsService.getCloseTime("monday")).thenReturn("22:00");
 
-        verify(settingsService).getOpenTime("monday");
+                mockMvc.perform(get("/api/settings/hours/monday/open"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value("09:00"));
 
-        mockMvc.perform(get("/api/settings/hours/monday/close"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payload").value("22:00"));
+                verify(settingsService).getOpenTime("monday");
 
-        verify(settingsService).getCloseTime("monday");
-    }
+                mockMvc.perform(get("/api/settings/hours/monday/close"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload").value("22:00"));
 
-    @Test
-    public void testSetTax() throws Exception {
-        String json = "{\"tax\":1500}";
-        mockMvc.perform(put("/api/settings/tax")
-                .contentType("application/json")
-                .content(json))
-                .andExpect(status().isOk());
+                verify(settingsService).getCloseTime("monday");
+        }
 
-        verify(settingsService).setTax(1500);
-    }
+        @Test
+        public void testSetTax() throws Exception {
+                String json = "{\"tax\":1500}";
+                mockMvc.perform(put("/api/settings/tax")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk());
 
-    @Test
-    public void testSetOpeningHours() throws Exception {
-        String json = "{\"hours\":\"10:00 - 20:00\"}";
-        mockMvc.perform(put("/api/settings/hours/Monday")
-                .contentType("application/json")
-                .content(json))
-                .andExpect(status().isOk());
+                verify(settingsService).setTax(1500);
+        }
 
-        verify(settingsService).setOpeningHours("Monday", "10:00 - 20:00");
-        verify(restaurantStateService).checkAndScheduleState();
-    }
+        @Test
+        public void testSetOpeningHours() throws Exception {
+                String json = "{\"hours\":\"10:00 - 20:00\"}";
+                mockMvc.perform(put("/api/settings/hours/Monday")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk());
 
-    @Test
-    public void testSetTaxInvalid() throws Exception {
-        doThrow(new InvalidInputException("Tax cannot be negative"))
-                .when(settingsService).setTax(anyInt());
+                verify(settingsService).setOpeningHours("Monday", "10:00 - 20:00");
+                verify(restaurantStateService).checkAndScheduleState();
+        }
 
-        String json = "{\"tax\":-100}";
-        mockMvc.perform(put("/api/settings/tax")
-                .contentType("application/json")
-                .content(json))
-                .andExpect(status().isBadRequest());
+        @Test
+        public void testSetTaxInvalid() throws Exception {
+                doThrow(new InvalidInputException("Tax cannot be negative"))
+                                .when(settingsService).setTax(anyInt());
 
-        verify(settingsService).setTax(-100);
-    }
+                String json = "{\"tax\":-100}";
+                mockMvc.perform(put("/api/settings/tax")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isBadRequest());
 
-    @Test
-    public void testSetOpeningHoursInvalid() throws Exception {
-        doThrow(new InvalidInputException("Invalid format"))
-                .when(settingsService).setOpeningHours(anyString(), anyString());
+                verify(settingsService).setTax(-100);
+        }
 
-        String json = "{\"hours\":\"invalid-format\"}";
-        mockMvc.perform(put("/api/settings/hours/Monday")
-                .contentType("application/json")
-                .content(json))
-                .andExpect(status().isBadRequest());
+        @Test
+        public void testSetOpeningHoursInvalid() throws Exception {
+                doThrow(new InvalidInputException("Invalid format"))
+                                .when(settingsService).setOpeningHours(anyString(), anyString());
 
-        verify(settingsService).setOpeningHours("Monday", "invalid-format");
-    }
+                String json = "{\"hours\":\"invalid-format\"}";
+                mockMvc.perform(put("/api/settings/hours/Monday")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isBadRequest());
+
+                verify(settingsService).setOpeningHours("Monday", "invalid-format");
+        }
 }

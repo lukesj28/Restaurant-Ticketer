@@ -76,7 +76,7 @@ public class SettingsService {
             throw new InvalidInputException("Tax cannot be negative");
         }
         Settings settings = getSettings();
-        Settings newSettings = new Settings(taxBasisPoints, settings.getHours());
+        Settings newSettings = new Settings(taxBasisPoints, settings.getHours(), settings.getPrinter());
         this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }
@@ -100,7 +100,15 @@ public class SettingsService {
         }
         newHours.put(day, hours);
 
-        Settings newSettings = new Settings(settings.getTax(), newHours);
+        Settings newSettings = new Settings(settings.getTax(), newHours, settings.getPrinter());
+        this.currentSettings = newSettings;
+        settingsRepository.saveSettings(newSettings);
+    }
+
+    public synchronized void setPrinterSettings(Settings.PrinterSettings printerSettings) {
+        logger.info("Updating printer settings");
+        Settings settings = getSettings();
+        Settings newSettings = new Settings(settings.getTax(), settings.getHours(), printerSettings);
         this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }

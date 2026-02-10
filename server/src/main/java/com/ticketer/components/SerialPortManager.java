@@ -11,27 +11,31 @@ import org.springframework.stereotype.Component;
 
 import java.io.OutputStream;
 
+import com.ticketer.models.Settings;
+import com.ticketer.services.SettingsService;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+
 @Component
 public class SerialPortManager {
 
     private static final Logger logger = LoggerFactory.getLogger(SerialPortManager.class);
-
-    private static final int PREFERRED_BAUD_RATE = 38400;
-    private static final int[] FALLBACK_BAUD_RATES = { 19200, 9600, 4800, 2400, 1200 };
 
     private static final byte[] ESC_POS_INIT = { 0x1B, 0x40 };
 
     private static final int DATA_BITS = 8;
     private static final int STOP_BITS = SerialPort.ONE_STOP_BIT;
     private static final int PARITY = SerialPort.NO_PARITY;
-    private static final int TIMEOUT_MS = 5000;
 
-    private final String printerPortName;
+    private final SettingsService settingsService;
     private SerialPort serialPort;
     private final Object portLock = new Object();
 
-    public SerialPortManager() {
-        this.printerPortName = "TM-m30II_020940";
+    @Autowired
+    public SerialPortManager(SettingsService settingsService) {
+        this.settingsService = settingsService;
         Runtime.getRuntime().addShutdownHook(new Thread(this::closePort));
     }
 
@@ -83,31 +87,39 @@ public class SerialPortManager {
     }
 
     private SerialPort findPrinterPort() {
+        Settings.PrinterSettings printerSettings = settingsService.getSettings().getPrinter();
+        String configuredPortName = printerSettings.getPortName();
+
         SerialPort[] ports = SerialPort.getCommPorts();
 
-        if (ports.length > 0) {
-            StringBuilder sb = new StringBuilder("Available ports: ");
-            for (SerialPort port : ports) {
-                sb.append(port.getSystemPortName())
-                        .append(" (").append(port.getDescriptivePortName()).append("), ");
-            }
-            logger.debug(sb.toString());
-        } else {
+        if (ports.length == 0) {
             logger.debug("No serial ports found");
+            return null;
         }
 
-        for (SerialPort port : ports) {
-            String portName = port.getSystemPortName();
-            String description = port.getDescriptivePortName();
-
-            if (portName.contains(printerPortName) || description.contains(printerPortName)) {
-                logger.info("Found printer port: {} ({})", portName, description);
-                return port;
+        if (configuredPortName != null && !configuredPortName.isEmpty()) {
+            for (SerialPort port : ports) {
+                if (port.getSystemPortName().equals(configuredPortName)) {
+                    logger.info("Found configured printer port: {}", port.getSystemPortName());
+                    return port;
+                }
             }
+            logger.warn("Configured port {} not found, falling back to auto-discovery", configuredPortName);
+        }
 
-            if (description.toUpperCase().contains("EPSON") || description.toUpperCase().contains("TM-M30")) {
-                logger.info("Found potential Epson printer port: {} ({})", portName, description);
-                return port;
+        List<String> keywords = Arrays.asList("printer", "thermal", "receipt", "epson", "star", "pos", "bixolon",
+                "citizen", "fujitsu", "zebra", "samsung", "munbyn", "rongta", "tm");
+
+        for (SerialPort port : ports) {
+            String description = port.getDescriptivePortName().toLowerCase();
+            String name = port.getSystemPortName().toLowerCase();
+
+            for (String keyword : keywords) {
+                if (description.contains(keyword) || name.contains(keyword)) {
+                    logger.info("Found potential printer port via keyword '{}': {} ({})", keyword,
+                            port.getSystemPortName(), port.getDescriptivePortName());
+                    return port;
+                }
             }
         }
 
@@ -115,7 +127,9 @@ public class SerialPortManager {
     }
 
     private void configurePort(SerialPort port) {
-        port.setBaudRate(PREFERRED_BAUD_RATE);
+        int baudRate = settingsService.getSettings().getPrinter().getBaudRate();
+
+        port.setBaudRate(baudRate);
         port.setNumDataBits(DATA_BITS);
         port.setNumStopBits(STOP_BITS);
         port.setParity(PARITY);
@@ -128,7 +142,7 @@ public class SerialPortManager {
                 2000);
 
         logger.info("Configured port with baud rate: {}, data bits: {}, stop bits: {}, parity: none",
-                PREFERRED_BAUD_RATE, DATA_BITS, STOP_BITS);
+                baudRate, DATA_BITS, STOP_BITS);
     }
 
     private void sendInitCommand() {
@@ -157,19 +171,39 @@ public class SerialPortManager {
         }
     }
 
-    private String listAvailablePorts() {
+    public List<String> getAvailablePorts() {
         SerialPort[] ports = SerialPort.getCommPorts();
         if (ports.length == 0) {
-            return "none";
+            return new ArrayList<>();
         }
 
-        StringBuilder sb = new StringBuilder();
+        List<String> keywords = Arrays.asList("printer", "print", "thermal", "receipt", "epson", "star", "pos", "usb",
+                "serial",
+                "bixolon", "citizen", "fujitsu", "zebra", "samsung", "munbyn", "rongta", "tm", "tsp", "mc", "srp", "mp",
+                "rj", "rp", "ct", "xp");
+        List<String> filteredPorts = new ArrayList<>();
+        List<String> allPorts = new ArrayList<>();
+
         for (SerialPort port : ports) {
-            if (sb.length() > 0)
-                sb.append(", ");
-            sb.append(port.getSystemPortName()).append(" (").append(port.getDescriptivePortName()).append(")");
+            String portInfo = port.getSystemPortName() + " (" + port.getDescriptivePortName() + ")";
+            allPorts.add(portInfo);
+
+            String description = port.getDescriptivePortName().toLowerCase();
+            String name = port.getSystemPortName().toLowerCase();
+
+            for (String keyword : keywords) {
+                if (description.contains(keyword) || name.contains(keyword)) {
+                    filteredPorts.add(portInfo);
+                    break;
+                }
+            }
         }
-        return sb.toString();
+
+        return filteredPorts.isEmpty() ? allPorts : filteredPorts;
+    }
+
+    private String listAvailablePorts() {
+        return String.join(", ", getAvailablePorts());
     }
 
     @PreDestroy
@@ -197,7 +231,7 @@ public class SerialPortManager {
             if (serialPort != null) {
                 return serialPort.getBaudRate();
             }
-            return PREFERRED_BAUD_RATE;
+            return settingsService.getSettings().getPrinter().getBaudRate();
         }
     }
 }

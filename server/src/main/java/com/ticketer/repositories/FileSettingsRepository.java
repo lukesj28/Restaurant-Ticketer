@@ -36,13 +36,13 @@ public class FileSettingsRepository implements SettingsRepository {
         File file = new File(filePath);
         if (!file.exists()) {
             logger.warn("Settings file not found at {}, returning default settings", filePath);
-            return new Settings(0, new HashMap<>());
+            return new Settings(0, new HashMap<>(), null);
         }
 
         try (FileReader reader = new FileReader(file)) {
             Settings settings = objectMapper.readValue(reader, Settings.class);
             if (settings == null) {
-                return new Settings(0, new HashMap<>());
+                return new Settings(0, new HashMap<>(), null);
             }
             logger.info("Successfully loaded settings from {}", filePath);
             return settings;
