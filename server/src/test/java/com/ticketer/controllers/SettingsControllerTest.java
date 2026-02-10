@@ -57,7 +57,7 @@ public class SettingsControllerTest {
         public void testRefreshSettings() throws Exception {
                 Map<String, String> hours = new HashMap<>();
                 hours.put("monday", "09:00 - 22:00");
-                Settings settings = new Settings(1000, hours, null);
+                Settings settings = new Settings(1000, hours, null, null, null);
                 when(settingsService.getSettings()).thenReturn(settings);
 
                 mockMvc.perform(get("/api/settings/refresh"))

@@ -8,6 +8,7 @@ import com.ticketer.exceptions.EntityNotFoundException;
 import com.ticketer.exceptions.PrinterException;
 import com.ticketer.models.Order;
 import com.ticketer.models.OrderItem;
+import com.ticketer.models.Settings;
 import com.ticketer.models.Ticket;
 import com.ticketer.components.SerialPortManager;
 
@@ -20,19 +21,23 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 public class PrintService {
 
     private static final Logger logger = LoggerFactory.getLogger(PrintService.class);
-    private static final int RECEIPT_WIDTH = 42;
+    private static final int RECEIPT_WIDTH = 48;
 
     private final TicketService ticketService;
+    private final SettingsService settingsService;
     private final SerialPortManager serialPortManager;
 
     @Autowired
-    public PrintService(TicketService ticketService, SerialPortManager serialPortManager) {
+    public PrintService(TicketService ticketService, SettingsService settingsService,
+            SerialPortManager serialPortManager) {
         this.ticketService = ticketService;
+        this.settingsService = settingsService;
         this.serialPortManager = serialPortManager;
     }
 
@@ -61,10 +66,7 @@ public class PrintService {
                 logger.info("Connected to printer at {} baud, formatting receipt for ticket {}",
                         serialPortManager.getBaudRate(), ticketId);
 
-                printReceiptHeader(escpos);
-                printTicketItems(escpos, ticket);
-                printTicketTotals(escpos, ticket);
-                printReceiptFooter(escpos);
+                renderReceiptBlocks(escpos, ticket);
 
                 escpos.feed(4);
                 escpos.cut(EscPos.CutMode.PART);
@@ -113,7 +115,6 @@ public class PrintService {
                 printOrderHeader(escpos, orderIndex);
                 printOrderItems(escpos, order);
                 printOrderTotal(escpos, order);
-                printReceiptFooter(escpos);
 
                 escpos.feed(4);
                 escpos.cut(EscPos.CutMode.PART);
@@ -127,13 +128,82 @@ public class PrintService {
         }
     }
 
-    private void printReceiptHeader(EscPos escpos) throws IOException {
-        Style centerStyle = new Style().setJustification(EscPosConst.Justification.Center);
+    private void renderReceiptBlocks(EscPos escpos, Ticket ticket) throws IOException {
+        Settings.ReceiptSettings receiptSettings = settingsService.getReceiptSettings();
+        Settings.RestaurantDetails restaurant = settingsService.getRestaurantDetails();
+        List<Settings.ReceiptBlock> blocks = receiptSettings.getBlocks();
 
-        escpos.writeLF(centerStyle, repeatChar('-', RECEIPT_WIDTH));
-        escpos.writeLF(centerStyle, getCurrentDateTime());
-        escpos.writeLF(centerStyle, repeatChar('-', RECEIPT_WIDTH));
-        escpos.feed(1);
+        for (Settings.ReceiptBlock block : blocks) {
+            renderBlock(escpos, block, ticket, restaurant);
+        }
+    }
+
+    private void renderBlock(EscPos escpos, Settings.ReceiptBlock block, Ticket ticket,
+            Settings.RestaurantDetails restaurant) throws IOException {
+        Style leftStyle = new Style().setJustification(EscPosConst.Justification.Left_Default);
+        Style centerStyle = new Style().setJustification(EscPosConst.Justification.Center);
+        Style boldCenterStyle = new Style()
+                .setJustification(EscPosConst.Justification.Center)
+                .setBold(true);
+
+        escpos.setStyle(leftStyle);
+
+        switch (block.getType()) {
+            case "RESTAURANT_NAME":
+                String name = restaurant.getName();
+                if (name != null && !name.isEmpty()) {
+                    escpos.writeLF(boldCenterStyle, name);
+                }
+                break;
+            case "ADDRESS":
+                String address = restaurant.getAddress();
+                if (address != null && !address.isEmpty()) {
+                    int commaIdx = address.indexOf(',');
+                    if (commaIdx > 0) {
+                        escpos.writeLF(centerStyle, address.substring(0, commaIdx).trim());
+                        escpos.writeLF(centerStyle, address.substring(commaIdx + 1).trim());
+                    } else {
+                        escpos.writeLF(centerStyle, address);
+                    }
+                }
+                break;
+            case "PHONE":
+                String phone = restaurant.getPhone();
+                if (phone != null && !phone.isEmpty()) {
+                    escpos.writeLF(centerStyle, phone);
+                }
+                break;
+            case "TIMESTAMP":
+                escpos.writeLF(centerStyle, getCurrentDateTime());
+                break;
+            case "TABLE_NUMBER":
+                String tableNum = ticket.getTableNumber();
+                if (tableNum != null && !tableNum.isEmpty()) {
+                    escpos.writeLF("Table: " + tableNum);
+                }
+                break;
+            case "CUSTOM_TEXT":
+                String content = block.getContent();
+                if (content != null && !content.isEmpty()) {
+                    escpos.writeLF(centerStyle, content);
+                }
+                break;
+            case "DIVIDER":
+                escpos.writeLF(repeatChar('-', RECEIPT_WIDTH));
+                break;
+            case "SPACE":
+                escpos.feed(1);
+                break;
+            case "ITEMS":
+                printTicketItems(escpos, ticket);
+                break;
+            case "TOTALS":
+                printTicketTotals(escpos, ticket);
+                break;
+            default:
+                logger.warn("Unknown receipt block type: {}", block.getType());
+                break;
+        }
     }
 
     private void printOrderHeader(EscPos escpos, int orderIndex) throws IOException {
@@ -146,16 +216,25 @@ public class PrintService {
     }
 
     private void printTicketItems(EscPos escpos, Ticket ticket) throws IOException {
+        List<OrderItem> allItems = new java.util.ArrayList<>();
         for (Order order : ticket.getOrders()) {
-            for (OrderItem item : order.getItems()) {
-                printItem(escpos, item);
+            allItems.addAll(order.getItems());
+        }
+        for (int i = 0; i < allItems.size(); i++) {
+            printItem(escpos, allItems.get(i));
+            if (i < allItems.size() - 1) {
+                escpos.write(new byte[] { 0x1B, 0x4A, 20 }, 0, 3);
             }
         }
     }
 
     private void printOrderItems(EscPos escpos, Order order) throws IOException {
-        for (OrderItem item : order.getItems()) {
-            printItem(escpos, item);
+        List<OrderItem> items = order.getItems();
+        for (int i = 0; i < items.size(); i++) {
+            printItem(escpos, items.get(i));
+            if (i < items.size() - 1) {
+                escpos.write(new byte[] { 0x1B, 0x4A, 20 }, 0, 3);
+            }
         }
     }
 
@@ -172,9 +251,6 @@ public class PrintService {
     }
 
     private void printTicketTotals(EscPos escpos, Ticket ticket) throws IOException {
-        escpos.feed(1);
-        escpos.writeLF(repeatChar('-', RECEIPT_WIDTH));
-
         String subtotalLine = formatLine("Subtotal", formatPrice(ticket.getSubtotal()));
         escpos.writeLF(subtotalLine);
 
@@ -185,8 +261,6 @@ public class PrintService {
         Style boldStyle = new Style().setBold(true);
         String totalLine = formatLine("TOTAL", formatPrice(ticket.getTotal()));
         escpos.writeLF(boldStyle, totalLine);
-
-        escpos.writeLF(repeatChar('-', RECEIPT_WIDTH));
     }
 
     private void printOrderTotal(EscPos escpos, Order order) throws IOException {
@@ -198,9 +272,6 @@ public class PrintService {
         escpos.writeLF(boldStyle, totalLine);
 
         escpos.writeLF(repeatChar('-', RECEIPT_WIDTH));
-    }
-
-    private void printReceiptFooter(EscPos escpos) throws IOException {
     }
 
     private String getCurrentDateTime() {

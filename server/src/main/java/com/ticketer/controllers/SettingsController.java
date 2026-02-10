@@ -83,8 +83,31 @@ public class SettingsController {
     @PutMapping("/printer")
     public ApiResponse<SettingsDto> updatePrinterSettings(@RequestBody Settings.PrinterSettings printerSettings) {
         logger.info("Received request to update printer settings");
-
         settingsService.setPrinterSettings(printerSettings);
+        return ApiResponse.success(DtoMapper.toSettingsDto(settingsService.getSettings()));
+    }
+
+    @GetMapping("/restaurant")
+    public ApiResponse<Settings.RestaurantDetails> getRestaurantDetails() {
+        return ApiResponse.success(settingsService.getRestaurantDetails());
+    }
+
+    @PutMapping("/restaurant")
+    public ApiResponse<SettingsDto> updateRestaurantDetails(@RequestBody Settings.RestaurantDetails restaurantDetails) {
+        logger.info("Received request to update restaurant details");
+        settingsService.setRestaurantDetails(restaurantDetails);
+        return ApiResponse.success(DtoMapper.toSettingsDto(settingsService.getSettings()));
+    }
+
+    @GetMapping("/receipt")
+    public ApiResponse<Settings.ReceiptSettings> getReceiptSettings() {
+        return ApiResponse.success(settingsService.getReceiptSettings());
+    }
+
+    @PutMapping("/receipt")
+    public ApiResponse<SettingsDto> updateReceiptSettings(@RequestBody Settings.ReceiptSettings receiptSettings) {
+        logger.info("Received request to update receipt settings");
+        settingsService.setReceiptSettings(receiptSettings);
         return ApiResponse.success(DtoMapper.toSettingsDto(settingsService.getSettings()));
     }
 }

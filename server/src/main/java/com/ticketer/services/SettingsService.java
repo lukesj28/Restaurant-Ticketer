@@ -70,13 +70,22 @@ public class SettingsService {
         return settings.getHours();
     }
 
+    public Settings.RestaurantDetails getRestaurantDetails() {
+        return getSettings().getRestaurant();
+    }
+
+    public Settings.ReceiptSettings getReceiptSettings() {
+        return getSettings().getReceipt();
+    }
+
     public synchronized void setTax(int taxBasisPoints) {
         logger.info("Setting tax to {}", taxBasisPoints);
         if (taxBasisPoints < 0) {
             throw new InvalidInputException("Tax cannot be negative");
         }
-        Settings settings = getSettings();
-        Settings newSettings = new Settings(taxBasisPoints, settings.getHours(), settings.getPrinter());
+        Settings s = getSettings();
+        Settings newSettings = new Settings(taxBasisPoints, s.getHours(), s.getPrinter(),
+                s.getRestaurant(), s.getReceipt());
         this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }
@@ -91,8 +100,8 @@ public class SettingsService {
         }
 
         day = day.toLowerCase();
-        Settings settings = getSettings();
-        java.util.Map<String, String> currentHours = settings.getHours();
+        Settings s = getSettings();
+        java.util.Map<String, String> currentHours = s.getHours();
 
         java.util.Map<String, String> newHours = new java.util.HashMap<>();
         if (currentHours != null) {
@@ -100,15 +109,35 @@ public class SettingsService {
         }
         newHours.put(day, hours);
 
-        Settings newSettings = new Settings(settings.getTax(), newHours, settings.getPrinter());
+        Settings newSettings = new Settings(s.getTax(), newHours, s.getPrinter(),
+                s.getRestaurant(), s.getReceipt());
         this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }
 
     public synchronized void setPrinterSettings(Settings.PrinterSettings printerSettings) {
         logger.info("Updating printer settings");
-        Settings settings = getSettings();
-        Settings newSettings = new Settings(settings.getTax(), settings.getHours(), printerSettings);
+        Settings s = getSettings();
+        Settings newSettings = new Settings(s.getTax(), s.getHours(), printerSettings,
+                s.getRestaurant(), s.getReceipt());
+        this.currentSettings = newSettings;
+        settingsRepository.saveSettings(newSettings);
+    }
+
+    public synchronized void setRestaurantDetails(Settings.RestaurantDetails restaurantDetails) {
+        logger.info("Updating restaurant details");
+        Settings s = getSettings();
+        Settings newSettings = new Settings(s.getTax(), s.getHours(), s.getPrinter(),
+                restaurantDetails, s.getReceipt());
+        this.currentSettings = newSettings;
+        settingsRepository.saveSettings(newSettings);
+    }
+
+    public synchronized void setReceiptSettings(Settings.ReceiptSettings receiptSettings) {
+        logger.info("Updating receipt settings");
+        Settings s = getSettings();
+        Settings newSettings = new Settings(s.getTax(), s.getHours(), s.getPrinter(),
+                s.getRestaurant(), receiptSettings);
         this.currentSettings = newSettings;
         settingsRepository.saveSettings(newSettings);
     }

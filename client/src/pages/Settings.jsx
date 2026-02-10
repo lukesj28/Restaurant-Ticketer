@@ -1,8 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api/api';
 import Button from '../components/common/Button';
 import { useToast } from '../context/ToastContext';
 import './Settings.css';
+
+const BLOCK_TYPES = [
+    { value: 'RESTAURANT_NAME', label: 'Restaurant Name' },
+    { value: 'ADDRESS', label: 'Address' },
+    { value: 'PHONE', label: 'Phone' },
+    { value: 'TIMESTAMP', label: 'Timestamp' },
+    { value: 'TABLE_NUMBER', label: 'Table Number' },
+    { value: 'CUSTOM_TEXT', label: 'Custom Text' },
+    { value: 'DIVIDER', label: 'Divider' },
+    { value: 'SPACE', label: 'Space' },
+    { value: 'ITEMS', label: 'Items' },
+    { value: 'TOTALS', label: 'Totals' },
+];
 
 const Settings = () => {
     const toast = useToast();
@@ -11,6 +24,18 @@ const Settings = () => {
     // Local Draft State
     const [draftTaxRate, setDraftTaxRate] = useState('');
     const [draftHours, setDraftHours] = useState({});
+
+    // Restaurant details drafts
+    const [draftRestaurant, setDraftRestaurant] = useState({ name: '', address: '', phone: '' });
+
+    // Receipt layout drafts
+    const [draftBlocks, setDraftBlocks] = useState([]);
+
+    // Printer settings drafts
+    const [draftPrinter, setDraftPrinter] = useState({
+        portName: '', baudRate: 38400, paperWidthMm: 80, dpi: 203, enabled: false
+    });
+    const [availablePorts, setAvailablePorts] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [systemStatus, setSystemStatus] = useState(false);
@@ -31,7 +56,15 @@ const Settings = () => {
     useEffect(() => {
         fetchSettings();
         fetchSystemStatus();
+        fetchAvailablePorts();
     }, []);
+
+    const fetchAvailablePorts = async () => {
+        try {
+            const ports = await api.get('/settings/printer/ports');
+            setAvailablePorts(ports || []);
+        } catch (e) { console.error(e); }
+    };
 
     const fetchSettings = async () => {
         try {
@@ -48,6 +81,31 @@ const Settings = () => {
                 hoursDraft[key] = data.hours[key] || 'Closed';
             });
             setDraftHours(hoursDraft);
+
+            // Restaurant details
+            if (data.restaurant) {
+                setDraftRestaurant({
+                    name: data.restaurant.name || '',
+                    address: data.restaurant.address || '',
+                    phone: data.restaurant.phone || ''
+                });
+            }
+
+            // Receipt blocks
+            if (data.receipt && data.receipt.blocks) {
+                setDraftBlocks(data.receipt.blocks.map((b, i) => ({ ...b, id: i })));
+            }
+
+            // Printer settings
+            if (data.printer) {
+                setDraftPrinter({
+                    portName: data.printer.portName || '',
+                    baudRate: data.printer.baudRate || 38400,
+                    paperWidthMm: data.printer.paperWidthMm || 80,
+                    dpi: data.printer.dpi || 203,
+                    enabled: data.printer.enabled || false
+                });
+            }
 
         } catch (e) {
             console.error(e);
@@ -96,6 +154,16 @@ const Settings = () => {
                 promises.push(api.put(`/settings/hours/${key}`, { hours: draftHours[key] }));
             });
 
+            // 3. Save Restaurant Details
+            promises.push(api.put('/settings/restaurant', draftRestaurant));
+
+            // 4. Save Printer Settings
+            promises.push(api.put('/settings/printer', draftPrinter));
+
+            // 5. Save Receipt Layout
+            const blocksToSave = draftBlocks.map(b => ({ type: b.type, content: b.content || null }));
+            promises.push(api.put('/settings/receipt', { blocks: blocksToSave }));
+
             await Promise.all(promises);
 
             toast.success('Settings saved successfully.');
@@ -103,7 +171,9 @@ const Settings = () => {
             // Optimistically update local state so UI reflects changes immediately
             const newSettings = {
                 tax: basisPoints,
-                hours: { ...draftHours }
+                hours: { ...draftHours },
+                restaurant: { ...draftRestaurant },
+                receipt: { blocks: blocksToSave }
             };
             setSettings(newSettings);
 
@@ -120,6 +190,54 @@ const Settings = () => {
 
     const updateDraftHours = (dayKey, newValue) => {
         setDraftHours(prev => ({ ...prev, [dayKey]: newValue }));
+    };
+
+    // --- Receipt Block Handlers ---
+    const nextBlockId = useRef(100);
+
+    const addBlock = (type) => {
+        const newBlock = {
+            id: nextBlockId.current++,
+            type,
+            content: type === 'CUSTOM_TEXT' ? '' : null
+        };
+        setDraftBlocks(prev => [...prev, newBlock]);
+    };
+
+    const removeBlock = (id) => {
+        setDraftBlocks(prev => prev.filter(b => b.id !== id));
+    };
+
+    const updateBlockContent = (id, content) => {
+        setDraftBlocks(prev => prev.map(b => b.id === id ? { ...b, content } : b));
+    };
+
+    // Drag state
+    const dragItem = useRef(null);
+    const dragOverItem = useRef(null);
+
+    const handleDragStart = (index) => {
+        dragItem.current = index;
+    };
+
+    const handleDragEnter = (index) => {
+        dragOverItem.current = index;
+    };
+
+    const handleDragEnd = () => {
+        if (dragItem.current === null || dragOverItem.current === null) return;
+        const items = [...draftBlocks];
+        const draggedItem = items[dragItem.current];
+        items.splice(dragItem.current, 1);
+        items.splice(dragOverItem.current, 0, draggedItem);
+        dragItem.current = null;
+        dragOverItem.current = null;
+        setDraftBlocks(items);
+    };
+
+    const getBlockLabel = (type) => {
+        const found = BLOCK_TYPES.find(bt => bt.value === type);
+        return found ? found.label : type;
     };
 
     if (loading) return <div>Loading...</div>;
@@ -150,6 +268,39 @@ const Settings = () => {
                         />
                         <span className="slider"></span>
                     </label>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h2>Restaurant Details</h2>
+                <div className="restaurant-fields">
+                    <div className="form-group row">
+                        <label>Restaurant Name</label>
+                        <input
+                            type="text"
+                            value={draftRestaurant.name}
+                            onChange={e => setDraftRestaurant(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="Your Restaurant Name"
+                        />
+                    </div>
+                    <div className="form-group row">
+                        <label>Address</label>
+                        <input
+                            type="text"
+                            value={draftRestaurant.address}
+                            onChange={e => setDraftRestaurant(prev => ({ ...prev, address: e.target.value }))}
+                            placeholder="123 Main St, City, State"
+                        />
+                    </div>
+                    <div className="form-group row">
+                        <label>Phone</label>
+                        <input
+                            type="text"
+                            value={draftRestaurant.phone}
+                            onChange={e => setDraftRestaurant(prev => ({ ...prev, phone: e.target.value }))}
+                            placeholder="(555) 123-4567"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -192,10 +343,249 @@ const Settings = () => {
                 </div>
             </div>
 
+            <div className="settings-section">
+                <h2>Printer</h2>
+                <div className="printer-fields">
+                    <div className="form-group row">
+                        <label>Printer Port</label>
+                        <select
+                            value={draftPrinter.portName}
+                            onChange={e => setDraftPrinter(prev => ({ ...prev, portName: e.target.value }))}
+                        >
+                            <option value="">-- Select Port --</option>
+                            {availablePorts.map(port => (
+                                <option key={port} value={port}>{port}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="printer-grid">
+                        <div className="form-group row">
+                            <label>Baud Rate</label>
+                            <input
+                                type="number"
+                                value={draftPrinter.baudRate}
+                                onChange={e => setDraftPrinter(prev => ({ ...prev, baudRate: parseInt(e.target.value) || 0 }))}
+                            />
+                        </div>
+                        <div className="form-group row">
+                            <label>Paper Width (mm)</label>
+                            <input
+                                type="number"
+                                value={draftPrinter.paperWidthMm}
+                                onChange={e => setDraftPrinter(prev => ({ ...prev, paperWidthMm: parseInt(e.target.value) || 0 }))}
+                            />
+                        </div>
+                        <div className="form-group row">
+                            <label>DPI</label>
+                            <input
+                                type="number"
+                                value={draftPrinter.dpi}
+                                onChange={e => setDraftPrinter(prev => ({ ...prev, dpi: parseInt(e.target.value) || 0 }))}
+                            />
+                        </div>
+                    </div>
+                    <div className="form-group row">
+                        <label className="switch-label">
+                            Enable Printer
+                            <label className="switch-container">
+                                <input
+                                    type="checkbox"
+                                    checked={draftPrinter.enabled}
+                                    onChange={e => setDraftPrinter(prev => ({ ...prev, enabled: e.target.checked }))}
+                                />
+                                <span className="slider"></span>
+                            </label>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h2>Receipt Layout</h2>
+                <div className="receipt-editor-container">
+                    <div className="receipt-blocks-editor">
+                        <p className="receipt-editor-hint">Drag blocks to reorder. Add or remove blocks to customize your receipt.</p>
+                        <div className="receipt-blocks-list">
+                            {draftBlocks.map((block, index) => (
+                                <div
+                                    key={block.id}
+                                    className="receipt-block-card"
+                                    draggable
+                                    onDragStart={() => handleDragStart(index)}
+                                    onDragEnter={() => handleDragEnter(index)}
+                                    onDragEnd={handleDragEnd}
+                                    onDragOver={(e) => e.preventDefault()}
+                                >
+                                    <div className="block-drag-handle">⠿</div>
+                                    <div className="block-info">
+                                        <span className="block-type-label">{getBlockLabel(block.type)}</span>
+                                        {block.type === 'CUSTOM_TEXT' && (
+                                            <input
+                                                className="block-custom-input"
+                                                type="text"
+                                                value={block.content || ''}
+                                                onChange={(e) => updateBlockContent(block.id, e.target.value)}
+                                                placeholder="Enter custom text..."
+                                            />
+                                        )}
+                                    </div>
+                                    <button
+                                        className="block-remove-btn"
+                                        onClick={() => removeBlock(block.id)}
+                                        title="Remove block"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="receipt-add-block">
+                            <AddBlockDropdown onAdd={addBlock} />
+                        </div>
+                    </div>
+                    <div className="receipt-preview-panel">
+                        <h3>Preview</h3>
+                        <ReceiptPreview blocks={draftBlocks} restaurant={draftRestaurant} />
+                    </div>
+                </div>
+            </div>
+
             {/* Floating Save Button Mobile Friendly */}
             <div className="save-actions">
                 <Button variant="primary" style={{ width: '100%', padding: '1rem' }} onClick={handleSaveAll}>Save All Settings</Button>
             </div>
+        </div>
+    );
+};
+
+// --- Add Block Dropdown ---
+const AddBlockDropdown = ({ onAdd }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const handleClick = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    return (
+        <div className="add-block-dropdown" ref={ref}>
+            <Button variant="secondary" onClick={() => setOpen(!open)}>+ Add Block</Button>
+            {open && (
+                <div className="add-block-menu">
+                    {BLOCK_TYPES.map(bt => (
+                        <button
+                            key={bt.value}
+                            className="add-block-option"
+                            onClick={() => { onAdd(bt.value); setOpen(false); }}
+                        >
+                            {bt.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- Receipt Preview ---
+const PREVIEW_WIDTH = 48;
+
+const centerText = (text) => {
+    if (text.length >= PREVIEW_WIDTH) return text.substring(0, PREVIEW_WIDTH);
+    const totalPad = PREVIEW_WIDTH - text.length;
+    const leftPad = Math.floor(totalPad / 2);
+    const rightPad = totalPad - leftPad;
+    return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
+};
+
+const formatLine = (left, right) => {
+    let spaces = PREVIEW_WIDTH - left.length - right.length;
+    if (spaces < 1) spaces = 1;
+    return left + ' '.repeat(spaces) + right;
+};
+
+const ReceiptPreview = ({ blocks, restaurant }) => {
+    const lines = [];
+
+    const sampleItems = [
+        { name: 'Burger', mainPrice: 1299, side: 'Fries', sidePrice: 399 },
+        { name: 'Soda', mainPrice: 250, side: null, sidePrice: 0 },
+    ];
+
+    const formatPrice = (cents) => `$${(cents / 100).toFixed(2)}`;
+
+    blocks.forEach((block) => {
+        switch (block.type) {
+            case 'RESTAURANT_NAME':
+                if (restaurant.name) lines.push(centerText(restaurant.name));
+                break;
+            case 'ADDRESS':
+                if (restaurant.address) {
+                    const commaIdx = restaurant.address.indexOf(',');
+                    if (commaIdx > 0) {
+                        lines.push(centerText(restaurant.address.substring(0, commaIdx).trim()));
+                        lines.push(centerText(restaurant.address.substring(commaIdx + 1).trim()));
+                    } else {
+                        lines.push(centerText(restaurant.address));
+                    }
+                }
+                break;
+            case 'PHONE':
+                if (restaurant.phone) lines.push(centerText(restaurant.phone));
+                break;
+            case 'TIMESTAMP':
+                lines.push(centerText(new Date().toLocaleString('en-US', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', hour12: false
+                })));
+                break;
+            case 'TABLE_NUMBER':
+                lines.push(formatLine('Table: 5', ''));
+                break;
+            case 'CUSTOM_TEXT':
+                if (block.content) lines.push(centerText(block.content));
+                break;
+            case 'DIVIDER':
+                lines.push('-'.repeat(PREVIEW_WIDTH));
+                break;
+            case 'SPACE':
+                lines.push(' '.repeat(PREVIEW_WIDTH));
+                break;
+            case 'ITEMS':
+                sampleItems.forEach((item, idx) => {
+                    lines.push(formatLine(item.name, formatPrice(item.mainPrice)));
+                    if (item.side) {
+                        lines.push(formatLine('  + ' + item.side, formatPrice(item.sidePrice)));
+                    }
+                    // Small gap between items (not after the last)
+                    if (idx < sampleItems.length - 1) {
+                        lines.push('__HALF_GAP__');
+                    }
+                });
+                break;
+            case 'TOTALS':
+                lines.push(formatLine('Subtotal', formatPrice(1948)));
+                lines.push(formatLine('Tax', formatPrice(253)));
+                lines.push(formatLine('TOTAL', formatPrice(2201)));
+                break;
+            default:
+                break;
+        }
+    });
+
+    return (
+        <div className="receipt-preview">
+            <pre className="receipt-paper">
+                {lines.map((line, i) =>
+                    line === '__HALF_GAP__'
+                        ? <span key={i} className="receipt-half-gap">{'\n'}</span>
+                        : <span key={i}>{line}{'\n'}</span>
+                )}
+            </pre>
         </div>
     );
 };

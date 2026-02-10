@@ -32,7 +32,7 @@ public class SettingsServiceTest {
 
     @Test
     public void testGetSettings() {
-        Settings settings = new Settings(1000, new HashMap<>(), null);
+        Settings settings = new Settings(1000, new HashMap<>(), null, null, null);
         when(settingsRepository.getSettings()).thenReturn(settings);
 
         settingsService = new SettingsService(settingsRepository);
@@ -52,7 +52,7 @@ public class SettingsServiceTest {
 
     @Test
     public void testSetTax() {
-        Settings settings = new Settings(1000, new HashMap<>(), null);
+        Settings settings = new Settings(1000, new HashMap<>(), null, null, null);
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);
 
@@ -74,7 +74,7 @@ public class SettingsServiceTest {
 
     @Test
     public void testSetOpeningHours() {
-        Settings settings = new Settings(1000, new HashMap<>(), null);
+        Settings settings = new Settings(1000, new HashMap<>(), null, null, null);
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);
 
@@ -91,7 +91,7 @@ public class SettingsServiceTest {
     public void testGetOpenTime() {
         Map<String, String> hours = new HashMap<>();
         hours.put("monday", "09:00 - 17:00");
-        Settings settings = new Settings(1000, hours, null);
+        Settings settings = new Settings(1000, hours, null, null, null);
 
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);
@@ -104,7 +104,7 @@ public class SettingsServiceTest {
     public void testGetOpenTimeClosed() {
         Map<String, String> hours = new HashMap<>();
         hours.put("monday", "closed");
-        Settings settings = new Settings(1000, hours, null);
+        Settings settings = new Settings(1000, hours, null, null, null);
 
         when(settingsRepository.getSettings()).thenReturn(settings);
         settingsService = new SettingsService(settingsRepository);
