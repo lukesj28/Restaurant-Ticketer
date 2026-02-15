@@ -72,8 +72,8 @@ public class AnalysisIntegrationTest {
         t1.setCreatedAt(Instant.parse("2023-01-01T10:00:00Z"));
         t1.setClosedAt(Instant.parse("2023-01-01T10:30:00Z"));
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("IntegrationBurger", "Fries", 1200, 300));
-        o1.addItem(new OrderItem("IntegrationBurger", "none", 1200, 0));
+        o1.addItem(new OrderItem("IntegrationBurger", "Fries", 1200, 300, null));
+        o1.addItem(new OrderItem("IntegrationBurger", "none", 1200, 0, null));
         t1.addOrder(o1);
 
         List<Ticket> tickets = new ArrayList<>();

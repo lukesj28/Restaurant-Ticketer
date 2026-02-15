@@ -129,7 +129,7 @@ public class TicketService {
         ticketRepository.save(ticket);
     }
 
-    public void addItemToOrder(int ticketId, int orderIndex, OrderItem item) {
+    public void addItemToOrder(int ticketId, int orderIndex, OrderItem item, String comment) {
         logger.info("Adding item {} to order {} on ticket {}", item.getName(), orderIndex, ticketId);
         if (item.getName() == null || item.getName().trim().isEmpty()) {
             throw new InvalidInputException("Item name cannot be empty");
@@ -146,7 +146,58 @@ public class TicketService {
             ticketRepository.moveToActive(ticket.getId());
         }
 
+        if (comment != null && !comment.trim().isEmpty()) {
+            item.setComment(comment);
+        }
         ticket.getOrders().get(orderIndex).addItem(item);
+        ticketRepository.save(ticket);
+    }
+
+    public void updateTicketComment(int ticketId, String comment) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(ticket.getStatus())) {
+            throw new ActionNotAllowedException("Cannot modify comments on a non-active ticket.");
+        }
+        ticket.setComment(comment);
+        ticketRepository.save(ticket);
+    }
+
+    public void updateOrderComment(int ticketId, int orderIndex, String comment) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(ticket.getStatus())) {
+            throw new ActionNotAllowedException("Cannot modify comments on a non-active ticket.");
+        }
+        List<Order> orders = ticket.getOrders();
+        if (orderIndex < 0 || orderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
+        }
+        orders.get(orderIndex).setComment(comment);
+        ticketRepository.save(ticket);
+    }
+
+    public void updateItemComment(int ticketId, int orderIndex, int itemIndex, String comment) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(ticket.getStatus())) {
+            throw new ActionNotAllowedException("Cannot modify comments on a non-active ticket.");
+        }
+        List<Order> orders = ticket.getOrders();
+        if (orderIndex < 0 || orderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
+        }
+        List<OrderItem> items = orders.get(orderIndex).getItems();
+        if (itemIndex < 0 || itemIndex >= items.size()) {
+            throw new EntityNotFoundException("Item index " + itemIndex + " invalid");
+        }
+        items.get(itemIndex).setComment(comment);
         ticketRepository.save(ticket);
     }
 
@@ -332,14 +383,14 @@ public class TicketService {
 
     public void sendToKitchen(int ticketId) {
         logger.info("Sending ticket {} to kitchen", ticketId);
-        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+        ticketRepository.findById(ticketId).orElseThrow(
                 () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
         ticketRepository.addTicketToKitchen(ticketId);
     }
 
     public void completeKitchenTicket(int ticketId) {
         logger.info("Completing kitchen ticket {}", ticketId);
-        Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(
+        ticketRepository.findById(ticketId).orElseThrow(
                 () -> new EntityNotFoundException("Ticket with ID " + ticketId + " not found."));
 
         ticketRepository.removeTicketFromKitchen(ticketId);

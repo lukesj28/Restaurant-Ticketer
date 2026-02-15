@@ -44,6 +44,9 @@ public class TicketController {
     public ApiResponse<TicketDto> createTicket(@RequestBody Requests.CreateTicketRequest request) {
         logger.info("Received request to create ticket for table: {}", request.tableNumber());
         Ticket ticket = ticketService.createTicket(request.tableNumber());
+        if (request.comment() != null && !request.comment().trim().isEmpty()) {
+            ticket.setComment(request.comment());
+        }
         return ApiResponse.success(DtoMapper.toTicketDto(ticket));
     }
 
@@ -85,9 +88,14 @@ public class TicketController {
     }
 
     @PostMapping("/{ticketId}/orders")
-    public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId) {
+    public ApiResponse<TicketDto> addOrderToTicket(@PathVariable("ticketId") int ticketId,
+            @RequestBody(required = false) Requests.AddOrderRequest request) {
         logger.info("Received request to add order to ticket: {}", ticketId);
-        ticketService.addOrderToTicket(ticketId, new Order(settingsService.getTax()));
+        Order order = new Order(settingsService.getTax());
+        if (request != null && request.comment() != null && !request.comment().trim().isEmpty()) {
+            order.setComment(request.comment());
+        }
+        ticketService.addOrderToTicket(ticketId, order);
         return getTicket(ticketId);
     }
 
@@ -111,7 +119,7 @@ public class TicketController {
             @RequestBody Requests.AddItemRequest request) {
         logger.info("Received request to add item {} to ticket {} order {}", request.name(), ticketId, orderIndex);
         OrderItem item = menuService.createOrderItem(request.name(), request.selectedSide());
-        ticketService.addItemToOrder(ticketId, orderIndex, item);
+        ticketService.addItemToOrder(ticketId, orderIndex, item, request.comment());
         return getTicket(ticketId);
     }
 
@@ -119,8 +127,32 @@ public class TicketController {
     public ApiResponse<TicketDto> removeItemFromOrder(@PathVariable("ticketId") int ticketId,
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.AddItemRequest request) {
-        OrderItem item = new OrderItem(request.name(), request.selectedSide(), 0, 0);
+        OrderItem item = new OrderItem(request.name(), request.selectedSide(), 0, 0, null);
         ticketService.removeItemFromOrder(ticketId, orderIndex, item);
+        return getTicket(ticketId);
+    }
+
+    @PutMapping("/{ticketId}/comment")
+    public ApiResponse<TicketDto> updateTicketComment(@PathVariable("ticketId") int ticketId,
+            @RequestBody Requests.UpdateCommentRequest request) {
+        ticketService.updateTicketComment(ticketId, request.comment());
+        return getTicket(ticketId);
+    }
+
+    @PutMapping("/{ticketId}/orders/{orderIndex}/comment")
+    public ApiResponse<TicketDto> updateOrderComment(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @RequestBody Requests.UpdateCommentRequest request) {
+        ticketService.updateOrderComment(ticketId, orderIndex, request.comment());
+        return getTicket(ticketId);
+    }
+
+    @PutMapping("/{ticketId}/orders/{orderIndex}/items/{itemIndex}/comment")
+    public ApiResponse<TicketDto> updateItemComment(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @PathVariable("itemIndex") int itemIndex,
+            @RequestBody Requests.UpdateCommentRequest request) {
+        ticketService.updateItemComment(ticketId, orderIndex, itemIndex, request.comment());
         return getTicket(ticketId);
     }
 
@@ -138,30 +170,12 @@ public class TicketController {
                 }
             }
 
-            java.util.Map<String, java.util.Map<String, Integer>> itemCounts = new java.util.LinkedHashMap<>();
+            List<KitchenOrderGroupDto> kitchenOrders = new java.util.ArrayList<>();
 
             for (Order order : ticket.getOrders()) {
-                for (OrderItem item : order.getItems()) {
-                    if (kitchenItems.contains(item.getName())) {
-                        String name = item.getName();
-                        String side = item.getSelectedSide();
-                        String sideKey = side != null ? side : "";
-
-                        itemCounts.computeIfAbsent(name, k -> new java.util.HashMap<>());
-                        itemCounts.get(name).merge(sideKey, 1, Integer::sum);
-                    }
-                }
-            }
-
-            List<KitchenItemDto> flatItems = new java.util.ArrayList<>();
-            for (String kitchenItemName : kitchenItems) {
-                if (itemCounts.containsKey(kitchenItemName)) {
-                    java.util.Map<String, Integer> sideCounts = itemCounts.get(kitchenItemName);
-                    for (java.util.Map.Entry<String, Integer> entry : sideCounts.entrySet()) {
-                        String side = entry.getKey().isEmpty() ? null : entry.getKey();
-                        int quantity = entry.getValue();
-                        flatItems.add(new KitchenItemDto(kitchenItemName, side, quantity));
-                    }
+                List<KitchenItemDto> groupItems = groupKitchenItems(order, kitchenItems);
+                if (!groupItems.isEmpty() || (order.getComment() != null && !order.getComment().trim().isEmpty())) {
+                    kitchenOrders.add(new KitchenOrderGroupDto(order.getComment(), groupItems));
                 }
             }
 
@@ -169,11 +183,41 @@ public class TicketController {
                     ticket.getId(),
                     ticket.getTableNumber(),
                     kitchenTally,
-                    flatItems,
-                    ticket.getCreatedAt() != null ? ticket.getCreatedAt().toString() : null);
+                    kitchenOrders,
+                    ticket.getCreatedAt() != null ? ticket.getCreatedAt().toString() : null,
+                    ticket.getComment());
         }).collect(Collectors.toList());
 
         return ApiResponse.success(result);
+    }
+
+    private List<KitchenItemDto> groupKitchenItems(Order order, List<String> kitchenItems) {
+        List<KitchenItemDto> result = new java.util.ArrayList<>();
+        java.util.Map<String, java.util.Map<String, Integer>> grouped = new java.util.LinkedHashMap<>();
+
+        for (OrderItem item : order.getItems()) {
+            if (!kitchenItems.contains(item.getName())) {
+                continue;
+            }
+            if (item.getComment() != null && !item.getComment().trim().isEmpty()) {
+                result.add(new KitchenItemDto(item.getName(), item.getSelectedSide(), 1, item.getComment()));
+            } else {
+                String sideKey = item.getSelectedSide() != null ? item.getSelectedSide() : "";
+                grouped.computeIfAbsent(item.getName(), k -> new java.util.LinkedHashMap<>());
+                grouped.get(item.getName()).merge(sideKey, 1, Integer::sum);
+            }
+        }
+
+        for (String kitchenItemName : kitchenItems) {
+            if (grouped.containsKey(kitchenItemName)) {
+                for (java.util.Map.Entry<String, Integer> entry : grouped.get(kitchenItemName).entrySet()) {
+                    String side = entry.getKey().isEmpty() ? null : entry.getKey();
+                    result.add(new KitchenItemDto(kitchenItemName, side, entry.getValue(), null));
+                }
+            }
+        }
+
+        return result;
     }
 
     @PostMapping("/{ticketId}/kitchen")

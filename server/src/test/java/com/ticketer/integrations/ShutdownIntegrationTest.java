@@ -66,7 +66,7 @@ public class ShutdownIntegrationTest {
 
     @Test
     public void testCompleteShutdownFlow() throws IOException {
-        Ticket t1 = ticketService.createTicket("Table1");
+        ticketService.createTicket("Table1");
         Ticket t2 = ticketService.createTicket("Table2");
         ticketService.moveToCompleted(t2.getId());
 

@@ -17,6 +17,8 @@ const TicketDetail = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedOrderIndex, setSelectedOrderIndex] = useState(0); // Default to last or specific
     const [selectedItemForSides, setSelectedItemForSides] = useState(null);
+    const [commentDrafts, setCommentDrafts] = useState({});
+    const commentTimers = React.useRef({});
 
     useEffect(() => {
         fetchTicket();
@@ -129,6 +131,39 @@ const TicketDetail = () => {
             toast.error('Print failed: ' + e.message);
         }
     };
+
+    const getCommentValue = (key, serverValue) => {
+        return key in commentDrafts ? commentDrafts[key] : (serverValue || '');
+    };
+
+    const handleCommentChange = (key, value, saveFn) => {
+        setCommentDrafts(prev => ({ ...prev, [key]: value }));
+        if (commentTimers.current[key]) {
+            clearTimeout(commentTimers.current[key]);
+        }
+        commentTimers.current[key] = setTimeout(async () => {
+            try {
+                await saveFn(value);
+                setCommentDrafts(prev => {
+                    const next = { ...prev };
+                    delete next[key];
+                    return next;
+                });
+                fetchTicket();
+            } catch (e) {
+                toast.error('Failed to save comment: ' + e.message);
+            }
+        }, 600);
+    };
+
+    const saveTicketComment = (comment) =>
+        api.put(`/tickets/${id}/comment`, { comment });
+
+    const saveOrderComment = (orderIndex, comment) =>
+        api.put(`/tickets/${id}/orders/${orderIndex}/comment`, { comment });
+
+    const saveItemComment = (orderIndex, itemIndex, comment) =>
+        api.put(`/tickets/${id}/orders/${orderIndex}/items/${itemIndex}/comment`, { comment });
 
     // Confirmation modal state
     const [confirmationModal, setConfirmationModal] = useState({
@@ -287,6 +322,24 @@ const TicketDetail = () => {
                 </div>
             </div>
 
+            {ticket.status !== 'CLOSED' && (
+                <div className="ticket-comment">
+                    <input
+                        type="text"
+                        className="comment-input ticket-comment-input"
+                        placeholder="Ticket comment..."
+                        value={getCommentValue('ticket', ticket.comment)}
+                        onChange={(e) => handleCommentChange('ticket', e.target.value, saveTicketComment)}
+                        disabled={ticket.status !== 'ACTIVE'}
+                    />
+                </div>
+            )}
+            {ticket.status === 'CLOSED' && ticket.comment && (
+                <div className="ticket-comment">
+                    <span className="comment-display">{ticket.comment}</span>
+                </div>
+            )}
+
             <div className="orders-list">
                 {(ticket.orders || []).map((order, idx) => (
                     <div key={idx} className={`order-block ${ticket.status !== 'CLOSED' && selectedOrderIndex === idx ? 'selected-order' : ''}`}>
@@ -311,6 +364,23 @@ const TicketDetail = () => {
                                 )}
                             </div>
                         </div>
+                        {ticket.status !== 'CLOSED' && (
+                            <div className="order-comment">
+                                <input
+                                    type="text"
+                                    className="comment-input order-comment-input"
+                                    placeholder="Order comment..."
+                                    value={getCommentValue(`order-${idx}`, order.comment)}
+                                    onChange={(e) => handleCommentChange(`order-${idx}`, e.target.value, (v) => saveOrderComment(idx, v))}
+                                    disabled={ticket.status !== 'ACTIVE'}
+                                />
+                            </div>
+                        )}
+                        {ticket.status === 'CLOSED' && order.comment && (
+                            <div className="order-comment">
+                                <span className="comment-display">{order.comment}</span>
+                            </div>
+                        )}
                         <div className="order-items">
                             {order.items.map((item, iIdx) => (
                                 <div key={iIdx} className="order-item-row">
@@ -318,6 +388,19 @@ const TicketDetail = () => {
                                         <span>{item.name}</span>
                                         {item.selectedSide && item.selectedSide !== 'none' && (
                                             <span className="item-side"> + {item.selectedSide}</span>
+                                        )}
+                                        {ticket.status !== 'CLOSED' && (
+                                            <input
+                                                type="text"
+                                                className="comment-input item-comment-input"
+                                                placeholder="Note..."
+                                                value={getCommentValue(`item-${idx}-${iIdx}`, item.comment)}
+                                                onChange={(e) => handleCommentChange(`item-${idx}-${iIdx}`, e.target.value, (v) => saveItemComment(idx, iIdx, v))}
+                                                disabled={ticket.status !== 'ACTIVE'}
+                                            />
+                                        )}
+                                        {ticket.status === 'CLOSED' && item.comment && (
+                                            <span className="comment-display item-comment-display">{item.comment}</span>
                                         )}
                                     </div>
                                     <div className="item-price-col">

@@ -1,6 +1,5 @@
 package com.ticketer.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticketer.models.AnalysisReport;
 import com.ticketer.services.AnalysisService;
 import org.junit.jupiter.api.Test;
@@ -26,9 +25,6 @@ public class AnalysisControllerTest {
 
     @MockBean
     private AnalysisService analysisService;
-
-    @Autowired
-    private ObjectMapper mapper;
 
     @Test
     public void testGetAnalysis() throws Exception {

@@ -7,7 +7,7 @@ public class OrderItemTest {
 
     @Test
     public void testConstructorAndGetters() {
-        OrderItem item = new OrderItem("Burger", "Fries", 1200, 300);
+        OrderItem item = new OrderItem("Burger", "Fries", 1200, 300, null);
         assertEquals("Burger", item.getName());
         assertEquals("Fries", item.getSelectedSide());
         assertEquals(1200, item.getMainPrice());
@@ -17,7 +17,7 @@ public class OrderItemTest {
 
     @Test
     public void testConstructorWithNoSide() {
-        OrderItem item = new OrderItem("Soda", null, 200, 0);
+        OrderItem item = new OrderItem("Soda", null, 200, 0, null);
         assertEquals("Soda", item.getName());
         assertNull(item.getSelectedSide());
         assertEquals(200, item.getMainPrice());
@@ -27,7 +27,7 @@ public class OrderItemTest {
 
     @Test
     public void testToString() {
-        OrderItem item = new OrderItem("Burger", "Fries", 1200, 300);
+        OrderItem item = new OrderItem("Burger", "Fries", 1200, 300, null);
         String str = item.toString();
         assertNotNull(str);
         assertTrue(str.contains("Burger"));
@@ -39,7 +39,7 @@ public class OrderItemTest {
 
     @Test
     public void testToStringNoSide() {
-        OrderItem item = new OrderItem("Soda", null, 200, 0);
+        OrderItem item = new OrderItem("Soda", null, 200, 0, null);
         String str = item.toString();
         assertNotNull(str);
         assertTrue(str.contains("Soda"));

@@ -1,5 +1,6 @@
 package com.ticketer.models;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
@@ -15,6 +16,9 @@ public class Ticket {
     private Instant closedAt;
 
     private String status = "ACTIVE";
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String comment;
 
     @com.fasterxml.jackson.annotation.JsonProperty("subtotal")
     private Long persistedSubtotal;
@@ -112,6 +116,14 @@ public class Ticket {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
     }
 
     @JsonIgnore

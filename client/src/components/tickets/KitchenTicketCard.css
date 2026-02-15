@@ -30,6 +30,29 @@
     font-size: 0.9rem;
 }
 
+/* Ticket comment banner */
+.ticket-comment-banner {
+    background-color: var(--color-brand-primary);
+    color: var(--color-bg-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.95rem;
+    font-style: italic;
+}
+
+/* Order comment banner */
+.order-comment-banner {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.85rem;
+    font-style: italic;
+    border-left: 3px solid var(--color-brand-secondary);
+}
+
 /* Tally summary section */
 .kitchen-tally {
     background-color: var(--color-bg-tertiary);
@@ -61,6 +84,19 @@
     border-radius: var(--radius-sm);
     font-weight: 600;
     font-size: 0.9rem;
+}
+
+/* Order groups */
+.kitchen-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.kitchen-order-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
 }
 
 /* Items list */
@@ -96,6 +132,15 @@
 .kitchen-item .item-side {
     color: var(--color-text-secondary);
     font-style: italic;
+}
+
+/* Item comment */
+.item-comment {
+    font-style: italic;
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    margin-top: 2px;
+    padding-left: var(--spacing-sm);
 }
 
 /* Complete button */

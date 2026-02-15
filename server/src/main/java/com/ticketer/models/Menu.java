@@ -114,17 +114,17 @@ public class Menu {
 
     public static OrderItem getItem(MenuItem item, String sideName) {
         if (!item.hasSides()) {
-            return new OrderItem(item.name, null, item.price, 0);
+            return new OrderItem(item.name, null, item.price, 0, null);
         }
 
         if (sideName != null && item.sideOptions.containsKey(sideName)) {
             Side side = item.sideOptions.get(sideName);
-            return new OrderItem(item.name, sideName, item.price, side.price);
+            return new OrderItem(item.name, sideName, item.price, side.price, null);
         } else {
             if (sideName != null) {
                 throw new IllegalArgumentException("Invalid side selection: " + sideName);
             }
-            return new OrderItem(item.name, null, item.price, 0);
+            return new OrderItem(item.name, null, item.price, 0, null);
         }
     }
 }

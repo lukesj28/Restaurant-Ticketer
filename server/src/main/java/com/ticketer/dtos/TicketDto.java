@@ -1,6 +1,6 @@
 package com.ticketer.dtos;
-
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 public record TicketDto(
         int id,
@@ -11,5 +11,7 @@ public record TicketDto(
         long tax,
         String status,
         String createdAt,
-        String closedAt) {
+        String closedAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        String comment) {
 }

@@ -108,7 +108,7 @@ public class TicketControllerTest {
                 when(menuService.getItem("TestItem")).thenReturn(menuItem);
 
                 when(menuService.createOrderItem("TestItem", "Fries"))
-                                .thenReturn(new OrderItem("TestItem", "Fries", 1000, 200));
+                                .thenReturn(new OrderItem("TestItem", "Fries", 1000, 200, null));
 
                 doAnswer(invocation -> {
                         OrderItem item = invocation.getArgument(2);
@@ -116,7 +116,7 @@ public class TicketControllerTest {
                                 ticket.getOrders().get(0).addItem(item);
                         }
                         return null;
-                }).when(ticketService).addItemToOrder(eq(1), eq(0), any(OrderItem.class));
+                }).when(ticketService).addItemToOrder(eq(1), eq(0), any(OrderItem.class), any());
 
                 doAnswer(invocation -> {
                         ticket.getOrders().get(0).getItems().clear();
@@ -130,7 +130,7 @@ public class TicketControllerTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.payload.orders[0].items[0].name").value("TestItem"));
 
-                verify(ticketService).addItemToOrder(eq(1), eq(0), any(OrderItem.class));
+                verify(ticketService).addItemToOrder(eq(1), eq(0), any(OrderItem.class), any());
 
                 mockMvc.perform(delete("/api/tickets/1/orders/0/items")
                                 .contentType("application/json")
@@ -223,7 +223,7 @@ public class TicketControllerTest {
         public void testGetTicketTally() throws Exception {
                 Ticket ticket = new Ticket(1);
                 Order order = new Order(1300);
-                order.addItem(new OrderItem("Burger", "Fries", 1000, 0));
+                order.addItem(new OrderItem("Burger", "Fries", 1000, 0, null));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);
@@ -238,9 +238,9 @@ public class TicketControllerTest {
         public void testGetTicketKitchenTally() throws Exception {
                 Ticket ticket = new Ticket(1);
                 Order order = new Order(1300);
-                order.addItem(new OrderItem("Burger", "Fries", 1000, 0));
-                order.addItem(new OrderItem("Pizza", "None", 1200, 0));
-                order.addItem(new OrderItem("Coke", "None", 200, 0));
+                order.addItem(new OrderItem("Burger", "Fries", 1000, 0, null));
+                order.addItem(new OrderItem("Pizza", "None", 1200, 0, null));
+                order.addItem(new OrderItem("Coke", "None", 200, 0, null));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);

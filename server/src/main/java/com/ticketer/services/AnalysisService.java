@@ -78,8 +78,6 @@ public class AnalysisService {
         report.setEndDate(endDate.toString());
 
         totalTicketCount = allTickets.size();
-
-        totalTicketCount = allTickets.size();
         totalSubtotalCents = allTickets.stream().mapToLong(Ticket::getSubtotal).sum();
         totalTotalCents = allTickets.stream().mapToLong(Ticket::getTotal).sum();
         totalOrderCount = allTickets.stream().mapToInt(t -> t.getOrders().size()).sum();

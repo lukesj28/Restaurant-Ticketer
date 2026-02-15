@@ -34,13 +34,19 @@ public class Requests {
     public record OpeningHoursUpdateRequest(String hours) {
     }
 
-    public record AddItemRequest(String name, String selectedSide) {
+    public record AddItemRequest(String name, String selectedSide, String comment) {
+    }
+
+    public record AddOrderRequest(String comment) {
     }
 
     public record AnalysisRequest(String startDate, String endDate) {
     }
 
-    public record CreateTicketRequest(String tableNumber) {
+    public record CreateTicketRequest(String tableNumber, String comment) {
+    }
+
+    public record UpdateCommentRequest(String comment) {
     }
 
     public record CategoryReorderRequest(List<String> order) {

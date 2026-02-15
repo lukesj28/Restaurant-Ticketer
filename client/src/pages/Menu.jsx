@@ -37,6 +37,7 @@ const Menu = () => {
     // Create Mode
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newItem, setNewItem] = useState({ name: '', category: '', price: '' });
+    const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
 
     // Edit Form State
     const [editForm, setEditForm] = useState({ price: '', available: true, name: '', category: '' });
@@ -463,6 +464,7 @@ const Menu = () => {
             setIsCreateModalOpen(false);
             setNewItem({ name: '', category: '', price: '' });
             setIsKitchenItem(false);
+            setIsCreatingNewCategory(false);
             fetchMenu();
             fetchKitchenItems();
             toast.success('Item created successfully');
@@ -501,6 +503,7 @@ const Menu = () => {
                 <h1>Menu Management</h1>
                 <Button onClick={() => {
                     setIsCreateModalOpen(true);
+                    setIsCreatingNewCategory(false);
                     setIsKitchenItem(false);
                 }}>+ Add Item</Button>
             </div>
@@ -740,11 +743,17 @@ const Menu = () => {
             {/* Create Modal */}
             < Modal
                 isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
+                onClose={() => {
+                    setIsCreateModalOpen(false);
+                    setIsCreatingNewCategory(false);
+                }}
                 title="Create New Item"
                 footer={
                     <>
-                        <Button variant="secondary" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
+                        <Button variant="secondary" onClick={() => {
+                            setIsCreateModalOpen(false);
+                            setIsCreatingNewCategory(false);
+                        }}>Cancel</Button>
                         <Button variant="primary" onClick={handleCreateItem}>Create</Button>
                     </>
                 }
@@ -760,12 +769,48 @@ const Menu = () => {
                     </div>
                     <div className="form-group">
                         <label>Category</label>
-                        <input
-                            value={newItem.category}
-                            onChange={e => setNewItem({ ...newItem, category: e.target.value })}
-                            required
-                            placeholder="e.g. Mains"
-                        />
+                        {isCreatingNewCategory ? (
+                            <div className="category-input-group">
+                                <input
+                                    value={newItem.category}
+                                    onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                                    required
+                                    placeholder="New Category Name"
+                                    autoFocus
+                                />
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setIsCreatingNewCategory(false);
+                                        setNewItem({ ...newItem, category: '' });
+                                    }}
+                                    style={{ marginLeft: '8px' }}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        ) : (
+                            <select
+                                value={newItem.category}
+                                onChange={e => {
+                                    if (e.target.value === '__NEW__') {
+                                        setIsCreatingNewCategory(true);
+                                        setNewItem({ ...newItem, category: '' });
+                                    } else {
+                                        setNewItem({ ...newItem, category: e.target.value });
+                                    }
+                                }}
+                                required
+                                className="form-select"
+                            >
+                                <option value="" disabled>Select a category</option>
+                                {Object.keys(categories).map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                                <option value="__NEW__">+ Create New Category...</option>
+                            </select>
+                        )}
                     </div>
                     <div className="form-group">
                         <label>Price ($)</label>

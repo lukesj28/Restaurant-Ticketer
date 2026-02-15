@@ -1,6 +1,7 @@
 package com.ticketer.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +13,9 @@ public class Order {
     private long total;
     private long tax;
     private int taxRate;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String comment;
 
     public Order(int taxRate) {
         this.items = new ArrayList<>();
@@ -71,6 +75,14 @@ public class Order {
 
     public long getTax() {
         return tax;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
     }
 
     @JsonSetter("items")

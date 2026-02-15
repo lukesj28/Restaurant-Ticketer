@@ -1,6 +1,7 @@
 package com.ticketer.models;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class OrderItem {
@@ -9,15 +10,20 @@ public class OrderItem {
     private long mainPrice;
     private long sidePrice;
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String comment;
+
     @JsonCreator
     public OrderItem(@JsonProperty("name") String name,
             @JsonProperty("selectedSide") String selectedSide,
             @JsonProperty("mainPrice") long mainPrice,
-            @JsonProperty("sidePrice") long sidePrice) {
+            @JsonProperty("sidePrice") long sidePrice,
+            @JsonProperty("comment") String comment) {
         this.name = name;
         this.selectedSide = selectedSide;
         this.mainPrice = mainPrice;
         this.sidePrice = sidePrice;
+        this.comment = comment;
     }
 
     @Override
@@ -48,6 +54,14 @@ public class OrderItem {
 
     public long getSidePrice() {
         return sidePrice;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
     }
 
     @Override

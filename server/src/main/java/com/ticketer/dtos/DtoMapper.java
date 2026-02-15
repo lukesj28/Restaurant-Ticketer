@@ -19,14 +19,16 @@ public class DtoMapper {
     }
 
     public static OrderItemDto toOrderItemDto(OrderItem item) {
-        return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getMainPrice(), item.getSidePrice());
+        return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getMainPrice(), item.getSidePrice(),
+                item.getComment());
     }
 
     public static OrderDto toOrderDto(Order order) {
         List<OrderItemDto> items = order.getItems().stream()
                 .map(DtoMapper::toOrderItemDto)
                 .collect(Collectors.toList());
-        return new OrderDto(items, order.getSubtotal(), order.getTotal(), order.getTax(), order.getTaxRate());
+        return new OrderDto(items, order.getSubtotal(), order.getTotal(), order.getTax(), order.getTaxRate(),
+                order.getComment());
     }
 
     public static TicketDto toTicketDto(Ticket ticket) {
@@ -48,7 +50,8 @@ public class DtoMapper {
                 ticket.getTax(),
                 ticket.getStatus(),
                 ticket.getCreatedAt() != null ? ticket.getCreatedAt().atZone(zone).format(formatter) : null,
-                ticket.getClosedAt() != null ? ticket.getClosedAt().atZone(zone).format(formatter) : null);
+                ticket.getClosedAt() != null ? ticket.getClosedAt().atZone(zone).format(formatter) : null,
+                ticket.getComment());
     }
 
     public static ItemDto toItemDto(MenuItem item) {
