@@ -34,7 +34,7 @@ public class Requests {
     public record OpeningHoursUpdateRequest(String hours) {
     }
 
-    public record AddItemRequest(String name, String selectedSide, String comment) {
+    public record AddItemRequest(String category, String name, String selectedSide, String selectedExtra, String comment) {
     }
 
     public record AddOrderRequest(String comment) {
@@ -56,5 +56,14 @@ public class Requests {
     }
 
     public record SideReorderRequest(List<String> order) {
+    }
+
+    public record ExtraCreateRequest(String name, long price) {
+    }
+
+    public record ExtraUpdateRequest(Long price, Boolean available) {
+    }
+
+    public record ExtraReorderRequest(List<String> order) {
     }
 }

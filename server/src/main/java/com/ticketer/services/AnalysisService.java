@@ -160,6 +160,14 @@ public class AnalysisService {
                                     .setTotalRevenueCents(sideItemRank.getTotalRevenueCents() + item.getSidePrice());
                         }
                     }
+
+                    String extra = item.getSelectedExtra();
+                    if (extra != null && !extra.isEmpty() && !"none".equalsIgnoreCase(extra)) {
+                        itemMap.putIfAbsent(extra, new ItemRank(extra, 0, 0));
+                        ItemRank extraItemRank = itemMap.get(extra);
+                        extraItemRank.setCount(extraItemRank.getCount() + 1);
+                        extraItemRank.setTotalRevenueCents(extraItemRank.getTotalRevenueCents() + item.getExtraPrice());
+                    }
                 }
             }
         }

@@ -112,19 +112,29 @@ public class Menu {
         return null;
     }
 
-    public static OrderItem getItem(MenuItem item, String sideName) {
-        if (!item.hasSides()) {
-            return new OrderItem(item.name, null, item.price, 0, null);
-        }
-
-        if (sideName != null && item.sideOptions.containsKey(sideName)) {
-            Side side = item.sideOptions.get(sideName);
-            return new OrderItem(item.name, sideName, item.price, side.price, null);
-        } else {
-            if (sideName != null) {
+    public static OrderItem getItem(MenuItem item, String sideName, String extraName) {
+        long sidePrice = 0;
+        String resolvedSide = null;
+        if (item.hasSides()) {
+            if (sideName != null && item.sideOptions.containsKey(sideName)) {
+                resolvedSide = sideName;
+                sidePrice = item.sideOptions.get(sideName).price;
+            } else if (sideName != null) {
                 throw new IllegalArgumentException("Invalid side selection: " + sideName);
             }
-            return new OrderItem(item.name, null, item.price, 0, null);
         }
+
+        long extraPrice = 0;
+        String resolvedExtra = null;
+        if (item.hasExtras()) {
+            if (extraName != null && item.extraOptions.containsKey(extraName)) {
+                resolvedExtra = extraName;
+                extraPrice = item.extraOptions.get(extraName).price;
+            } else if (extraName != null) {
+                throw new IllegalArgumentException("Invalid extra selection: " + extraName);
+            }
+        }
+
+        return new OrderItem(item.name, resolvedSide, resolvedExtra, item.price, sidePrice, extraPrice, null);
     }
 }

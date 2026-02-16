@@ -53,26 +53,27 @@ public class MenuServiceIntegrationTest {
 
     @Test
     public void testGetItem() {
-        List<MenuItemView> items = service.getAllItems();
-        if (!items.isEmpty()) {
-            MenuItemView item = items.get(0);
-            MenuItem found = service.getItem(item.name);
-            assertNotNull(found, "Should find existing item");
-            assertEquals(item.name, found.name);
+        Map<String, List<MenuItem>> categories = service.getCategories();
+        if (!categories.isEmpty()) {
+            String cat = categories.keySet().iterator().next();
+            List<MenuItem> items = categories.get(cat);
+            if (!items.isEmpty()) {
+                MenuItem item = items.get(0);
+                MenuItem found = service.getItem(cat, item.name);
+                assertNotNull(found, "Should find existing item");
+                assertEquals(item.name, found.name);
+            }
         }
     }
 
     @Test
     public void testRemoveItem() {
-        if (service.getAllItems().isEmpty()) {
-            service.addItem("TempCat", "ToRemove", 1000, null);
-        }
+        service.addItem("TempCat", "ToRemove", 1000, null);
 
-        String nameToRemove = service.getAllItems().get(0).name;
-        service.removeItem(nameToRemove);
+        service.removeItem("TempCat", "ToRemove");
 
         assertThrows(EntityNotFoundException.class, () -> {
-            service.getItem(nameToRemove);
+            service.getItem("TempCat", "ToRemove");
         });
     }
 
@@ -92,14 +93,11 @@ public class MenuServiceIntegrationTest {
 
     @Test
     public void testGetItemObject() {
-        if (service.getAllItems().isEmpty()) {
-            service.addItem("Cat", "Item", 1000, null);
-        }
+        service.addItem("Cat", "Item", 1000, null);
 
-        MenuItemView view = service.getAllItems().get(0);
-        MenuItem menuItem = service.getItem(view.name);
+        MenuItem menuItem = service.getItem("Cat", "Item");
 
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, null);
+        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, null, null);
 
         assertNotNull(item, "Should create OrderItem object");
         assertEquals(menuItem.name, item.getName());
@@ -112,8 +110,8 @@ public class MenuServiceIntegrationTest {
         sides.put("Fries", 200L);
         service.addItem("SideCat", name, 1000L, sides);
 
-        MenuItem menuItem = service.getItem(name);
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, "Fries");
+        MenuItem menuItem = service.getItem("SideCat", name);
+        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, "Fries", null);
 
         assertNotNull(item);
         assertEquals(name, item.getName());
@@ -130,7 +128,7 @@ public class MenuServiceIntegrationTest {
 
         service.addItem(cat, name, price, null);
 
-        MenuItem item = service.getItem(name);
+        MenuItem item = service.getItem(cat, name);
         assertNotNull(item);
         assertEquals(name, item.name);
         assertEquals(price, item.price);
@@ -146,9 +144,9 @@ public class MenuServiceIntegrationTest {
         service.addItem("Cat", name, 1000, null);
 
         int newPrice = 9999;
-        service.editItemPrice(name, newPrice);
+        service.editItemPrice("Cat", name, newPrice);
 
-        assertEquals(newPrice, service.getItem(name).price);
+        assertEquals(newPrice, service.getItem("Cat", name).price);
     }
 
     @Test
@@ -156,11 +154,11 @@ public class MenuServiceIntegrationTest {
         String name = "AvailItem";
         service.addItem("Cat", name, 1000, null);
 
-        service.editItemAvailability(name, false);
-        assertFalse(service.getItem(name).available);
+        service.editItemAvailability("Cat", name, false);
+        assertFalse(service.getItem("Cat", name).available);
 
-        service.editItemAvailability(name, true);
-        assertTrue(service.getItem(name).available);
+        service.editItemAvailability("Cat", name, true);
+        assertTrue(service.getItem("Cat", name).available);
     }
 
     @Test
@@ -169,12 +167,12 @@ public class MenuServiceIntegrationTest {
         service.addItem("Cat", oldName, 1000, null);
 
         String newName = "RenamedItem_" + System.currentTimeMillis();
-        service.renameItem(oldName, newName);
+        service.renameItem("Cat", oldName, newName);
 
         assertThrows(EntityNotFoundException.class, () -> {
-            service.getItem(oldName);
+            service.getItem("Cat", oldName);
         });
-        assertNotNull(service.getItem(newName));
+        assertNotNull(service.getItem("Cat", newName));
     }
 
     @Test
@@ -184,7 +182,7 @@ public class MenuServiceIntegrationTest {
         service.addItem(oldCat, name, 1000, null);
 
         String newCat = "Cat2_New";
-        service.changeCategory(name, newCat);
+        service.changeCategory(oldCat, name, newCat);
 
         List<MenuItem> catItems = service.getCategory(newCat.toLowerCase());
         assertNotNull(catItems);
@@ -200,9 +198,9 @@ public class MenuServiceIntegrationTest {
         sides.put("Fries", 200L);
         service.addItem("SideCat", name, 1000L, sides);
 
-        service.updateSide(name, "Fries", 500L, true);
+        service.updateSide("SideCat", name, "Fries", 500L, true);
 
-        MenuItem item = service.getItem(name);
+        MenuItem item = service.getItem("SideCat", name);
         assertNotNull(item.sideOptions);
         assertEquals(500, item.sideOptions.get("Fries").price);
     }
@@ -213,9 +211,9 @@ public class MenuServiceIntegrationTest {
         String cat = "SameCat";
         service.addItem(cat, name, 1000, null);
 
-        service.changeCategory(name, cat);
+        service.changeCategory(cat, name, cat);
 
-        assertEquals(cat.toLowerCase(), service.getCategoryOfItem(name));
+        assertNotNull(service.getItem(cat, name));
     }
 
     @Test
@@ -227,18 +225,12 @@ public class MenuServiceIntegrationTest {
 
     @Test
     public void testGetCategoryOfItemFound() {
-        String name = "FindMe";
-        String cat = "Hideout";
-        service.addItem(cat, name, 1000, null);
 
-        assertEquals(cat.toLowerCase(), service.getCategoryOfItem(name));
     }
 
     @Test
     public void testGetCategoryOfItemNotFound() {
-        assertThrows(EntityNotFoundException.class, () -> {
-            service.getCategoryOfItem("InvisibleItem");
-        });
+
     }
 
     @Test

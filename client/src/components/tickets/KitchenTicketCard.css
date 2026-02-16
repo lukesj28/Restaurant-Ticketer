@@ -134,6 +134,11 @@
     font-style: italic;
 }
 
+.kitchen-item .item-extra {
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
 /* Item comment */
 .item-comment {
     font-style: italic;

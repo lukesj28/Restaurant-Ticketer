@@ -54,6 +54,10 @@ const Menu = () => {
     const [newSide, setNewSide] = useState({ name: '', price: '' });
     const [sidesToDelete, setSidesToDelete] = useState([]); // Track sides to delete on save
 
+    // New Extra Input State
+    const [newExtra, setNewExtra] = useState({ name: '', price: '' });
+    const [extrasToDelete, setExtrasToDelete] = useState([]); // Track extras to delete on save
+
     // Confirmation Modal State
     const [confirmationModal, setConfirmationModal] = useState({
         isOpen: false,
@@ -76,7 +80,7 @@ const Menu = () => {
     );
 
     const [activeId, setActiveId] = useState(null); // ID of currently dragged item
-    const [activeDragType, setActiveDragType] = useState(null); // 'CATEGORY', 'ITEM', 'SIDE'
+    const [activeDragType, setActiveDragType] = useState(null); // 'CATEGORY', 'ITEM', 'SIDE', 'EXTRA'
 
     useEffect(() => {
         fetchMenu();
@@ -135,10 +139,14 @@ const Menu = () => {
             name: item.name,
             category: categoryName,
             sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {}, // Deep copy to avoid mutating original ref
-            sideOrder: item.sideOrder ? [...item.sideOrder] : [] // Clone explicit order
+            sideOrder: item.sideOrder ? [...item.sideOrder] : [], // Clone explicit order
+            extras: item.extras ? JSON.parse(JSON.stringify(item.extras)) : {},
+            extraOrder: item.extraOrder ? [...item.extraOrder] : []
         });
         setNewSide({ name: '', price: '' });
         setSidesToDelete([]);
+        setNewExtra({ name: '', price: '' });
+        setExtrasToDelete([]);
         setIsEditModalOpen(true);
     };
 
@@ -315,7 +323,7 @@ const Menu = () => {
                     if (originalCategory && currentCategory && originalCategory !== currentCategory) {
                         // 1. Update backend category
                         try {
-                            await api.put(`/menu/items/${active.id}/category`, { newCategory: currentCategory });
+                            await api.put(`/menu/categories/${encodeURIComponent(originalCategory)}/items/${encodeURIComponent(active.id)}/category`, { newCategory: currentCategory });
                             // 2. Update backend order in new category
                             const newItems = categories[currentCategory];
                             await api.put(`/menu/categories/${currentCategory}/items/reorder`, {
@@ -362,6 +370,28 @@ const Menu = () => {
                 }));
             }
         }
+
+        // Extra Reordering
+        if (type === 'EXTRA') {
+            const activeIdStripped = active.id.replace('extra-', '');
+            const overIdStripped = over.id.replace('extra-', '');
+
+            const currentOrder = editForm.extraOrder && editForm.extraOrder.length > 0
+                ? editForm.extraOrder
+                : Object.keys(editForm.extras || {}).filter(k => k.toLowerCase() !== 'none' && !extrasToDelete.includes(k));
+
+            const oldIndex = currentOrder.indexOf(activeIdStripped);
+            const newIndex = currentOrder.indexOf(overIdStripped);
+
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
+
+                setEditForm(prev => ({
+                    ...prev,
+                    extraOrder: newOrder
+                }));
+            }
+        }
     };
 
     const handleCategoryDelete = async () => {
@@ -386,25 +416,28 @@ const Menu = () => {
 
     const handleSaveEdit = async () => {
         try {
+            let currentName = editItem.originalName;
+            let currentCategory = editItem.originalCategory;
+
             // Check what changed and call appropriate APIs
             // Price
             const newPriceCents = Math.round(parseFloat(editForm.price) * 100);
             if (newPriceCents !== editItem.price) {
-                await api.put(`/menu/items/${editItem.originalName}/price`, { newPrice: newPriceCents });
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/price`, { newPrice: newPriceCents });
             }
             // Availability
             if (editForm.available !== editItem.available) {
-                await api.put(`/menu/items/${editItem.originalName}/availability`, { available: editForm.available });
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/availability`, { available: editForm.available });
             }
             // Rename
-            let currentName = editItem.originalName;
             if (editForm.name !== currentName) {
-                await api.put(`/menu/items/${currentName}/rename`, { newName: editForm.name });
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/rename`, { newName: editForm.name });
                 currentName = editForm.name;
             }
             // Category
             if (editForm.category !== editItem.originalCategory) {
-                await api.put(`/menu/items/${currentName}/category`, { newCategory: editForm.category });
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/category`, { newCategory: editForm.category });
+                currentCategory = editForm.category;
             }
 
             // Kitchen Status
@@ -413,9 +446,9 @@ const Menu = () => {
             // However, renameItem in backend typically handles migrating the name in kitchenItems list.
             // So we just need to check if the state changed.
             if (isKitchenItem && !wasKitchen) {
-                await api.post(`/menu/kitchen-items/${currentName}`);
+                await api.post(`/menu/kitchen-items/${encodeURIComponent(currentName)}`);
             } else if (!isKitchenItem && wasKitchen) {
-                await api.delete(`/menu/kitchen-items/${currentName}`);
+                await api.delete(`/menu/kitchen-items/${encodeURIComponent(currentName)}`);
             }
 
             // Sides updates (only for existing sides that changed)
@@ -425,7 +458,7 @@ const Menu = () => {
                     if (sidesToDelete.includes(sideName)) continue; // Will be deleted
                     const originalSide = editItem.sides && editItem.sides[sideName];
                     if (originalSide && (originalSide.price !== sideData.price || originalSide.available !== sideData.available)) {
-                        await api.put(`/menu/items/${currentName}/sides/${sideName}`, {
+                        await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/sides/${encodeURIComponent(sideName)}`, {
                             price: sideData.price,
                             available: sideData.available
                         });
@@ -435,7 +468,33 @@ const Menu = () => {
 
             // Delete sides
             for (const sideName of sidesToDelete) {
-                await api.delete(`/menu/items/${currentName}/sides/${encodeURIComponent(sideName)}`);
+                await api.delete(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/sides/${encodeURIComponent(sideName)}`);
+            }
+
+            // Reorder sides
+            if (editForm.sideOrder && editForm.sideOrder.length > 0) {
+                const finalOrder = editForm.sideOrder.filter(s => !sidesToDelete.includes(s));
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/sides/reorder`, { order: finalOrder });
+            }
+
+            // Extras updates (only for existing extras that changed)
+            if (editForm.extras) {
+                for (const [extraName, extraData] of Object.entries(editForm.extras)) {
+                    if (extraName === 'none') continue;
+                    if (extrasToDelete.includes(extraName)) continue;
+                    const originalExtra = editItem.extras && editItem.extras[extraName];
+                    if (originalExtra && (originalExtra.price !== extraData.price || originalExtra.available !== extraData.available)) {
+                        await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/${encodeURIComponent(extraName)}`, {
+                            price: extraData.price,
+                            available: extraData.available
+                        });
+                    }
+                }
+            }
+
+            // Delete extras
+            for (const extraName of extrasToDelete) {
+                await api.delete(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/${encodeURIComponent(extraName)}`);
             }
 
             setIsEditModalOpen(false);
@@ -476,7 +535,7 @@ const Menu = () => {
     const handleDelete = async () => {
         confirmAction.current = async () => {
             try {
-                await api.delete(`/menu/items/${editItem.originalName}`);
+                await api.delete(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}`);
                 setIsEditModalOpen(false);
                 fetchMenu();
                 fetchKitchenItems();
@@ -626,7 +685,7 @@ const Menu = () => {
                             const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
                             let orderedSides = [];
                             if (editForm.sideOrder && editForm.sideOrder.length > 0) {
-                                orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k));
+                                orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k) && k.toLowerCase() !== 'none');
                                 const missing = rawSideNames.filter(k => !orderedSides.includes(k));
                                 orderedSides = [...orderedSides, ...missing];
                             } else {
@@ -690,22 +749,115 @@ const Menu = () => {
                                 }
                                 const priceCents = Math.round(parseFloat(newSide.price || '0') * 100);
                                 try {
-                                    await api.post(`/menu/items/${editForm.name}/sides`, {
+                                    const updatedItem = await api.post(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/sides`, {
                                         name: newSide.name.trim(),
                                         price: priceCents
                                     });
-                                    // Update local state
+                                    // Update local state with backend response to ensure correct order
                                     setEditForm(prev => ({
                                         ...prev,
-                                        sides: {
-                                            ...prev.sides,
-                                            [newSide.name.trim()]: { price: priceCents, available: true }
-                                        }
+                                        sides: updatedItem.sides,
+                                        sideOrder: updatedItem.sideOrder
                                     }));
                                     setNewSide({ name: '', price: '' });
                                     toast.success(`Side "${newSide.name}" added`);
                                 } catch (e) {
                                     toast.error('Failed to add side: ' + e.message);
+                                }
+                            }}
+                        >
+                            Add
+                        </Button>
+                    </div>
+                </div>
+                {/* Extras Editing */}
+                <div className="extras-section">
+                    <h4>Extras</h4>
+                    <div className="extras-grid">
+                        {(() => {
+                            const extras = editForm.extras || {};
+                            const rawExtraNames = Object.keys(extras).filter(k => k.toLowerCase() !== 'none' && !extrasToDelete.includes(k));
+                            let orderedExtras = [];
+                            if (editForm.extraOrder && editForm.extraOrder.length > 0) {
+                                orderedExtras = editForm.extraOrder.filter(k => extras[k] && !extrasToDelete.includes(k));
+                                const missing = rawExtraNames.filter(k => !orderedExtras.includes(k));
+                                orderedExtras = [...orderedExtras, ...missing];
+                            } else {
+                                orderedExtras = rawExtraNames;
+                            }
+
+                            return orderedExtras.map(extraName => (
+                                <ExtraRow
+                                    key={extraName}
+                                    extraName={extraName}
+                                    extraData={extras[extraName]}
+                                    onPriceChange={e => {
+                                        const newPrice = e.target.value;
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            extras: {
+                                                ...prev.extras,
+                                                [extraName]: { ...prev.extras[extraName], price: Math.round(parseFloat(newPrice) * 100) }
+                                            }
+                                        }));
+                                    }}
+                                    onAvailableChange={e => {
+                                        const newAvail = e.target.checked;
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            extras: {
+                                                ...prev.extras,
+                                                [extraName]: { ...prev.extras[extraName], available: newAvail }
+                                            }
+                                        }));
+                                    }}
+                                    onDelete={() => setExtrasToDelete(prev => [...prev, extraName])}
+                                />
+                            ));
+                        })()}
+                    </div>
+                    {/* Add New Extra */}
+                    <div className="add-extra-row">
+                        <input
+                            type="text"
+                            placeholder="Extra name"
+                            className="extra-name-input"
+                            value={newExtra.name}
+                            onChange={e => setNewExtra(prev => ({ ...prev, name: e.target.value }))}
+                        />
+                        <input
+                            type="number"
+                            step="0.01"
+                            placeholder="Price"
+                            className="extra-price-input"
+                            value={newExtra.price}
+                            onChange={e => setNewExtra(prev => ({ ...prev, price: e.target.value }))}
+                        />
+                        <Button
+                            variant="secondary"
+                            className="add-extra-btn"
+                            onClick={async () => {
+                                if (!newExtra.name.trim()) {
+                                    toast.error('Extra name is required');
+                                    return;
+                                }
+                                const priceCents = Math.round(parseFloat(newExtra.price || '0') * 100);
+                                try {
+                                    await api.post(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/extras`, {
+                                        name: newExtra.name.trim(),
+                                        price: priceCents
+                                    });
+                                    setEditForm(prev => ({
+                                        ...prev,
+                                        extras: {
+                                            ...prev.extras,
+                                            [newExtra.name.trim()]: { price: priceCents, available: true }
+                                        }
+                                    }));
+                                    setNewExtra({ name: '', price: '' });
+                                    toast.success(`Extra "${newExtra.name}" added`);
+                                } catch (e) {
+                                    toast.error('Failed to add extra: ' + e.message);
                                 }
                             }}
                         >
@@ -982,6 +1134,37 @@ const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onDelet
                 className="side-delete-btn"
                 onClick={onDelete}
                 aria-label={`Delete ${sideName}`}
+            >
+                ×
+            </button>
+        </div>
+    );
+};
+
+const ExtraRow = ({ extraName, extraData, onPriceChange, onAvailableChange, onDelete }) => {
+    return (
+        <div className="extra-edit-row">
+            <span className="extra-name">{extraName}</span>
+            <input
+                type="number"
+                step="0.01"
+                className="extra-price-input"
+                value={extraData.price !== undefined ? (extraData.price / 100).toFixed(2) : ''}
+                onChange={onPriceChange}
+            />
+            <label className="extra-avail-label">
+                <input
+                    type="checkbox"
+                    checked={extraData.available}
+                    onChange={onAvailableChange}
+                />
+                Avail
+            </label>
+            <button
+                type="button"
+                className="extra-delete-btn"
+                onClick={onDelete}
+                aria-label={`Delete ${extraName}`}
             >
                 ×
             </button>

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ticketer.models.Extra;
 import com.ticketer.models.Menu;
 import com.ticketer.models.MenuItem;
 import com.ticketer.models.Side;
@@ -109,7 +110,19 @@ public class FileMenuRepository implements MenuRepository {
                                 new TypeReference<List<String>>() {
                                 });
                     }
-                    items.add(new MenuItem(itemName, price, available, sides, sideOrder));
+                    Map<String, Extra> extras = null;
+                    List<String> extraOrder = null;
+                    if (itemNode.has("extras")) {
+                        extras = objectMapper.convertValue(itemNode.get("extras"),
+                                new TypeReference<Map<String, Extra>>() {
+                                });
+                    }
+                    if (itemNode.has("extraOrder")) {
+                        extraOrder = objectMapper.convertValue(itemNode.get("extraOrder"),
+                                new TypeReference<List<String>>() {
+                                });
+                    }
+                    items.add(new MenuItem(itemName, price, available, sides, sideOrder, extras, extraOrder));
                 }
                 categories.put(categoryName, items);
             }
@@ -150,6 +163,14 @@ public class FileMenuRepository implements MenuRepository {
                         ArrayNode sideOrderNode = objectMapper.createArrayNode();
                         item.sideOrder.forEach(sideOrderNode::add);
                         itemNode.set("sideOrder", sideOrderNode);
+                    }
+                    if (item.extraOptions != null && !item.extraOptions.isEmpty()) {
+                        itemNode.set("extras", objectMapper.valueToTree(item.extraOptions));
+                    }
+                    if (item.extraOrder != null && !item.extraOrder.isEmpty()) {
+                        ArrayNode extraOrderNode = objectMapper.createArrayNode();
+                        item.extraOrder.forEach(extraOrderNode::add);
+                        itemNode.set("extraOrder", extraOrderNode);
                     }
                     categoryNode.set(item.name, itemNode);
                 }

@@ -54,6 +54,9 @@ const KitchenTicketCard = ({ ticket, onComplete }) => {
                                     {item.selectedSide && item.selectedSide !== 'none' && (
                                         <span className="item-side"> + {item.selectedSide}</span>
                                     )}
+                                    {item.selectedExtra && item.selectedExtra !== 'none' && (
+                                        <span className="item-extra"> + {item.selectedExtra}</span>
+                                    )}
                                     {item.comment && (
                                         <div className="item-comment">{item.comment}</div>
                                     )}

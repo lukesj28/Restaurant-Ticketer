@@ -25,10 +25,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.ticketer.exceptions.TicketerException;
 import com.ticketer.exceptions.InvalidInputException;
+import com.ticketer.exceptions.EntityNotFoundException;
 import com.ticketer.exceptions.GlobalExceptionHandler;
 import com.ticketer.models.MenuItem;
 import com.ticketer.models.MenuItemView;
 import com.ticketer.services.MenuService;
+import com.ticketer.dtos.Requests;
+import org.springframework.http.MediaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class MenuControllerTest {
 
@@ -37,6 +41,8 @@ public class MenuControllerTest {
 
         @InjectMocks
         private MenuController menuController;
+
+        private ObjectMapper mapper = new ObjectMapper();
 
         private MockMvc mockMvc;
 
@@ -60,20 +66,12 @@ public class MenuControllerTest {
                 verify(menuService).refreshMenu();
         }
 
-        @Test
-        public void testGetItem() throws Exception {
-                MenuItem item = new MenuItem("TestItem", 1000, true, new HashMap<>(), null);
-                when(menuService.getItem("TestItem")).thenReturn(item);
 
-                mockMvc.perform(get("/api/menu/items/TestItem"))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.payload.name").value("TestItem"));
-        }
 
         @Test
         public void testGetCategory() throws Exception {
                 List<MenuItem> items = new ArrayList<>();
-                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>(), null));
+                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>(), null, null, null));
                 when(menuService.getCategory("Entrees")).thenReturn(items);
 
                 mockMvc.perform(get("/api/menu/categories/Entrees"))
@@ -83,22 +81,23 @@ public class MenuControllerTest {
 
         @Test
         public void testGetAllItems() throws Exception {
-                List<MenuItemView> list = new ArrayList<>();
-                list.add(new MenuItemView("TestItem", 1000, true));
-                when(menuService.getAllItems()).thenReturn(list);
-                when(menuService.getItem("TestItem"))
-                                .thenReturn(new MenuItem("TestItem", 1000, true, new HashMap<>(), null));
+                Map<String, List<MenuItem>> map = new HashMap<>();
+                List<MenuItem> items = new ArrayList<>();
+                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>(), null, null, null));
+                map.put("Entrees", items);
+                when(menuService.getCategories()).thenReturn(map);
 
                 mockMvc.perform(get("/api/menu/items"))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.payload.length()").value(1));
+                                .andExpect(jsonPath("$.payload.length()").value(1))
+                                .andExpect(jsonPath("$.payload[0].name").value("TestItem"));
         }
 
         @Test
         public void testGetCategories() throws Exception {
                 Map<String, List<MenuItem>> map = new HashMap<>();
                 List<MenuItem> items = new ArrayList<>();
-                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>(), null));
+                items.add(new MenuItem("TestItem", 1000, true, new HashMap<>(), null, null, null));
                 map.put("Entrees", items);
                 when(menuService.getCategories()).thenReturn(map);
 
@@ -109,8 +108,8 @@ public class MenuControllerTest {
 
         @Test
         public void testAddItem() throws Exception {
-                MenuItem item = new MenuItem("NewItem", 1000, true, new HashMap<>(), null);
-                when(menuService.getItem("NewItem")).thenReturn(item);
+                MenuItem item = new MenuItem("NewItem", 1000, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "NewItem")).thenReturn(item);
 
                 String json = "{\"category\":\"Entrees\",\"name\":\"NewItem\",\"price\":1000,\"sides\":{}}";
                 mockMvc.perform(post("/api/menu/items")
@@ -123,51 +122,56 @@ public class MenuControllerTest {
 
         @Test
         public void testEditItemPrice() throws Exception {
-                MenuItem item = new MenuItem("TestItem", 1200, true, new HashMap<>(), null);
-                when(menuService.getItem("TestItem")).thenReturn(item);
+                MenuItem item = new MenuItem("TestItem", 1200, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "TestItem")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                String json = "{\"newPrice\":1200}";
-                mockMvc.perform(put("/api/menu/items/TestItem/price")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.ItemPriceUpdateRequest request = new Requests.ItemPriceUpdateRequest(1200);
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/price")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).editItemPrice("TestItem", 1200L);
+                verify(menuService).editItemPrice("Entrees", "Burger", 1200);
         }
 
         @Test
         public void testEditItemAvailability() throws Exception {
-                MenuItem item = new MenuItem("TestItem", 1000, false, new HashMap<>(), null);
-                when(menuService.getItem("TestItem")).thenReturn(item);
+                MenuItem item = new MenuItem("TestItem", 1000, false, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "TestItem")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                String json = "{\"available\":false}";
-                mockMvc.perform(put("/api/menu/items/TestItem/availability")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.ItemAvailabilityUpdateRequest request = new Requests.ItemAvailabilityUpdateRequest(false);
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/availability")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).editItemAvailability("TestItem", false);
+                verify(menuService).editItemAvailability("Entrees", "Burger", false);
         }
 
         @Test
         public void testRenameItem() throws Exception {
-                MenuItem item = new MenuItem("NewName", 1000, true, new HashMap<>(), null);
-                when(menuService.getItem("NewName")).thenReturn(item);
+                MenuItem item = new MenuItem("NewName", 1000, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "NewName")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                String json = "{\"newName\":\"NewName\"}";
-                mockMvc.perform(put("/api/menu/items/OldName/rename")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.ItemRenameRequest request = new Requests.ItemRenameRequest("Cheeseburger");
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/rename")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).renameItem("OldName", "NewName");
+                verify(menuService).renameItem("Entrees", "Burger", "Cheeseburger");
         }
 
         @Test
         public void testRemoveItem() throws Exception {
-                mockMvc.perform(delete("/api/menu/items/TestItem"))
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
+                mockMvc.perform(delete("/api/menu/categories/Entrees/items/Burger"))
                                 .andExpect(status().isOk());
-                verify(menuService).removeItem("TestItem");
+
+                verify(menuService).removeItem("Entrees", "Burger");
         }
 
         @Test
@@ -185,40 +189,41 @@ public class MenuControllerTest {
 
         @Test
         public void testChangeCategory() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
-                when(menuService.getItem("Item")).thenReturn(item);
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "Item")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                String json = "{\"newCategory\":\"NewCat\"}";
-                mockMvc.perform(put("/api/menu/items/Item/category")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.ItemCategoryUpdateRequest request = new Requests.ItemCategoryUpdateRequest("Mains");
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/category")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).changeCategory("Item", "NewCat");
+                verify(menuService).changeCategory("Entrees", "Burger", "Mains");
         }
 
         @Test
         public void testUpdateSide() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
-                when(menuService.getItem("Item")).thenReturn(item);
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "Item")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                String json = "{\"price\":500}";
-                mockMvc.perform(put("/api/menu/items/Item/sides/Side")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.SideUpdateRequest request = new Requests.SideUpdateRequest(200L, true);
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/sides/Chips")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).updateSide("Item", "Side", 500L, null);
+                verify(menuService).updateSide("Entrees", "Burger", "Chips", 200L, true);
         }
 
         @Test
         public void testNullHandling() throws Exception {
-                when(menuService.getItem("Missing")).thenReturn(null);
+                doThrow(new EntityNotFoundException("Item not found")).when(menuService).getItem("Entrees", "Missing");
 
-                mockMvc.perform(get("/api/menu/items/Missing"))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.status").value("SUCCESS"))
-                                .andExpect(jsonPath("$.payload").doesNotExist());
+                mockMvc.perform(get("/api/menu/categories/Entrees/items/Missing"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.status").value("ERROR"));
         }
 
         @Test
@@ -229,9 +234,9 @@ public class MenuControllerTest {
                                 .andExpect(status().isInternalServerError())
                                 .andExpect(jsonPath("$.status").value("ERROR"));
 
-                doThrow(new TicketerException("Ticketer Error", 400)).when(menuService).getItem("Item");
+                doThrow(new TicketerException("Ticketer Error", 400)).when(menuService).getItem("Entrees", "Item");
 
-                mockMvc.perform(get("/api/menu/items/Item"))
+                mockMvc.perform(get("/api/menu/categories/Entrees/items/Item"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.status").value("ERROR"))
                                 .andExpect(jsonPath("$.message").value("Ticketer Error"));
@@ -251,25 +256,25 @@ public class MenuControllerTest {
 
         @Test
         public void testEditItemPriceInvalid() throws Exception {
-                doThrow(new InvalidInputException("Price cannot be negative"))
-                                .when(menuService).editItemPrice(any(), anyLong());
+                doThrow(new EntityNotFoundException("Item not found")).when(menuService).editItemPrice("Entrees", "Burger", 200);
 
-                String json = "{\"newPrice\":-100}";
-                mockMvc.perform(put("/api/menu/items/Item/price")
-                                .contentType("application/json")
-                                .content(json))
-                                .andExpect(status().isBadRequest());
+                Requests.ItemPriceUpdateRequest request = new Requests.ItemPriceUpdateRequest(200);
+
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/price")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
+                                .andExpect(status().isNotFound());
         }
 
         @Test
         public void testRenameItemInvalid() throws Exception {
-                doThrow(new InvalidInputException("Item name cannot be empty"))
-                                .when(menuService).renameItem(any(), any());
+                doThrow(new InvalidInputException("New name cannot be empty")).when(menuService).renameItem("Entrees", "Burger", "");
 
-                String json = "{\"newName\":\"\"}";
-                mockMvc.perform(put("/api/menu/items/Item/rename")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.ItemRenameRequest request = new Requests.ItemRenameRequest("");
+
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/rename")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isBadRequest());
         }
 
@@ -287,45 +292,48 @@ public class MenuControllerTest {
 
         @Test
         public void testChangeCategoryInvalid() throws Exception {
-                doThrow(new InvalidInputException("Category cannot be empty"))
-                                .when(menuService).changeCategory(any(), any());
+                doThrow(new EntityNotFoundException("Category not found")).when(menuService).changeCategory("Entrees", "Burger", "Missing");
 
-                String json = "{\"newCategory\":\"\"}";
-                mockMvc.perform(put("/api/menu/items/Item/category")
-                                .contentType("application/json")
-                                .content(json))
-                                .andExpect(status().isBadRequest());
+                Requests.ItemCategoryUpdateRequest request = new Requests.ItemCategoryUpdateRequest("Missing");
+
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/category")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
+                                .andExpect(status().isNotFound());
         }
 
         @Test
         public void testAddSide() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
-                when(menuService.getItem("Item")).thenReturn(item);
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "Item")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                String json = "{\"name\":\"chips\",\"price\":299}";
-                mockMvc.perform(post("/api/menu/items/Item/sides")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.SideCreateRequest request = new Requests.SideCreateRequest("Fries", 200);
+                mockMvc.perform(post("/api/menu/categories/Entrees/items/Burger/sides")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).addSide("Item", "chips", 299);
+                verify(menuService).addSide("Entrees", "Burger", "Fries", 200);
         }
 
         @Test
         public void testRemoveSide() throws Exception {
-                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null);
-                when(menuService.getItem("Item")).thenReturn(item);
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "Item")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                mockMvc.perform(delete("/api/menu/items/Item/sides/chips"))
+                mockMvc.perform(delete("/api/menu/categories/Entrees/items/Burger/sides/Fries"))
                                 .andExpect(status().isOk());
 
-                verify(menuService).removeSide("Item", "chips");
+                verify(menuService).removeSide("Entrees", "Burger", "Fries");
         }
 
         @Test
         public void testReorderCategories() throws Exception {
                 java.util.List<String> order = java.util.Arrays.asList("Cat1", "Cat2");
                 when(menuService.getCategoryOrder()).thenReturn(order);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
                 String json = "{\"order\":[\"Cat1\",\"Cat2\"]}";
                 mockMvc.perform(put("/api/menu/categories/reorder")
@@ -340,6 +348,7 @@ public class MenuControllerTest {
         public void testReorderItemsInCategory() throws Exception {
                 java.util.List<String> order = java.util.Arrays.asList("Item1", "Item2");
                 when(menuService.getCategory("Cat1")).thenReturn(new ArrayList<>());
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
                 String json = "{\"order\":[\"Item1\",\"Item2\"]}";
                 mockMvc.perform(put("/api/menu/categories/Cat1/items/reorder")
@@ -353,15 +362,16 @@ public class MenuControllerTest {
         @Test
         public void testReorderSidesInItem() throws Exception {
                 java.util.List<String> order = java.util.Arrays.asList("Side1", "Side2");
-                MenuItem item = new MenuItem("Item", 100, true, new HashMap<>(), null);
-                when(menuService.getItem("Item")).thenReturn(item);
+                MenuItem item = new MenuItem("Item", 100, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "Burger")).thenReturn(item);
+                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                String json = "{\"order\":[\"Side1\",\"Side2\"]}";
-                mockMvc.perform(put("/api/menu/items/Item/sides/reorder")
-                                .contentType("application/json")
-                                .content(json))
+                Requests.SideReorderRequest request = new Requests.SideReorderRequest(order);
+                mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/sides/reorder")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).reorderSidesInItem("Item", order);
+                verify(menuService).reorderSidesInItem("Entrees", "Burger", order);
         }
 }

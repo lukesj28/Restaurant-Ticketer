@@ -7,7 +7,7 @@ public class MenuItemTest {
 
     @Test
     public void testHasSides() {
-        MenuItem cItem = new MenuItem("Name", 100, true, null, null);
+        MenuItem cItem = new MenuItem("Name", 100, true, null, null, null, null);
         assertFalse(cItem.hasSides());
     }
 }

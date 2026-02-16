@@ -1,12 +1,12 @@
 package com.ticketer.models;
 
-public class Side {
+public class Extra {
     public long price;
     public boolean available;
 
-    public Side() {}
+    public Extra() {}
 
-    public Side(Side other) {
+    public Extra(Extra other) {
         this.price = other.price;
         this.available = other.available;
     }

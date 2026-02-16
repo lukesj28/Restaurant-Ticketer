@@ -17,6 +17,8 @@ const TicketDetail = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedOrderIndex, setSelectedOrderIndex] = useState(0); // Default to last or specific
     const [selectedItemForSides, setSelectedItemForSides] = useState(null);
+    const [selectedItemForExtras, setSelectedItemForExtras] = useState(null);
+    const [pendingSideName, setPendingSideName] = useState(null);
     const [commentDrafts, setCommentDrafts] = useState({});
     const commentTimers = React.useRef({});
 
@@ -65,7 +67,7 @@ const TicketDetail = () => {
         }
     };
 
-    const handleAddItem = async (itemName, sideName) => {
+    const handleAddItem = async (category, itemName, sideName, extraName) => {
         // Add to the specifically selected order index.
         let orderIdx = selectedOrderIndex;
         // If for some reason index is invalid (should not happen with UI), fallback to last
@@ -80,10 +82,14 @@ const TicketDetail = () => {
 
         try {
             await api.post(`/tickets/${id}/orders/${orderIdx}/items`, {
+                category: category,
                 name: itemName,
-                selectedSide: sideName
+                selectedSide: sideName,
+                selectedExtra: extraName
             });
             setIsMenuOpen(false);
+            setSelectedItemForExtras(null);
+            setPendingSideName(null);
             fetchTicket(); // refresh
         } catch (e) {
             toast.error(e.message);
@@ -213,7 +219,8 @@ const TicketDetail = () => {
         try {
             await api.delete(`/tickets/${id}/orders/${orderIndex}/items`, {
                 name: item.name,
-                selectedSide: item.selectedSide
+                selectedSide: item.selectedSide,
+                selectedExtra: item.selectedExtra
             });
             fetchTicket();
         } catch (e) {
@@ -225,30 +232,75 @@ const TicketDetail = () => {
     if (!ticket) return <div className="error">Ticket not found</div>;
 
     // Helper to render Menu Selection Modal
+    const hasExtras = (item) => item.extras && Object.keys(item.extras).length > 0;
+
+    const proceedAfterSide = (item, sideName) => {
+        if (hasExtras(item)) {
+            setSelectedItemForExtras(item);
+            setPendingSideName(sideName);
+            setSelectedItemForSides(null);
+        } else {
+            handleAddItem(item.category, item.name, sideName, null);
+        }
+    };
+
     const renderMenuModal = () => (
         <Modal
             isOpen={isMenuOpen}
-            onClose={() => { setIsMenuOpen(false); setSelectedItemForSides(null); }}
+            onClose={() => { setIsMenuOpen(false); setSelectedItemForSides(null); setSelectedItemForExtras(null); setPendingSideName(null); }}
             title="Add Item"
         >
             <div className="menu-selection">
-                {selectedItemForSides ? (
+                {selectedItemForExtras ? (
+                    <div className="extra-selection-block">
+                        <div className="extra-selection-header">
+                            <Button size="small" variant="secondary" onClick={() => {
+                                setSelectedItemForExtras(null);
+                                setPendingSideName(null);
+                                // Go back to sides if item has sides, otherwise to menu
+                                if (selectedItemForExtras.sides && Object.keys(selectedItemForExtras.sides).length > 0) {
+                                    setSelectedItemForSides(selectedItemForExtras);
+                                }
+                            }}>Back</Button>
+                            <h4>Select Extra for {selectedItemForExtras.name}</h4>
+                        </div>
+                        <div className="menu-items-grid">
+                            {Object.entries(selectedItemForExtras.extras || {})
+                                .sort(([extraA], [extraB]) => {
+                                    const order = selectedItemForExtras.extraOrder || [];
+                                    const idxA = order.indexOf(extraA);
+                                    const idxB = order.indexOf(extraB);
+                                    if (idxA === -1 && idxB === -1) return 0;
+                                    if (idxA === -1) return 1;
+                                    if (idxB === -1) return -1;
+                                    return idxA - idxB;
+                                })
+                                .map(([extraName, extraData]) => (
+                                    <button
+                                        key={extraName}
+                                        className={`menu-item-btn ${!extraData.available ? 'unavailable' : ''}`}
+                                        disabled={!extraData.available}
+                                        onClick={() => handleAddItem(selectedItemForExtras.category, selectedItemForExtras.name, pendingSideName, extraName)}
+                                    >
+                                        <div className="item-name">{extraName}</div>
+                                        <div className="item-price">${(extraData.price / 100).toFixed(2)}</div>
+                                    </button>
+                                ))}
+                        </div>
+                    </div>
+                ) : selectedItemForSides ? (
                     <div className="side-selection-block">
                         <div className="side-selection-header">
                             <Button size="small" variant="secondary" onClick={() => setSelectedItemForSides(null)}>Back</Button>
                             <h4>Select Side for {selectedItemForSides.name}</h4>
                         </div>
                         <div className="menu-items-grid">
-                            {/* Always offer 'None' option if that's the intent, or just list available sides */}
-                            {/* The requirement said "sides" map in item has "none" if applicable, or we inject it?
-                                 Looking at menu.json, "none" is explicit side with price 0.
-                                 So we just iterate sides. */}
                             {Object.entries(selectedItemForSides.sides || {})
                                 .sort(([sideA], [sideB]) => {
                                     const order = selectedItemForSides.sideOrder || [];
                                     const idxA = order.indexOf(sideA);
                                     const idxB = order.indexOf(sideB);
-                                    if (idxA === -1 && idxB === -1) return 0; // Maintain original order if both missing
+                                    if (idxA === -1 && idxB === -1) return 0;
                                     if (idxA === -1) return 1;
                                     if (idxB === -1) return -1;
                                     return idxA - idxB;
@@ -258,7 +310,7 @@ const TicketDetail = () => {
                                         key={sideName}
                                         className={`menu-item-btn ${!sideData.available ? 'unavailable' : ''}`}
                                         disabled={!sideData.available}
-                                        onClick={() => handleAddItem(selectedItemForSides.name, sideName)}
+                                        onClick={() => proceedAfterSide(selectedItemForSides, sideName)}
                                     >
                                         <div className="item-name">{sideName}</div>
                                         <div className="item-price">${(sideData.price / 100).toFixed(2)}</div>
@@ -286,10 +338,14 @@ const TicketDetail = () => {
                                             className={`menu-item-btn ${!item.available ? 'unavailable' : ''}`}
                                             disabled={!item.available}
                                             onClick={() => {
-                                                if (item.sides && Object.keys(item.sides).length > 0) {
-                                                    setSelectedItemForSides(item);
+                                                const hasSides = item.sides && Object.keys(item.sides).length > 0;
+                                                if (hasSides) {
+                                                    setSelectedItemForSides({ ...item, category });
+                                                } else if (hasExtras(item)) {
+                                                    setSelectedItemForExtras({ ...item, category });
+                                                    setPendingSideName(null);
                                                 } else {
-                                                    handleAddItem(item.name, null);
+                                                    handleAddItem(category, item.name, null, null);
                                                 }
                                             }}
                                         >
@@ -389,6 +445,9 @@ const TicketDetail = () => {
                                         {item.selectedSide && item.selectedSide !== 'none' && (
                                             <span className="item-side"> + {item.selectedSide}</span>
                                         )}
+                                        {item.selectedExtra && item.selectedExtra !== 'none' && (
+                                            <div className="item-extra">+ {item.selectedExtra} (${(item.extraPrice / 100).toFixed(2)})</div>
+                                        )}
                                         {ticket.status !== 'CLOSED' && (
                                             <input
                                                 type="text"
@@ -404,7 +463,7 @@ const TicketDetail = () => {
                                         )}
                                     </div>
                                     <div className="item-price-col">
-                                        <span>${((item.mainPrice + item.sidePrice) / 100).toFixed(2)}</span>
+                                        <span>${((item.mainPrice + item.sidePrice + (item.extraPrice || 0)) / 100).toFixed(2)}</span>
                                         {ticket.status !== 'CLOSED' && (
                                             <button
                                                 className="delete-item-btn"

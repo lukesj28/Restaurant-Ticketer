@@ -237,3 +237,113 @@
     padding: 6px 12px;
     font-size: 0.85rem;
 }
+
+/* Extra Editing Styles */
+.extras-section {
+    margin-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--spacing-md);
+}
+
+.extras-section h4 {
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text-primary);
+    font-family: var(--font-heading);
+}
+
+.extras-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: var(--spacing-xs);
+}
+
+.extra-edit-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+}
+
+.extra-name {
+    flex: 2;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-primary);
+}
+
+.extra-price-input {
+    flex: 1;
+    min-width: 60px;
+    padding: 4px;
+    font-size: 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: var(--color-text-primary);
+}
+
+.extra-avail-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+}
+
+.extra-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-danger, #dc3545);
+    font-size: 1.2rem;
+    font-weight: bold;
+    padding: 0 4px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.extra-delete-btn:hover {
+    opacity: 1;
+}
+
+.add-extra-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px dashed var(--color-border);
+}
+
+.extra-name-input {
+    flex: 2;
+    min-width: 100px;
+    padding: 6px 8px;
+    font-size: 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+}
+
+.extra-name-input:focus,
+.extra-price-input:focus {
+    border-color: var(--color-accent);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.add-extra-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}

@@ -118,7 +118,7 @@ public class TicketController {
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.AddItemRequest request) {
         logger.info("Received request to add item {} to ticket {} order {}", request.name(), ticketId, orderIndex);
-        OrderItem item = menuService.createOrderItem(request.name(), request.selectedSide());
+        OrderItem item = menuService.createOrderItem(request.category(), request.name(), request.selectedSide(), request.selectedExtra());
         ticketService.addItemToOrder(ticketId, orderIndex, item, request.comment());
         return getTicket(ticketId);
     }
@@ -127,7 +127,7 @@ public class TicketController {
     public ApiResponse<TicketDto> removeItemFromOrder(@PathVariable("ticketId") int ticketId,
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.AddItemRequest request) {
-        OrderItem item = new OrderItem(request.name(), request.selectedSide(), 0, 0, null);
+        OrderItem item = new OrderItem(request.name(), request.selectedSide(), request.selectedExtra(), 0, 0, 0, null);
         ticketService.removeItemFromOrder(ticketId, orderIndex, item);
         return getTicket(ticketId);
     }
@@ -193,26 +193,31 @@ public class TicketController {
 
     private List<KitchenItemDto> groupKitchenItems(Order order, List<String> kitchenItems) {
         List<KitchenItemDto> result = new java.util.ArrayList<>();
-        java.util.Map<String, java.util.Map<String, Integer>> grouped = new java.util.LinkedHashMap<>();
+        java.util.Map<String, java.util.Map<String, java.util.Map<String, Integer>>> grouped = new java.util.LinkedHashMap<>();
 
         for (OrderItem item : order.getItems()) {
             if (!kitchenItems.contains(item.getName())) {
                 continue;
             }
             if (item.getComment() != null && !item.getComment().trim().isEmpty()) {
-                result.add(new KitchenItemDto(item.getName(), item.getSelectedSide(), 1, item.getComment()));
+                result.add(new KitchenItemDto(item.getName(), item.getSelectedSide(), item.getSelectedExtra(), 1, item.getComment()));
             } else {
                 String sideKey = item.getSelectedSide() != null ? item.getSelectedSide() : "";
-                grouped.computeIfAbsent(item.getName(), k -> new java.util.LinkedHashMap<>());
-                grouped.get(item.getName()).merge(sideKey, 1, Integer::sum);
+                String extraKey = item.getSelectedExtra() != null ? item.getSelectedExtra() : "";
+                grouped.computeIfAbsent(item.getName(), k -> new java.util.LinkedHashMap<>())
+                       .computeIfAbsent(sideKey, k -> new java.util.LinkedHashMap<>())
+                       .merge(extraKey, 1, Integer::sum);
             }
         }
 
         for (String kitchenItemName : kitchenItems) {
             if (grouped.containsKey(kitchenItemName)) {
-                for (java.util.Map.Entry<String, Integer> entry : grouped.get(kitchenItemName).entrySet()) {
-                    String side = entry.getKey().isEmpty() ? null : entry.getKey();
-                    result.add(new KitchenItemDto(kitchenItemName, side, entry.getValue(), null));
+                for (java.util.Map.Entry<String, java.util.Map<String, Integer>> sideEntry : grouped.get(kitchenItemName).entrySet()) {
+                    String side = sideEntry.getKey().isEmpty() ? null : sideEntry.getKey();
+                    for (java.util.Map.Entry<String, Integer> extraEntry : sideEntry.getValue().entrySet()) {
+                        String extra = extraEntry.getKey().isEmpty() ? null : extraEntry.getKey();
+                        result.add(new KitchenItemDto(kitchenItemName, side, extra, extraEntry.getValue(), null));
+                    }
                 }
             }
         }

@@ -33,29 +33,12 @@ public class MenuController {
         return ApiResponse.success(java.util.Collections.emptyList());
     }
 
-    @GetMapping("/items/{name}")
-    public ApiResponse<ItemDto> getItem(@PathVariable String name) {
-        MenuItem item = menuService.getItem(name);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
-    }
-
-    @GetMapping("/categories/{categoryName}")
-    public ApiResponse<List<ItemDto>> getCategory(@PathVariable String categoryName) {
-        List<MenuItem> items = menuService.getCategory(categoryName);
-        List<ItemDto> dtos = items.stream()
-                .map(DtoMapper::toItemDto)
-                .collect(Collectors.toList());
-        return ApiResponse.success(dtos);
-    }
-
     @GetMapping("/items")
     public ApiResponse<List<ItemDto>> getAllItems() {
-        List<MenuItemView> views = menuService.getAllItems();
-        List<ItemDto> dtos = views.stream()
-                .map(v -> {
-                    MenuItem full = menuService.getItem(v.name);
-                    return DtoMapper.toItemDto(full);
-                })
+        Map<String, List<MenuItem>> categories = menuService.getCategories();
+        List<ItemDto> dtos = categories.values().stream()
+                .flatMap(List::stream)
+                .map(DtoMapper::toItemDto)
                 .collect(Collectors.toList());
         return ApiResponse.success(dtos);
     }
@@ -72,43 +55,59 @@ public class MenuController {
         return ApiResponse.success(dtos);
     }
 
+    @GetMapping("/categories/{categoryName}")
+    public ApiResponse<List<ItemDto>> getCategory(@PathVariable String categoryName) {
+        List<MenuItem> items = menuService.getCategory(categoryName);
+        List<ItemDto> dtos = items.stream()
+                .map(DtoMapper::toItemDto)
+                .collect(Collectors.toList());
+        return ApiResponse.success(dtos);
+    }
+
+    @GetMapping("/categories/{categoryName}/items/{itemName}")
+    public ApiResponse<ItemDto> getItem(@PathVariable String categoryName, @PathVariable String itemName) {
+        MenuItem item = menuService.getItem(categoryName, itemName);
+        return ApiResponse.success(DtoMapper.toItemDto(item));
+    }
+
     @PostMapping("/items")
     public ApiResponse<ItemDto> addItem(@RequestBody Requests.ItemCreateRequest request) {
         logger.info("Received request to add item: {} to category: {}", request.name(), request.category());
         menuService.addItem(request.category(), request.name(), request.price(), request.sides());
-        MenuItem item = menuService.getItem(request.name());
+        MenuItem item = menuService.getItem(request.category(), request.name());
         return ApiResponse.success(DtoMapper.toItemDto(item));
     }
 
-    @PutMapping("/items/{itemName}/price")
-    public ApiResponse<ItemDto> editItemPrice(@PathVariable String itemName,
+    @PutMapping("/categories/{categoryName}/items/{itemName}/price")
+    public ApiResponse<List<ItemDto>> editItemPrice(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
             @RequestBody Requests.ItemPriceUpdateRequest request) {
-        menuService.editItemPrice(itemName, request.newPrice());
-        MenuItem item = menuService.getItem(itemName);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
+        menuService.editItemPrice(categoryName, itemName, request.newPrice());
+        return getAllItems();
     }
 
-    @PutMapping("/items/{itemName}/availability")
-    public ApiResponse<ItemDto> editItemAvailability(@PathVariable String itemName,
+    @PutMapping("/categories/{categoryName}/items/{itemName}/availability")
+    public ApiResponse<List<ItemDto>> editItemAvailability(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
             @RequestBody Requests.ItemAvailabilityUpdateRequest request) {
-        menuService.editItemAvailability(itemName, request.available());
-        MenuItem item = menuService.getItem(itemName);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
+        menuService.editItemAvailability(categoryName, itemName, request.available());
+        return getAllItems();
     }
 
-    @PutMapping("/items/{oldName}/rename")
-    public ApiResponse<ItemDto> renameItem(@PathVariable String oldName,
+    @PutMapping("/categories/{categoryName}/items/{oldName}/rename")
+    public ApiResponse<List<ItemDto>> renameItem(@PathVariable("categoryName") String categoryName,
+            @PathVariable("oldName") String oldName,
             @RequestBody Requests.ItemRenameRequest request) {
-        menuService.renameItem(oldName, request.newName());
-        MenuItem item = menuService.getItem(request.newName());
-        return ApiResponse.success(DtoMapper.toItemDto(item));
+        menuService.renameItem(categoryName, oldName, request.newName());
+        return getAllItems();
     }
 
-    @DeleteMapping("/items/{itemName}")
-    public ApiResponse<List<String>> removeItem(@PathVariable String itemName) {
-        logger.info("Received request to remove item: {}", itemName);
-        menuService.removeItem(itemName);
-        return ApiResponse.success(java.util.Collections.emptyList());
+    @DeleteMapping("/categories/{categoryName}/items/{itemName}")
+    public ApiResponse<List<ItemDto>> removeItem(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName) {
+        logger.info("Received request to remove item: {} from category: {}", itemName, categoryName);
+        menuService.removeItem(categoryName, itemName);
+        return getAllItems();
     }
 
     @PutMapping("/categories/{oldCategory}/rename")
@@ -122,37 +121,30 @@ public class MenuController {
         return ApiResponse.success(dtos);
     }
 
-    @PutMapping("/items/{itemName}/category")
-    public ApiResponse<ItemDto> changeCategory(@PathVariable String itemName,
+    @PutMapping("/categories/{categoryName}/items/{itemName}/category")
+    public ApiResponse<List<ItemDto>> changeCategory(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
             @RequestBody Requests.ItemCategoryUpdateRequest request) {
-        menuService.changeCategory(itemName, request.newCategory());
-        MenuItem item = menuService.getItem(itemName);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
+        menuService.changeCategory(categoryName, itemName, request.newCategory());
+        return getAllItems();
     }
 
-    @PutMapping("/items/{itemName}/sides/{sideName}")
-    public ApiResponse<ItemDto> updateSide(@PathVariable String itemName, @PathVariable String sideName,
+    @PutMapping("/categories/{categoryName}/items/{itemName}/sides/{sideName}")
+    public ApiResponse<List<ItemDto>> updateSide(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @PathVariable("sideName") String sideName,
             @RequestBody Requests.SideUpdateRequest request) {
-        menuService.updateSide(itemName, sideName, request.price(), request.available());
-        MenuItem item = menuService.getItem(itemName);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
+        menuService.updateSide(categoryName, itemName, sideName, request.price(), request.available());
+        return getAllItems();
     }
 
-    @PostMapping("/items/{itemName}/sides")
-    public ApiResponse<ItemDto> addSide(@PathVariable String itemName,
-            @RequestBody Requests.SideCreateRequest request) {
-        logger.info("Received request to add side {} to item {}", request.name(), itemName);
-        menuService.addSide(itemName, request.name(), request.price());
-        MenuItem item = menuService.getItem(itemName);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
-    }
-
-    @DeleteMapping("/items/{itemName}/sides/{sideName}")
-    public ApiResponse<ItemDto> removeSide(@PathVariable String itemName, @PathVariable String sideName) {
-        logger.info("Received request to remove side {} from item {}", sideName, itemName);
-        menuService.removeSide(itemName, sideName);
-        MenuItem item = menuService.getItem(itemName);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
+    @DeleteMapping("/categories/{categoryName}/items/{itemName}/sides/{sideName}")
+    public ApiResponse<List<ItemDto>> removeSide(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @PathVariable("sideName") String sideName) {
+        logger.info("Received request to remove side {} from item {} in category {}", sideName, itemName, categoryName);
+        menuService.removeSide(categoryName, itemName, sideName);
+        return getAllItems();
     }
 
     @DeleteMapping("/categories/{categoryName}")
@@ -195,16 +187,60 @@ public class MenuController {
         return ApiResponse.success(dtos);
     }
 
-    @PutMapping("/items/{itemName}/sides/reorder")
-    public ApiResponse<ItemDto> reorderSidesInItem(@PathVariable String itemName,
+    @PutMapping("/categories/{categoryName}/items/{itemName}/sides/reorder")
+    public ApiResponse<List<ItemDto>> reorderSidesInItem(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
             @RequestBody Requests.SideReorderRequest request) {
-        menuService.reorderSidesInItem(itemName, request.order());
-        MenuItem item = menuService.getItem(itemName);
-        return ApiResponse.success(DtoMapper.toItemDto(item));
+        menuService.reorderSidesInItem(categoryName, itemName, request.order());
+        return getAllItems();
     }
 
     @GetMapping("/category-order")
     public ApiResponse<List<String>> getCategoryOrder() {
         return ApiResponse.success(menuService.getCategoryOrder());
+    }
+
+    @PostMapping("/categories/{categoryName}/items/{itemName}/sides")
+    public ApiResponse<List<ItemDto>> addSide(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @RequestBody Requests.SideCreateRequest request) {
+        logger.info("Received request to add side {} to item {} in category {}", request.name(), itemName, categoryName);
+        menuService.addSide(categoryName, itemName, request.name(), request.price());
+        return getAllItems();
+    }
+
+    @PostMapping("/categories/{categoryName}/items/{itemName}/extras")
+    public ApiResponse<List<ItemDto>> addExtra(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @RequestBody Requests.ExtraCreateRequest request) {
+        logger.info("Received request to add extra {} to item {} in category {}", request.name(), itemName, categoryName);
+        menuService.addExtra(categoryName, itemName, request.name(), request.price());
+        return getAllItems();
+    }
+
+    @PutMapping("/categories/{categoryName}/items/{itemName}/extras/{extraName}")
+    public ApiResponse<List<ItemDto>> updateExtra(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @PathVariable("extraName") String extraName,
+            @RequestBody Requests.ExtraUpdateRequest request) {
+        menuService.updateExtra(categoryName, itemName, extraName, request.price(), request.available());
+        return getAllItems();
+    }
+
+    @DeleteMapping("/categories/{categoryName}/items/{itemName}/extras/{extraName}")
+    public ApiResponse<List<ItemDto>> removeExtra(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @PathVariable("extraName") String extraName) {
+        logger.info("Received request to remove extra {} from item {} in category {}", extraName, itemName, categoryName);
+        menuService.removeExtra(categoryName, itemName, extraName);
+        return getAllItems();
+    }
+
+    @PutMapping("/categories/{categoryName}/items/{itemName}/extras/reorder")
+    public ApiResponse<List<ItemDto>> reorderExtrasInItem(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @RequestBody Requests.ExtraReorderRequest request) {
+        menuService.reorderExtrasInItem(categoryName, itemName, request.order());
+        return getAllItems();
     }
 }

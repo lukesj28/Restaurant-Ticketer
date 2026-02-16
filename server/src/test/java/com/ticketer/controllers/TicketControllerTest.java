@@ -104,11 +104,11 @@ public class TicketControllerTest {
                 fries.price = 200;
                 fries.available = true;
                 sides.put("Fries", fries);
-                MenuItem menuItem = new MenuItem("TestItem", 1000, true, sides, null);
-                when(menuService.getItem("TestItem")).thenReturn(menuItem);
+                MenuItem menuItem = new MenuItem("TestItem", 1000, true, sides, null, null, null);
+                when(menuService.getItem("Entrees", "TestItem")).thenReturn(menuItem);
 
-                when(menuService.createOrderItem("TestItem", "Fries"))
-                                .thenReturn(new OrderItem("TestItem", "Fries", 1000, 200, null));
+                when(menuService.createOrderItem("Entrees", "TestItem", "Fries", null))
+                                .thenReturn(new OrderItem("TestItem", "Fries", null, 1000, 200, 0, null));
 
                 doAnswer(invocation -> {
                         OrderItem item = invocation.getArgument(2);
@@ -123,7 +123,7 @@ public class TicketControllerTest {
                         return null;
                 }).when(ticketService).removeItemFromOrder(eq(1), eq(0), any(OrderItem.class));
 
-                String json = "{\"name\":\"TestItem\",\"selectedSide\":\"Fries\"}";
+                String json = "{\"category\":\"Entrees\",\"name\":\"TestItem\",\"selectedSide\":\"Fries\"}";
                 mockMvc.perform(post("/api/tickets/1/orders/0/items")
                                 .contentType("application/json")
                                 .content(json))
@@ -153,12 +153,12 @@ public class TicketControllerTest {
 
         @Test
         public void testOrderExceptions() throws Exception {
-                when(menuService.getItem("MissingItem")).thenReturn(null);
-                when(menuService.createOrderItem("MissingItem", null))
+                when(menuService.getItem("Entrees", "MissingItem")).thenReturn(null);
+                when(menuService.createOrderItem("Entrees", "MissingItem", null, null))
                                 .thenThrow(new EntityNotFoundException(
                                                 "Item not found: MissingItem"));
 
-                String json = "{\"name\":\"MissingItem\"}";
+                String json = "{\"category\":\"Entrees\",\"name\":\"MissingItem\"}";
                 mockMvc.perform(post("/api/tickets/1/orders/0/items")
                                 .contentType("application/json")
                                 .content(json))
@@ -223,7 +223,7 @@ public class TicketControllerTest {
         public void testGetTicketTally() throws Exception {
                 Ticket ticket = new Ticket(1);
                 Order order = new Order(1300);
-                order.addItem(new OrderItem("Burger", "Fries", 1000, 0, null));
+                order.addItem(new OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);
@@ -238,9 +238,9 @@ public class TicketControllerTest {
         public void testGetTicketKitchenTally() throws Exception {
                 Ticket ticket = new Ticket(1);
                 Order order = new Order(1300);
-                order.addItem(new OrderItem("Burger", "Fries", 1000, 0, null));
-                order.addItem(new OrderItem("Pizza", "None", 1200, 0, null));
-                order.addItem(new OrderItem("Coke", "None", 200, 0, null));
+                order.addItem(new OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
+                order.addItem(new OrderItem("Pizza", "None", null, 1200, 0, 0, null));
+                order.addItem(new OrderItem("Coke", "None", null, 200, 0, 0, null));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);
@@ -340,9 +340,9 @@ public class TicketControllerTest {
         @Test
         public void testAddItemToOrderInvalid() throws Exception {
                 doThrow(new InvalidInputException("Item name cannot be empty"))
-                                .when(menuService).createOrderItem(any(), any());
+                                .when(menuService).createOrderItem(any(), any(), any(), any());
 
-                String json = "{\"name\":\"\",\"selectedSide\":\"None\"}";
+                String json = "{\"category\":\"Entrees\",\"name\":\"\",\"selectedSide\":\"None\"}";
                 mockMvc.perform(post("/api/tickets/1/orders/0/items")
                                 .contentType("application/json")
                                 .content(json))

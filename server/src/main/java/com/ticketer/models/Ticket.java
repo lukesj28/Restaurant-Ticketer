@@ -138,6 +138,10 @@ public class Ticket {
                         && !"none".equalsIgnoreCase(item.getSelectedSide())) {
                     tally.merge(item.getSelectedSide(), 1, Integer::sum);
                 }
+                if (item.getSelectedExtra() != null && !item.getSelectedExtra().isEmpty()
+                        && !"none".equalsIgnoreCase(item.getSelectedExtra())) {
+                    tally.merge(item.getSelectedExtra(), 1, Integer::sum);
+                }
             }
         }
         return tally;

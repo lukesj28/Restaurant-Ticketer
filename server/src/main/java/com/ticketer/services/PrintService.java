@@ -248,6 +248,12 @@ public class PrintService {
             String sideLine = formatLine("  + " + item.getSelectedSide(), sidePrice);
             escpos.writeLF(sideLine);
         }
+
+        if (item.getSelectedExtra() != null && !"none".equalsIgnoreCase(item.getSelectedExtra())) {
+            String extraPrice = formatPrice(item.getExtraPrice());
+            String extraLine = formatLine("  + " + item.getSelectedExtra(), extraPrice);
+            escpos.writeLF(extraLine);
+        }
     }
 
     private void printTicketTotals(EscPos escpos, Ticket ticket) throws IOException {

@@ -19,7 +19,8 @@ public class DtoMapper {
     }
 
     public static OrderItemDto toOrderItemDto(OrderItem item) {
-        return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getMainPrice(), item.getSidePrice(),
+        return new OrderItemDto(item.getName(), item.getSelectedSide(), item.getSelectedExtra(),
+                item.getMainPrice(), item.getSidePrice(), item.getExtraPrice(),
                 item.getComment());
     }
 
@@ -64,11 +65,20 @@ public class DtoMapper {
                             Map.Entry::getKey,
                             e -> new SideDto(e.getValue().price, e.getValue().available)));
         }
+        Map<String, ExtraDto> extras = null;
+        if (item.extraOptions != null) {
+            extras = item.extraOptions.entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            e -> new ExtraDto(e.getValue().price, e.getValue().available)));
+        }
         return new ItemDto(
                 item.name,
                 item.price,
                 item.available,
                 sides,
-                item.sideOrder);
+                item.sideOrder,
+                extras,
+                item.extraOrder);
     }
 }
