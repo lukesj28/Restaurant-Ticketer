@@ -689,7 +689,10 @@ const TicketDetail = () => {
     return (
         <div className="ticket-detail-page">
             <div className="detail-header">
-                <Button variant="secondary" onClick={() => navigate('/tickets')}>&larr; Back</Button>
+                <Button variant="secondary" onClick={() => {
+                        const status = ticket.status?.toLowerCase() || 'active';
+                        navigate('/tickets', { state: { tab: status } });
+                    }}>&larr; Back</Button>
                 <h2>Table {ticket.tableNumber} <span className="id-sub">#{ticket.id}</span></h2>
                 <div className="header-actions">
                     {(!ticket.status || ticket.status === 'ACTIVE') && (

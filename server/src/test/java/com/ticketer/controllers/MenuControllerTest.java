@@ -306,15 +306,30 @@ public class MenuControllerTest {
         public void testAddSide() throws Exception {
                 MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null, null, null);
                 when(menuService.getItem("Entrees", "Item")).thenReturn(item);
-                when(menuService.getCategories()).thenReturn(new HashMap<>());
 
                 Requests.SideCreateRequest request = new Requests.SideCreateRequest("Fries", 200);
-                mockMvc.perform(post("/api/menu/categories/Entrees/items/Burger/sides")
+                mockMvc.perform(post("/api/menu/categories/Entrees/items/Item/sides")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(mapper.writeValueAsString(request)))
-                                .andExpect(status().isOk());
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload.name").value("Item"));
 
-                verify(menuService).addSide("Entrees", "Burger", "Fries", 200);
+                verify(menuService).addSide("Entrees", "Item", "Fries", 200);
+        }
+
+        @Test
+        public void testAddExtra() throws Exception {
+                MenuItem item = new MenuItem("Item", 1000, true, new HashMap<>(), null, null, null);
+                when(menuService.getItem("Entrees", "Item")).thenReturn(item);
+
+                Requests.ExtraCreateRequest request = new Requests.ExtraCreateRequest("Cheese", 50);
+                mockMvc.perform(post("/api/menu/categories/Entrees/items/Item/extras")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(mapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload.name").value("Item"));
+
+                verify(menuService).addExtra("Entrees", "Item", "Cheese", 50);
         }
 
         @Test

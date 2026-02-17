@@ -75,6 +75,7 @@ public class TicketControllerTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.payload.tableNumber").value("Table1"));
                 verify(ticketService).createTicket("Table1");
+                verify(ticketService).addOrderToTicket(eq(1), any(Order.class));
 
                 mockMvc.perform(get("/api/tickets/1"))
                                 .andExpect(status().isOk())
@@ -83,7 +84,7 @@ public class TicketControllerTest {
 
                 mockMvc.perform(post("/api/tickets/1/orders"))
                                 .andExpect(status().isOk());
-                verify(ticketService).addOrderToTicket(eq(1), any(Order.class));
+                verify(ticketService, times(2)).addOrderToTicket(eq(1), any(Order.class));
 
                 mockMvc.perform(delete("/api/tickets/1/orders/0"))
                                 .andExpect(status().isOk());

@@ -57,6 +57,9 @@ const Menu = () => {
     const [newExtra, setNewExtra] = useState({ name: '', price: '' });
     const [extrasToDelete, setExtrasToDelete] = useState([]); // Track extras to delete on save
 
+    // Copy Sides/Extras State
+    const [copyTarget, setCopyTarget] = useState(null); // 'sides' | 'extras' | null
+
     // Confirmation Modal State
     const [confirmationModal, setConfirmationModal] = useState({
         isOpen: false,
@@ -135,6 +138,7 @@ const Menu = () => {
         setSidesToDelete([]);
         setNewExtra({ name: '', price: '' });
         setExtrasToDelete([]);
+        setCopyTarget(null);
         setIsEditModalOpen(true);
     };
 
@@ -336,50 +340,6 @@ const Menu = () => {
             }
         }
 
-        // Side Reordering
-        if (type === 'SIDE') {
-            const activeIdStripped = active.id.replace('side-', '');
-            const overIdStripped = over.id.replace('side-', '');
-
-            // We use editForm.sideOrder for state source of truth during edit
-            const currentOrder = editForm.sideOrder && editForm.sideOrder.length > 0
-                ? editForm.sideOrder
-                : Object.keys(editForm.sides || {}).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
-
-            const oldIndex = currentOrder.indexOf(activeIdStripped);
-            const newIndex = currentOrder.indexOf(overIdStripped);
-
-            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
-
-                setEditForm(prev => ({
-                    ...prev,
-                    sideOrder: newOrder
-                }));
-            }
-        }
-
-        // Extra Reordering
-        if (type === 'EXTRA') {
-            const activeIdStripped = active.id.replace('extra-', '');
-            const overIdStripped = over.id.replace('extra-', '');
-
-            const currentOrder = editForm.extraOrder && editForm.extraOrder.length > 0
-                ? editForm.extraOrder
-                : Object.keys(editForm.extras || {}).filter(k => k.toLowerCase() !== 'none' && !extrasToDelete.includes(k));
-
-            const oldIndex = currentOrder.indexOf(activeIdStripped);
-            const newIndex = currentOrder.indexOf(overIdStripped);
-
-            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
-
-                setEditForm(prev => ({
-                    ...prev,
-                    extraOrder: newOrder
-                }));
-            }
-        }
     };
 
     const handleCategoryDelete = async () => {
@@ -481,6 +441,12 @@ const Menu = () => {
                 await api.delete(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/${encodeURIComponent(extraName)}`);
             }
 
+            // Reorder extras
+            if (editForm.extraOrder && editForm.extraOrder.length > 0) {
+                const finalOrder = editForm.extraOrder.filter(e => !extrasToDelete.includes(e));
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/reorder`, { order: finalOrder });
+            }
+
             setIsEditModalOpen(false);
             fetchMenu();
             toast.success('Item updated successfully');
@@ -528,6 +494,121 @@ const Menu = () => {
             title: 'Delete Item',
             message: `Are you sure you want to delete ${editItem.name}?`
         });
+    };
+
+    const handleCopyAddons = async (sourceValue) => {
+        if (!sourceValue) return;
+        const [sourceCategory, sourceItemName] = sourceValue.split('::');
+        const type = copyTarget; // 'sides' or 'extras'
+        const sourceItem = categories[sourceCategory]?.find(i => i.name === sourceItemName);
+        if (!sourceItem) {
+            toast.error('Source item not found');
+            setCopyTarget(null);
+            return;
+        }
+
+        const sourceAddons = type === 'sides' ? sourceItem.sides : sourceItem.extras;
+        if (!sourceAddons) {
+            toast.error('Source item has no ' + type);
+            setCopyTarget(null);
+            return;
+        }
+
+        const existingNames = Object.keys(
+            type === 'sides' ? (editForm.sides || {}) : (editForm.extras || {})
+        ).map(n => n.toLowerCase());
+
+        const newAddons = Object.entries(sourceAddons).filter(
+            ([name]) => name.toLowerCase() !== 'none' && !existingNames.includes(name.toLowerCase())
+        );
+
+        if (newAddons.length === 0) {
+            toast.info('No new ' + type + ' to copy (all duplicates)');
+            setCopyTarget(null);
+            return;
+        }
+
+        let copiedCount = 0;
+        const endpoint = type === 'sides' ? 'sides' : 'extras';
+
+        for (const [name, data] of newAddons) {
+            try {
+                const result = await api.post(
+                    `/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/${endpoint}`,
+                    { name, price: data.price || 0 }
+                );
+
+                // Update available/kitchen to match source via PUT if they differ from defaults
+                const needsUpdate = data.available === false || data.kitchen;
+                if (needsUpdate) {
+                    await api.put(
+                        `/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/${endpoint}/${encodeURIComponent(name)}`,
+                        { price: data.price || 0, available: data.available !== false, kitchen: data.kitchen || false }
+                    );
+                }
+
+                if (type === 'sides') {
+                    setEditForm(prev => ({
+                        ...prev,
+                        sides: {
+                            ...result.sides,
+                            [name]: { ...result.sides[name], available: data.available !== false, kitchen: data.kitchen || false }
+                        },
+                        sideOrder: result.sideOrder
+                    }));
+                } else {
+                    setEditForm(prev => ({
+                        ...prev,
+                        extras: {
+                            ...prev.extras,
+                            [name]: { price: data.price || 0, available: data.available !== false, kitchen: data.kitchen || false }
+                        }
+                    }));
+                }
+                copiedCount++;
+            } catch (e) {
+                toast.error(`Failed to copy ${type.slice(0, -1)} "${name}": ${e.message}`);
+            }
+        }
+
+        // Reorder to match source item's order (existing target addons first, then copied in source order)
+        if (copiedCount > 0) {
+            const sourceOrder = type === 'sides'
+                ? (sourceItem.sideOrder || Object.keys(sourceAddons).filter(k => k.toLowerCase() !== 'none'))
+                : (sourceItem.extraOrder || Object.keys(sourceAddons).filter(k => k.toLowerCase() !== 'none'));
+
+            const copiedNames = newAddons.filter(([name]) =>
+                // only include ones that were actually copied successfully
+                newAddons.slice(0, copiedCount).some(([n]) => n === name)
+            ).map(([name]) => name);
+
+            // Build final order: existing target addons in their current order, then copied ones in source order
+            const orderKey = type === 'sides' ? 'sideOrder' : 'extraOrder';
+            const existingOrder = type === 'sides'
+                ? (editForm.sideOrder?.length > 0 ? editForm.sideOrder : Object.keys(editForm.sides || {}).filter(k => k.toLowerCase() !== 'none'))
+                : (editForm.extraOrder?.length > 0 ? editForm.extraOrder : Object.keys(editForm.extras || {}).filter(k => k.toLowerCase() !== 'none'));
+
+            // Copied names in the source's order
+            const copiedInSourceOrder = sourceOrder.filter(name => copiedNames.includes(name));
+            const finalOrder = [...existingOrder.filter(n => !copiedNames.includes(n)), ...copiedInSourceOrder];
+
+            try {
+                await api.put(
+                    `/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/${endpoint}/reorder`,
+                    { order: finalOrder }
+                );
+                setEditForm(prev => ({
+                    ...prev,
+                    [orderKey]: finalOrder
+                }));
+            } catch (e) {
+                // Non-critical, order just won't match perfectly
+                console.error('Failed to reorder after copy:', e);
+            }
+
+            toast.success(`Copied ${copiedCount} ${type} from "${sourceItemName}"`);
+        }
+        setCopyTarget(null);
     };
 
     const closeConfirmation = () => {
@@ -657,59 +738,84 @@ const Menu = () => {
                 {/* Sides Editing */}
                 <div className="sides-section">
                     <h4>Sides</h4>
-                    <div className="sides-grid">
-                        {(() => {
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => {
+                            const { active, over } = event;
+                            if (!over || active.id === over.id) return;
+                            const activeId = active.id.replace('side-', '');
+                            const overId = over.id.replace('side-', '');
                             const sides = editForm.sides || {};
                             const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
-                            let orderedSides = [];
-                            if (editForm.sideOrder && editForm.sideOrder.length > 0) {
-                                orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k) && k.toLowerCase() !== 'none');
-                                const missing = rawSideNames.filter(k => !orderedSides.includes(k));
-                                orderedSides = [...orderedSides, ...missing];
-                            } else {
-                                orderedSides = rawSideNames;
+                            const currentOrder = editForm.sideOrder?.length > 0
+                                ? editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k) && k.toLowerCase() !== 'none')
+                                : rawSideNames;
+                            const oldIndex = currentOrder.indexOf(activeId);
+                            const newIndex = currentOrder.indexOf(overId);
+                            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                                setEditForm(prev => ({ ...prev, sideOrder: arrayMove(currentOrder, oldIndex, newIndex) }));
                             }
+                        }}
+                    >
+                    {(() => {
+                        const sides = editForm.sides || {};
+                        const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
+                        let orderedSides = [];
+                        if (editForm.sideOrder && editForm.sideOrder.length > 0) {
+                            orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k) && k.toLowerCase() !== 'none');
+                            const missing = rawSideNames.filter(k => !orderedSides.includes(k));
+                            orderedSides = [...orderedSides, ...missing];
+                        } else {
+                            orderedSides = rawSideNames;
+                        }
 
-                            return orderedSides.map(sideName => (
-                                <SideRow
-                                    key={sideName}
-                                    sideName={sideName}
-                                    sideData={sides[sideName]}
-                                    onPriceChange={e => {
-                                        const newPrice = e.target.value;
-                                        setEditForm(prev => ({
-                                            ...prev,
-                                            sides: {
-                                                ...prev.sides,
-                                                [sideName]: { ...prev.sides[sideName], price: Math.round(parseFloat(newPrice) * 100) }
-                                            }
-                                        }));
-                                    }}
-                                    onAvailableChange={e => {
-                                        const newAvail = e.target.checked;
-                                        setEditForm(prev => ({
-                                            ...prev,
-                                            sides: {
-                                                ...prev.sides,
-                                                [sideName]: { ...prev.sides[sideName], available: newAvail }
-                                            }
-                                        }));
-                                    }}
-                                    onKitchenChange={e => {
-                                        const newKitchen = e.target.checked;
-                                        setEditForm(prev => ({
-                                            ...prev,
-                                            sides: {
-                                                ...prev.sides,
-                                                [sideName]: { ...prev.sides[sideName], kitchen: newKitchen }
-                                            }
-                                        }));
-                                    }}
-                                    onDelete={() => setSidesToDelete(prev => [...prev, sideName])}
-                                />
-                            ));
-                        })()}
-                    </div>
+                        return (
+                            <SortableContext items={orderedSides.map(s => `side-${s}`)} strategy={verticalListSortingStrategy}>
+                                <div className="sides-grid">
+                                    {orderedSides.map(sideName => (
+                                        <SideRow
+                                            key={sideName}
+                                            sideName={sideName}
+                                            sideData={sides[sideName]}
+                                            onPriceChange={e => {
+                                                const newPrice = e.target.value;
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    sides: {
+                                                        ...prev.sides,
+                                                        [sideName]: { ...prev.sides[sideName], price: Math.round(parseFloat(newPrice) * 100) }
+                                                    }
+                                                }));
+                                            }}
+                                            onAvailableChange={e => {
+                                                const newAvail = e.target.checked;
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    sides: {
+                                                        ...prev.sides,
+                                                        [sideName]: { ...prev.sides[sideName], available: newAvail }
+                                                    }
+                                                }));
+                                            }}
+                                            onKitchenChange={e => {
+                                                const newKitchen = e.target.checked;
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    sides: {
+                                                        ...prev.sides,
+                                                        [sideName]: { ...prev.sides[sideName], kitchen: newKitchen }
+                                                    }
+                                                }));
+                                            }}
+                                            onDelete={() => setSidesToDelete(prev => [...prev, sideName])}
+                                        />
+                                    ))}
+                                </div>
+                            </SortableContext>
+                        );
+                    })()}
+                    </DndContext>
                     {/* Add New Side */}
                     <div className="add-side-row">
                         <input
@@ -720,12 +826,14 @@ const Menu = () => {
                             onChange={e => setNewSide(prev => ({ ...prev, name: e.target.value }))}
                         />
                         <input
-                            type="number"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="Price"
                             className="side-price-input"
                             value={newSide.price}
-                            onChange={e => setNewSide(prev => ({ ...prev, price: e.target.value }))}
+                            onChange={e => {
+                                if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) setNewSide(prev => ({ ...prev, price: e.target.value }));
+                            }}
                         />
                         <Button
                             variant="secondary"
@@ -757,63 +865,123 @@ const Menu = () => {
                             Add
                         </Button>
                     </div>
+                    <div className="copy-addons-row">
+                        {copyTarget === 'sides' ? (
+                            <select
+                                className="copy-addons-select"
+                                defaultValue=""
+                                onChange={e => handleCopyAddons(e.target.value)}
+                                onBlur={() => setCopyTarget(null)}
+                                autoFocus
+                            >
+                                <option value="" disabled>Select item to copy sides from...</option>
+                                {categoryOrder.map(cat => {
+                                    const itemsWithSides = (categories[cat] || []).filter(
+                                        i => !(i.name === editItem?.originalName && cat === editItem?.originalCategory)
+                                            && i.sides && Object.keys(i.sides).filter(k => k.toLowerCase() !== 'none').length > 0
+                                    );
+                                    if (itemsWithSides.length === 0) return null;
+                                    return (
+                                        <optgroup key={cat} label={cat}>
+                                            {itemsWithSides.map(i => (
+                                                <option key={i.name} value={`${cat}::${i.name}`}>{i.name}</option>
+                                            ))}
+                                        </optgroup>
+                                    );
+                                })}
+                            </select>
+                        ) : (
+                            <Button
+                                variant="secondary"
+                                className="copy-addons-btn"
+                                onClick={() => setCopyTarget('sides')}
+                            >
+                                Copy from...
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 {/* Extras Editing */}
                 <div className="extras-section">
                     <h4>Extras</h4>
-                    <div className="extras-grid">
-                        {(() => {
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => {
+                            const { active, over } = event;
+                            if (!over || active.id === over.id) return;
+                            const activeId = active.id.replace('extra-', '');
+                            const overId = over.id.replace('extra-', '');
                             const extras = editForm.extras || {};
                             const rawExtraNames = Object.keys(extras).filter(k => k.toLowerCase() !== 'none' && !extrasToDelete.includes(k));
-                            let orderedExtras = [];
-                            if (editForm.extraOrder && editForm.extraOrder.length > 0) {
-                                orderedExtras = editForm.extraOrder.filter(k => extras[k] && !extrasToDelete.includes(k));
-                                const missing = rawExtraNames.filter(k => !orderedExtras.includes(k));
-                                orderedExtras = [...orderedExtras, ...missing];
-                            } else {
-                                orderedExtras = rawExtraNames;
+                            const currentOrder = editForm.extraOrder?.length > 0
+                                ? editForm.extraOrder.filter(k => extras[k] && !extrasToDelete.includes(k) && k.toLowerCase() !== 'none')
+                                : rawExtraNames;
+                            const oldIndex = currentOrder.indexOf(activeId);
+                            const newIndex = currentOrder.indexOf(overId);
+                            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                                setEditForm(prev => ({ ...prev, extraOrder: arrayMove(currentOrder, oldIndex, newIndex) }));
                             }
+                        }}
+                    >
+                    {(() => {
+                        const extras = editForm.extras || {};
+                        const rawExtraNames = Object.keys(extras).filter(k => k.toLowerCase() !== 'none' && !extrasToDelete.includes(k));
+                        let orderedExtras = [];
+                        if (editForm.extraOrder && editForm.extraOrder.length > 0) {
+                            orderedExtras = editForm.extraOrder.filter(k => extras[k] && !extrasToDelete.includes(k));
+                            const missing = rawExtraNames.filter(k => !orderedExtras.includes(k));
+                            orderedExtras = [...orderedExtras, ...missing];
+                        } else {
+                            orderedExtras = rawExtraNames;
+                        }
 
-                            return orderedExtras.map(extraName => (
-                                <ExtraRow
-                                    key={extraName}
-                                    extraName={extraName}
-                                    extraData={extras[extraName]}
-                                    onPriceChange={e => {
-                                        const newPrice = e.target.value;
-                                        setEditForm(prev => ({
-                                            ...prev,
-                                            extras: {
-                                                ...prev.extras,
-                                                [extraName]: { ...prev.extras[extraName], price: Math.round(parseFloat(newPrice) * 100) }
-                                            }
-                                        }));
-                                    }}
-                                    onAvailableChange={e => {
-                                        const newAvail = e.target.checked;
-                                        setEditForm(prev => ({
-                                            ...prev,
-                                            extras: {
-                                                ...prev.extras,
-                                                [extraName]: { ...prev.extras[extraName], available: newAvail }
-                                            }
-                                        }));
-                                    }}
-                                    onKitchenChange={e => {
-                                        const newKitchen = e.target.checked;
-                                        setEditForm(prev => ({
-                                            ...prev,
-                                            extras: {
-                                                ...prev.extras,
-                                                [extraName]: { ...prev.extras[extraName], kitchen: newKitchen }
-                                            }
-                                        }));
-                                    }}
-                                    onDelete={() => setExtrasToDelete(prev => [...prev, extraName])}
-                                />
-                            ));
-                        })()}
-                    </div>
+                        return (
+                            <SortableContext items={orderedExtras.map(e => `extra-${e}`)} strategy={verticalListSortingStrategy}>
+                                <div className="extras-grid">
+                                    {orderedExtras.map(extraName => (
+                                        <ExtraRow
+                                            key={extraName}
+                                            extraName={extraName}
+                                            extraData={extras[extraName]}
+                                            onPriceChange={e => {
+                                                const newPrice = e.target.value;
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    extras: {
+                                                        ...prev.extras,
+                                                        [extraName]: { ...prev.extras[extraName], price: Math.round(parseFloat(newPrice) * 100) }
+                                                    }
+                                                }));
+                                            }}
+                                            onAvailableChange={e => {
+                                                const newAvail = e.target.checked;
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    extras: {
+                                                        ...prev.extras,
+                                                        [extraName]: { ...prev.extras[extraName], available: newAvail }
+                                                    }
+                                                }));
+                                            }}
+                                            onKitchenChange={e => {
+                                                const newKitchen = e.target.checked;
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    extras: {
+                                                        ...prev.extras,
+                                                        [extraName]: { ...prev.extras[extraName], kitchen: newKitchen }
+                                                    }
+                                                }));
+                                            }}
+                                            onDelete={() => setExtrasToDelete(prev => [...prev, extraName])}
+                                        />
+                                    ))}
+                                </div>
+                            </SortableContext>
+                        );
+                    })()}
+                    </DndContext>
                     {/* Add New Extra */}
                     <div className="add-extra-row">
                         <input
@@ -824,12 +992,14 @@ const Menu = () => {
                             onChange={e => setNewExtra(prev => ({ ...prev, name: e.target.value }))}
                         />
                         <input
-                            type="number"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="Price"
                             className="extra-price-input"
                             value={newExtra.price}
-                            onChange={e => setNewExtra(prev => ({ ...prev, price: e.target.value }))}
+                            onChange={e => {
+                                if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) setNewExtra(prev => ({ ...prev, price: e.target.value }));
+                            }}
                         />
                         <Button
                             variant="secondary"
@@ -841,16 +1011,14 @@ const Menu = () => {
                                 }
                                 const priceCents = Math.round(parseFloat(newExtra.price || '0') * 100);
                                 try {
-                                    await api.post(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/extras`, {
+                                    const updatedItem = await api.post(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/extras`, {
                                         name: newExtra.name.trim(),
                                         price: priceCents
                                     });
                                     setEditForm(prev => ({
                                         ...prev,
-                                        extras: {
-                                            ...prev.extras,
-                                            [newExtra.name.trim()]: { price: priceCents, available: true }
-                                        }
+                                        extras: updatedItem.extras,
+                                        extraOrder: updatedItem.extraOrder
                                     }));
                                     setNewExtra({ name: '', price: '' });
                                     toast.success(`Extra "${newExtra.name}" added`);
@@ -861,6 +1029,41 @@ const Menu = () => {
                         >
                             Add
                         </Button>
+                    </div>
+                    <div className="copy-addons-row">
+                        {copyTarget === 'extras' ? (
+                            <select
+                                className="copy-addons-select"
+                                defaultValue=""
+                                onChange={e => handleCopyAddons(e.target.value)}
+                                onBlur={() => setCopyTarget(null)}
+                                autoFocus
+                            >
+                                <option value="" disabled>Select item to copy extras from...</option>
+                                {categoryOrder.map(cat => {
+                                    const itemsWithExtras = (categories[cat] || []).filter(
+                                        i => !(i.name === editItem?.originalName && cat === editItem?.originalCategory)
+                                            && i.extras && Object.keys(i.extras).filter(k => k.toLowerCase() !== 'none').length > 0
+                                    );
+                                    if (itemsWithExtras.length === 0) return null;
+                                    return (
+                                        <optgroup key={cat} label={cat}>
+                                            {itemsWithExtras.map(i => (
+                                                <option key={i.name} value={`${cat}::${i.name}`}>{i.name}</option>
+                                            ))}
+                                        </optgroup>
+                                    );
+                                })}
+                            </select>
+                        ) : (
+                            <Button
+                                variant="secondary"
+                                className="copy-addons-btn"
+                                onClick={() => setCopyTarget('extras')}
+                            >
+                                Copy from...
+                            </Button>
+                        )}
                     </div>
                 </div>
             </Modal >
@@ -1109,15 +1312,31 @@ const SortableItem = ({ item, category, onEdit }) => {
 };
 
 const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onKitchenChange, onDelete }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: `side-${sideName}` });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
     return (
-        <div className="side-edit-row">
+        <div ref={setNodeRef} style={style} className="side-edit-row">
+            <span className="addon-drag-handle" {...attributes} {...listeners}>:::</span>
             <span className="side-name">{sideName}</span>
             <input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 className="side-price-input"
                 value={sideData.price !== undefined ? (sideData.price / 100).toFixed(2) : ''}
-                onChange={onPriceChange}
+                onChange={e => {
+                    if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) onPriceChange(e);
+                }}
             />
             <label className="side-avail-label">
                 <input
@@ -1148,15 +1367,31 @@ const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onKitch
 };
 
 const ExtraRow = ({ extraName, extraData, onPriceChange, onAvailableChange, onKitchenChange, onDelete }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: `extra-${extraName}` });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
     return (
-        <div className="extra-edit-row">
+        <div ref={setNodeRef} style={style} className="extra-edit-row">
+            <span className="addon-drag-handle" {...attributes} {...listeners}>:::</span>
             <span className="extra-name">{extraName}</span>
             <input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 className="extra-price-input"
                 value={extraData.price !== undefined ? (extraData.price / 100).toFixed(2) : ''}
-                onChange={onPriceChange}
+                onChange={e => {
+                    if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) onPriceChange(e);
+                }}
             />
             <label className="extra-avail-label">
                 <input

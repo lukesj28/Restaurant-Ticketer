@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/api';
 import TicketCard from '../components/tickets/TicketCard';
 import KitchenTicketCard from '../components/tickets/KitchenTicketCard';
@@ -10,6 +10,7 @@ import './Tickets.css';
 
 const Tickets = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { toast } = useToast();
     const mounted = useRef(false);
 
@@ -19,7 +20,7 @@ const Tickets = () => {
     }, []);
 
     const [viewMode, setViewMode] = useState('front'); // 'front' | 'back'
-    const [activeTab, setActiveTab] = useState('active');
+    const [activeTab, setActiveTab] = useState(location.state?.tab || 'active');
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -197,10 +198,10 @@ const Tickets = () => {
     const handleCreateTicket = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/tickets', { tableNumber: newTableNumber });
+            const ticket = await api.post('/tickets', { tableNumber: newTableNumber });
             setNewTableNumber('');
             setIsCreateModalOpen(false);
-            fetchTickets();
+            navigate(`/tickets/${ticket.id}`);
         } catch (error) {
             toast.error('Failed to create ticket: ' + error.message);
         }

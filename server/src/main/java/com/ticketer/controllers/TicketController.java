@@ -47,6 +47,8 @@ public class TicketController {
         if (request.comment() != null && !request.comment().trim().isEmpty()) {
             ticket.setComment(request.comment());
         }
+        Order initialOrder = new Order(settingsService.getTax());
+        ticketService.addOrderToTicket(ticket.getId(), initialOrder);
         return ApiResponse.success(DtoMapper.toTicketDto(ticket));
     }
 

@@ -347,3 +347,41 @@
     padding: 6px 12px;
     font-size: 0.85rem;
 }
+
+/* Addon Drag Handle */
+.addon-drag-handle {
+    cursor: grab;
+    color: var(--color-text-secondary);
+    opacity: 0.5;
+    font-size: 0.85rem;
+    user-select: none;
+    padding: 0 2px;
+    line-height: 1;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+}
+
+.addon-drag-handle:hover {
+    opacity: 1;
+}
+
+/* Copy Addons Styles */
+.copy-addons-row {
+    margin-top: var(--spacing-sm);
+}
+
+.copy-addons-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+.copy-addons-select {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+}

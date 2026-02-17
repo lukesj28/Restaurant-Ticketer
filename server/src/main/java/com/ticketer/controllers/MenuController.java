@@ -193,21 +193,23 @@ public class MenuController {
     }
 
     @PostMapping("/categories/{categoryName}/items/{itemName}/sides")
-    public ApiResponse<List<ItemDto>> addSide(@PathVariable("categoryName") String categoryName,
+    public ApiResponse<ItemDto> addSide(@PathVariable("categoryName") String categoryName,
             @PathVariable("itemName") String itemName,
             @RequestBody Requests.SideCreateRequest request) {
         logger.info("Received request to add side {} to item {} in category {}", request.name(), itemName, categoryName);
         menuService.addSide(categoryName, itemName, request.name(), request.price());
-        return getAllItems();
+        MenuItem item = menuService.getItem(categoryName, itemName);
+        return ApiResponse.success(DtoMapper.toItemDto(item));
     }
 
     @PostMapping("/categories/{categoryName}/items/{itemName}/extras")
-    public ApiResponse<List<ItemDto>> addExtra(@PathVariable("categoryName") String categoryName,
+    public ApiResponse<ItemDto> addExtra(@PathVariable("categoryName") String categoryName,
             @PathVariable("itemName") String itemName,
             @RequestBody Requests.ExtraCreateRequest request) {
         logger.info("Received request to add extra {} to item {} in category {}", request.name(), itemName, categoryName);
         menuService.addExtra(categoryName, itemName, request.name(), request.price());
-        return getAllItems();
+        MenuItem item = menuService.getItem(categoryName, itemName);
+        return ApiResponse.success(DtoMapper.toItemDto(item));
     }
 
     @PutMapping("/categories/{categoryName}/items/{itemName}/extras/{extraName}")
