@@ -360,3 +360,72 @@
     gap: var(--spacing-md);
     color: var(--color-text-primary);
 }
+
+/* Drag and Drop */
+.drag-handle {
+    cursor: grab;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    padding: 0 var(--spacing-xs);
+    opacity: 0;
+    transition: opacity 0.2s;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.draggable-item:hover .drag-handle,
+.order-header:hover .drag-handle {
+    opacity: 0.5;
+}
+
+.drag-handle:hover {
+    opacity: 1 !important;
+    color: var(--color-text-primary);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.draggable-item {
+    display: flex;
+    align-items: flex-start;
+}
+
+.order-drag-handle {
+    margin-right: var(--spacing-xs);
+}
+
+.order-drop-zone {
+    transition: outline 0.15s, background-color 0.15s;
+    border-radius: var(--radius-md);
+}
+
+.drop-target-active {
+    outline: 2px dashed var(--color-brand-primary);
+    outline-offset: 4px;
+    background-color: rgba(166, 0, 0, 0.03);
+}
+
+.drag-overlay-item {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-brand-primary);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.15));
+    font-size: 0.9rem;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+.drag-overlay-order {
+    background-color: var(--color-bg-tertiary);
+    border: 2px solid var(--color-brand-primary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.15));
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}

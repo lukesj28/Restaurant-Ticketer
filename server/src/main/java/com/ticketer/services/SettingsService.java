@@ -16,7 +16,7 @@ public class SettingsService {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SettingsService.class);
 
     private final SettingsRepository settingsRepository;
-    private Settings currentSettings;
+    private volatile Settings currentSettings;
 
     @Autowired
     public SettingsService(SettingsRepository settingsRepository) {

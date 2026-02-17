@@ -117,7 +117,7 @@ public class TicketController {
     public ApiResponse<TicketDto> removeItemFromOrder(@PathVariable("ticketId") int ticketId,
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.AddItemRequest request) {
-        OrderItem item = new OrderItem(request.name(), request.selectedSide(), request.selectedExtra(), 0, 0, 0, null);
+        OrderItem item = new OrderItem(request.category(), request.name(), request.selectedSide(), request.selectedExtra(), 0, 0, 0, null);
         ticketService.removeItemFromOrder(ticketId, orderIndex, item);
         return getTicket(ticketId);
     }
@@ -134,6 +134,25 @@ public class TicketController {
             @PathVariable("orderIndex") int orderIndex,
             @RequestBody Requests.UpdateCommentRequest request) {
         ticketService.updateOrderComment(ticketId, orderIndex, request.comment());
+        return getTicket(ticketId);
+    }
+
+    @PutMapping("/{ticketId}/orders/{orderIndex}/items/{itemIndex}/move")
+    public ApiResponse<TicketDto> moveItem(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @PathVariable("itemIndex") int itemIndex,
+            @RequestBody Requests.MoveItemRequest request) {
+        logger.info("Moving item {} from order {} to order {} on ticket {}", itemIndex, orderIndex, request.targetOrderIndex(), ticketId);
+        ticketService.moveItemBetweenOrders(ticketId, orderIndex, itemIndex, request.targetOrderIndex());
+        return getTicket(ticketId);
+    }
+
+    @PutMapping("/{ticketId}/orders/{orderIndex}/merge")
+    public ApiResponse<TicketDto> mergeOrders(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @RequestBody Requests.MergeOrdersRequest request) {
+        logger.info("Merging order {} into order {} on ticket {}", orderIndex, request.targetOrderIndex(), ticketId);
+        ticketService.mergeOrders(ticketId, orderIndex, request.targetOrderIndex());
         return getTicket(ticketId);
     }
 

@@ -4,7 +4,71 @@ import { api } from '../api/api';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal'; // Will use for item selection
 import { useToast } from '../context/ToastContext';
+import {
+    DndContext,
+    DragOverlay,
+    PointerSensor,
+    KeyboardSensor,
+    useSensor,
+    useSensors,
+    closestCenter,
+} from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import './TicketDetail.css';
+
+const DraggableItem = ({ orderIndex, itemIndex, children }) => {
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: `item-${orderIndex}-${itemIndex}`,
+        data: { type: 'ITEM', orderIndex, itemIndex },
+    });
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={{ opacity: isDragging ? 0.4 : 1 }}
+            className="order-item-row draggable-item"
+        >
+            <span className="drag-handle" {...listeners} {...attributes}>&#x2630;</span>
+            {children}
+        </div>
+    );
+};
+
+const DraggableOrderHandle = ({ orderIndex, children }) => {
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: `order-drag-${orderIndex}`,
+        data: { type: 'ORDER', orderIndex },
+    });
+
+    return (
+        <div
+            ref={setNodeRef}
+            className="order-header"
+            style={{ opacity: isDragging ? 0.4 : 1 }}
+        >
+            <span className="drag-handle order-drag-handle" {...listeners} {...attributes}>&#x2630;</span>
+            {children}
+        </div>
+    );
+};
+
+const DroppableOrder = ({ orderIndex, isOver, children }) => {
+    const { setNodeRef, isOver: droppableIsOver } = useDroppable({
+        id: `order-${orderIndex}`,
+        data: { type: 'ORDER', orderIndex },
+    });
+
+    const highlighted = isOver || droppableIsOver;
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={`order-drop-zone ${highlighted ? 'drop-target-active' : ''}`}
+        >
+            {children}
+        </div>
+    );
+};
 
 const TicketDetail = () => {
     const { id } = useParams();
@@ -21,6 +85,12 @@ const TicketDetail = () => {
     const [pendingSideName, setPendingSideName] = useState(null);
     const [commentDrafts, setCommentDrafts] = useState({});
     const commentTimers = React.useRef({});
+    const [activeDrag, setActiveDrag] = useState(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(KeyboardSensor)
+    );
 
     useEffect(() => {
         fetchTicket();
@@ -33,13 +103,13 @@ const TicketDetail = () => {
             setTicket(data);
             // Default to last order if exists, else -1
             if (data.orders.length > 0) {
-                // But wait, user might want to add to specific order. 
+                // But wait, user might want to add to specific order.
                 // For simplified UI, maybe always add to newest order or create new if explicitly requested.
                 // Let's track active order index.
             }
         } catch (error) {
             console.error("Failed to fetch ticket", error);
-            // navigate('/tickets'); 
+            // navigate('/tickets');
         } finally {
             setLoading(false);
         }
@@ -228,6 +298,89 @@ const TicketDetail = () => {
         }
     };
 
+    // DnD handlers
+    const handleDragStart = (event) => {
+        const { active } = event;
+        setActiveDrag(active.data.current);
+    };
+
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        setActiveDrag(null);
+
+        if (!over) return;
+
+        const activeData = active.data.current;
+        // Determine which order was dropped on
+        let targetOrderIndex = null;
+
+        if (over.data.current && over.data.current.type === 'ORDER') {
+            targetOrderIndex = over.data.current.orderIndex;
+        } else if (over.id && typeof over.id === 'string' && over.id.startsWith('order-')) {
+            targetOrderIndex = parseInt(over.id.replace('order-', ''), 10);
+        }
+
+        if (targetOrderIndex === null || targetOrderIndex === undefined) return;
+
+        if (activeData.type === 'ITEM') {
+            const fromOrderIndex = activeData.orderIndex;
+            const itemIndex = activeData.itemIndex;
+
+            if (fromOrderIndex === targetOrderIndex) return;
+
+            // Optimistic update
+            const prevTicket = ticket;
+            try {
+                const newOrders = ticket.orders.map(o => ({
+                    ...o,
+                    items: [...o.items]
+                }));
+                const [movedItem] = newOrders[fromOrderIndex].items.splice(itemIndex, 1);
+                newOrders[targetOrderIndex].items.push(movedItem);
+                // Remove empty source order
+                const filtered = newOrders.filter(o => o.items.length > 0);
+                setTicket({ ...ticket, orders: filtered });
+
+                await api.put(`/tickets/${id}/orders/${fromOrderIndex}/items/${itemIndex}/move`, {
+                    targetOrderIndex
+                });
+                fetchTicket();
+            } catch (e) {
+                setTicket(prevTicket);
+                toast.error('Failed to move item: ' + e.message);
+            }
+        } else if (activeData.type === 'ORDER') {
+            const fromOrderIndex = activeData.orderIndex;
+
+            if (fromOrderIndex === targetOrderIndex) return;
+
+            // Optimistic update
+            const prevTicket = ticket;
+            try {
+                const newOrders = ticket.orders.map(o => ({
+                    ...o,
+                    items: [...o.items]
+                }));
+                const sourceItems = newOrders[fromOrderIndex].items;
+                newOrders[targetOrderIndex].items.push(...sourceItems);
+                newOrders.splice(fromOrderIndex, 1);
+                setTicket({ ...ticket, orders: newOrders });
+
+                await api.put(`/tickets/${id}/orders/${fromOrderIndex}/merge`, {
+                    targetOrderIndex
+                });
+                fetchTicket();
+            } catch (e) {
+                setTicket(prevTicket);
+                toast.error('Failed to merge orders: ' + e.message);
+            }
+        }
+    };
+
+    const handleDragCancel = () => {
+        setActiveDrag(null);
+    };
+
     if (loading) return <div className="loading">Loading...</div>;
     if (!ticket) return <div className="error">Ticket not found</div>;
 
@@ -243,6 +396,168 @@ const TicketDetail = () => {
             handleAddItem(item.category, item.name, sideName, null);
         }
     };
+
+    const isDndEnabled = ticket.status !== 'CLOSED' && (ticket.orders || []).length > 1;
+
+    const renderDragOverlay = () => {
+        if (!activeDrag || !ticket) return null;
+
+        if (activeDrag.type === 'ITEM') {
+            const order = ticket.orders[activeDrag.orderIndex];
+            if (!order) return null;
+            const item = order.items[activeDrag.itemIndex];
+            if (!item) return null;
+            return (
+                <div className="drag-overlay-item">
+                    <span>{item.name}</span>
+                    {item.selectedSide && item.selectedSide !== 'none' && (
+                        <span className="item-side"> + {item.selectedSide}</span>
+                    )}
+                </div>
+            );
+        }
+
+        if (activeDrag.type === 'ORDER') {
+            const order = ticket.orders[activeDrag.orderIndex];
+            if (!order) return null;
+            return (
+                <div className="drag-overlay-order">
+                    Order #{activeDrag.orderIndex + 1} — {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                </div>
+            );
+        }
+
+        return null;
+    };
+
+    const renderOrderBlock = (order, idx) => (
+        <div key={idx} className={`order-block ${ticket.status !== 'CLOSED' && selectedOrderIndex === idx ? 'selected-order' : ''}`}>
+            {isDndEnabled ? (
+                <DraggableOrderHandle orderIndex={idx}>
+                    <span>Order #{idx + 1}</span>
+                    <div className="order-totals">
+                        <span className="order-subtotal">Sub: ${(order.subtotal / 100).toFixed(2)}</span>
+                        <span className="order-total">Tot: ${(order.total / 100).toFixed(2)}</span>
+                        {ticket.status !== 'CLOSED' && (
+                            <button
+                                className="delete-order-btn"
+                                onClick={() => handleDeleteOrder(idx)}
+                                title="Delete Order"
+                            >&#128465;&#65039;</button>
+                        )}
+                        {ticket.status === 'CLOSED' && (
+                            <button
+                                className="print-order-btn"
+                                onClick={() => handlePrintOrder(idx)}
+                                title="Print Order"
+                            >&#128424;&#65039;</button>
+                        )}
+                    </div>
+                </DraggableOrderHandle>
+            ) : (
+                <div className="order-header">
+                    <span>Order #{idx + 1}</span>
+                    <div className="order-totals">
+                        <span className="order-subtotal">Sub: ${(order.subtotal / 100).toFixed(2)}</span>
+                        <span className="order-total">Tot: ${(order.total / 100).toFixed(2)}</span>
+                        {ticket.status !== 'CLOSED' && (
+                            <button
+                                className="delete-order-btn"
+                                onClick={() => handleDeleteOrder(idx)}
+                                title="Delete Order"
+                            >&#128465;&#65039;</button>
+                        )}
+                        {ticket.status === 'CLOSED' && (
+                            <button
+                                className="print-order-btn"
+                                onClick={() => handlePrintOrder(idx)}
+                                title="Print Order"
+                            >&#128424;&#65039;</button>
+                        )}
+                    </div>
+                </div>
+            )}
+            {ticket.status !== 'CLOSED' && (
+                <div className="order-comment">
+                    <input
+                        type="text"
+                        className="comment-input order-comment-input"
+                        placeholder="Order comment..."
+                        value={getCommentValue(`order-${idx}`, order.comment)}
+                        onChange={(e) => handleCommentChange(`order-${idx}`, e.target.value, (v) => saveOrderComment(idx, v))}
+                        disabled={ticket.status !== 'ACTIVE'}
+                    />
+                </div>
+            )}
+            {ticket.status === 'CLOSED' && order.comment && (
+                <div className="order-comment">
+                    <span className="comment-display">{order.comment}</span>
+                </div>
+            )}
+            <div className="order-items">
+                {order.items.map((item, iIdx) => {
+                    const itemContent = (
+                        <>
+                            <div className="item-name-col">
+                                <span>{item.name}</span>
+                                {item.selectedSide && item.selectedSide !== 'none' && (
+                                    <span className="item-side"> + {item.selectedSide}</span>
+                                )}
+                                {item.selectedExtra && item.selectedExtra !== 'none' && (
+                                    <div className="item-extra">+ {item.selectedExtra} (${(item.extraPrice / 100).toFixed(2)})</div>
+                                )}
+                                {ticket.status !== 'CLOSED' && (
+                                    <input
+                                        type="text"
+                                        className="comment-input item-comment-input"
+                                        placeholder="Note..."
+                                        value={getCommentValue(`item-${idx}-${iIdx}`, item.comment)}
+                                        onChange={(e) => handleCommentChange(`item-${idx}-${iIdx}`, e.target.value, (v) => saveItemComment(idx, iIdx, v))}
+                                        disabled={ticket.status !== 'ACTIVE'}
+                                    />
+                                )}
+                                {ticket.status === 'CLOSED' && item.comment && (
+                                    <span className="comment-display item-comment-display">{item.comment}</span>
+                                )}
+                            </div>
+                            <div className="item-price-col">
+                                <span>${((item.mainPrice + item.sidePrice + (item.extraPrice || 0)) / 100).toFixed(2)}</span>
+                                {ticket.status !== 'CLOSED' && (
+                                    <button
+                                        className="delete-item-btn"
+                                        onClick={() => handleDeleteItem(idx, item)}
+                                        title="Remove Item"
+                                    >&#10005;</button>
+                                )}
+                            </div>
+                        </>
+                    );
+
+                    if (isDndEnabled) {
+                        return (
+                            <DraggableItem key={iIdx} orderIndex={idx} itemIndex={iIdx}>
+                                {itemContent}
+                            </DraggableItem>
+                        );
+                    }
+
+                    return (
+                        <div key={iIdx} className="order-item-row">
+                            {itemContent}
+                        </div>
+                    );
+                })}
+            </div>
+            {ticket.status !== 'CLOSED' && (
+                <div className="order-actions">
+                    <Button size="small" variant="primary" onClick={() => {
+                        setSelectedOrderIndex(idx);
+                        setIsMenuOpen(true);
+                    }}>+ Add Item</Button>
+                </div>
+            )}
+        </div>
+    );
 
     const renderMenuModal = () => (
         <Modal
@@ -360,6 +675,17 @@ const TicketDetail = () => {
         </Modal>
     );
 
+    const ordersContent = (ticket.orders || []).map((order, idx) => {
+        if (isDndEnabled) {
+            return (
+                <DroppableOrder key={idx} orderIndex={idx}>
+                    {renderOrderBlock(order, idx)}
+                </DroppableOrder>
+            );
+        }
+        return renderOrderBlock(order, idx);
+    });
+
     return (
         <div className="ticket-detail-page">
             <div className="detail-header">
@@ -397,94 +723,22 @@ const TicketDetail = () => {
             )}
 
             <div className="orders-list">
-                {(ticket.orders || []).map((order, idx) => (
-                    <div key={idx} className={`order-block ${ticket.status !== 'CLOSED' && selectedOrderIndex === idx ? 'selected-order' : ''}`}>
-                        <div className="order-header">
-                            <span>Order #{idx + 1}</span>
-                            <div className="order-totals">
-                                <span className="order-subtotal">Sub: ${(order.subtotal / 100).toFixed(2)}</span>
-                                <span className="order-total">Tot: ${(order.total / 100).toFixed(2)}</span>
-                                {ticket.status !== 'CLOSED' && (
-                                    <button
-                                        className="delete-order-btn"
-                                        onClick={() => handleDeleteOrder(idx)}
-                                        title="Delete Order"
-                                    >🗑️</button>
-                                )}
-                                {ticket.status === 'CLOSED' && (
-                                    <button
-                                        className="print-order-btn"
-                                        onClick={() => handlePrintOrder(idx)}
-                                        title="Print Order"
-                                    >🖨️</button>
-                                )}
-                            </div>
-                        </div>
-                        {ticket.status !== 'CLOSED' && (
-                            <div className="order-comment">
-                                <input
-                                    type="text"
-                                    className="comment-input order-comment-input"
-                                    placeholder="Order comment..."
-                                    value={getCommentValue(`order-${idx}`, order.comment)}
-                                    onChange={(e) => handleCommentChange(`order-${idx}`, e.target.value, (v) => saveOrderComment(idx, v))}
-                                    disabled={ticket.status !== 'ACTIVE'}
-                                />
-                            </div>
-                        )}
-                        {ticket.status === 'CLOSED' && order.comment && (
-                            <div className="order-comment">
-                                <span className="comment-display">{order.comment}</span>
-                            </div>
-                        )}
-                        <div className="order-items">
-                            {order.items.map((item, iIdx) => (
-                                <div key={iIdx} className="order-item-row">
-                                    <div className="item-name-col">
-                                        <span>{item.name}</span>
-                                        {item.selectedSide && item.selectedSide !== 'none' && (
-                                            <span className="item-side"> + {item.selectedSide}</span>
-                                        )}
-                                        {item.selectedExtra && item.selectedExtra !== 'none' && (
-                                            <div className="item-extra">+ {item.selectedExtra} (${(item.extraPrice / 100).toFixed(2)})</div>
-                                        )}
-                                        {ticket.status !== 'CLOSED' && (
-                                            <input
-                                                type="text"
-                                                className="comment-input item-comment-input"
-                                                placeholder="Note..."
-                                                value={getCommentValue(`item-${idx}-${iIdx}`, item.comment)}
-                                                onChange={(e) => handleCommentChange(`item-${idx}-${iIdx}`, e.target.value, (v) => saveItemComment(idx, iIdx, v))}
-                                                disabled={ticket.status !== 'ACTIVE'}
-                                            />
-                                        )}
-                                        {ticket.status === 'CLOSED' && item.comment && (
-                                            <span className="comment-display item-comment-display">{item.comment}</span>
-                                        )}
-                                    </div>
-                                    <div className="item-price-col">
-                                        <span>${((item.mainPrice + item.sidePrice + (item.extraPrice || 0)) / 100).toFixed(2)}</span>
-                                        {ticket.status !== 'CLOSED' && (
-                                            <button
-                                                className="delete-item-btn"
-                                                onClick={() => handleDeleteItem(idx, item)}
-                                                title="Remove Item"
-                                            >✕</button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        {ticket.status !== 'CLOSED' && (
-                            <div className="order-actions">
-                                <Button size="small" variant="primary" onClick={() => {
-                                    setSelectedOrderIndex(idx);
-                                    setIsMenuOpen(true);
-                                }}>+ Add Item</Button>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                {isDndEnabled ? (
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDragCancel={handleDragCancel}
+                    >
+                        {ordersContent}
+                        <DragOverlay>
+                            {renderDragOverlay()}
+                        </DragOverlay>
+                    </DndContext>
+                ) : (
+                    ordersContent
+                )}
                 {(ticket.orders || []).length === 0 && <div className="empty-orders">No orders yet.</div>}
             </div>
 
@@ -515,7 +769,7 @@ const TicketDetail = () => {
                         <Button variant="danger" onClick={handleDeleteTicket}>Delete Ticket</Button>
                     )}
                     {ticket.status === 'CLOSED' && (
-                        <Button variant="primary" onClick={handlePrintReceipt}>🖨️ Print Receipt</Button>
+                        <Button variant="primary" onClick={handlePrintReceipt}>&#128424;&#65039; Print Receipt</Button>
                     )}
                 </div>
             </div>

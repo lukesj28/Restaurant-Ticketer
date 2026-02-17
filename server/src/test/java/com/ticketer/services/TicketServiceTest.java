@@ -1,10 +1,12 @@
 package com.ticketer.services;
 
 import com.ticketer.models.Order;
+import com.ticketer.models.OrderItem;
 import com.ticketer.models.Ticket;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.exceptions.EntityNotFoundException;
 import com.ticketer.exceptions.ActionNotAllowedException;
+import com.ticketer.exceptions.InvalidInputException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -194,12 +196,12 @@ public class TicketServiceTest {
     public void testGetClosedTicketsSubtotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(0);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
@@ -212,12 +214,12 @@ public class TicketServiceTest {
     public void testGetClosedTicketsTotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(1000);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(2000);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
@@ -230,12 +232,12 @@ public class TicketServiceTest {
     public void testGetActiveAndCompletedTicketsSubtotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(0);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
@@ -249,12 +251,12 @@ public class TicketServiceTest {
     public void testGetActiveAndCompletedTicketsTotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(1000);
-        o1.addItem(new com.ticketer.models.OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(2000);
-        o2.addItem(new com.ticketer.models.OrderItem("Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
@@ -262,5 +264,112 @@ public class TicketServiceTest {
 
         long total = ticketService.getActiveAndCompletedTicketsTotal();
         assertEquals(3500, total);
+    }
+
+    @Test
+    public void testMoveItemBetweenOrders() {
+        Ticket ticket = new Ticket(1);
+        Order o1 = new Order(0);
+        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        o1.addItem(new OrderItem("cat", "Pizza", null, null, 1200, 0, 0, null));
+        Order o2 = new Order(0);
+        o2.addItem(new OrderItem("cat", "Coke", null, null, 200, 0, 0, null));
+        ticket.addOrder(o1);
+        ticket.addOrder(o2);
+
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
+
+        Ticket result = ticketService.moveItemBetweenOrders(1, 0, 1, 1);
+
+        assertEquals(1, result.getOrders().get(0).getItems().size());
+        assertEquals("Burger", result.getOrders().get(0).getItems().get(0).getName());
+        assertEquals(2, result.getOrders().get(1).getItems().size());
+        assertEquals("Coke", result.getOrders().get(1).getItems().get(0).getName());
+        assertEquals("Pizza", result.getOrders().get(1).getItems().get(1).getName());
+        assertEquals(1000, result.getOrders().get(0).getSubtotal());
+        assertEquals(1400, result.getOrders().get(1).getSubtotal());
+        verify(ticketRepository).save(ticket);
+    }
+
+    @Test
+    public void testMoveItemAutoRemovesEmptyOrder() {
+        Ticket ticket = new Ticket(1);
+        Order o1 = new Order(0);
+        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        Order o2 = new Order(0);
+        o2.addItem(new OrderItem("cat", "Coke", null, null, 200, 0, 0, null));
+        ticket.addOrder(o1);
+        ticket.addOrder(o2);
+
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
+
+        Ticket result = ticketService.moveItemBetweenOrders(1, 0, 0, 1);
+
+        assertEquals(1, result.getOrders().size());
+        assertEquals(2, result.getOrders().get(0).getItems().size());
+        verify(ticketRepository).save(ticket);
+    }
+
+    @Test
+    public void testMoveItemInvalidIndices() {
+        Ticket ticket = new Ticket(1);
+        Order o1 = new Order(0);
+        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        ticket.addOrder(o1);
+
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
+
+        assertThrows(EntityNotFoundException.class,
+            () -> ticketService.moveItemBetweenOrders(1, 0, 0, 5));
+        assertThrows(EntityNotFoundException.class,
+            () -> ticketService.moveItemBetweenOrders(1, 5, 0, 0));
+    }
+
+    @Test
+    public void testMoveItemSameOrderThrows() {
+        Ticket ticket = new Ticket(1);
+        Order o1 = new Order(0);
+        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        ticket.addOrder(o1);
+
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
+
+        assertThrows(InvalidInputException.class,
+            () -> ticketService.moveItemBetweenOrders(1, 0, 0, 0));
+    }
+
+    @Test
+    public void testMergeOrders() {
+        Ticket ticket = new Ticket(1);
+        Order o1 = new Order(0);
+        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        Order o2 = new Order(0);
+        o2.addItem(new OrderItem("cat", "Coke", null, null, 200, 0, 0, null));
+        o2.addItem(new OrderItem("cat", "Pizza", null, null, 1200, 0, 0, null));
+        ticket.addOrder(o1);
+        ticket.addOrder(o2);
+
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
+
+        Ticket result = ticketService.mergeOrders(1, 0, 1);
+
+        assertEquals(1, result.getOrders().size());
+        assertEquals(3, result.getOrders().get(0).getItems().size());
+        assertEquals(2400, result.getOrders().get(0).getSubtotal());
+        verify(ticketRepository).save(ticket);
+    }
+
+    @Test
+    public void testMergeOrdersInvalidIndices() {
+        Ticket ticket = new Ticket(1);
+        Order o1 = new Order(0);
+        ticket.addOrder(o1);
+
+        when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
+
+        assertThrows(EntityNotFoundException.class,
+            () -> ticketService.mergeOrders(1, 0, 5));
+        assertThrows(InvalidInputException.class,
+            () -> ticketService.mergeOrders(1, 0, 0));
     }
 }

@@ -66,4 +66,10 @@ public class Requests {
 
     public record ExtraReorderRequest(List<String> order) {
     }
+
+    public record MoveItemRequest(int targetOrderIndex) {
+    }
+
+    public record MergeOrdersRequest(int targetOrderIndex) {
+    }
 }

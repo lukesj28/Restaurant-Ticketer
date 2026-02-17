@@ -381,6 +381,70 @@ public class TicketService {
                 completed.stream().mapToLong(Ticket::getTotal).sum();
     }
 
+    public Ticket moveItemBetweenOrders(int ticketId, int fromOrderIndex, int itemIndex, int toOrderIndex) {
+        logger.info("Moving item {} from order {} to order {} on ticket {}", itemIndex, fromOrderIndex, toOrderIndex, ticketId);
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        List<Order> orders = ticket.getOrders();
+        if (fromOrderIndex < 0 || fromOrderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Source order index " + fromOrderIndex + " invalid");
+        }
+        if (toOrderIndex < 0 || toOrderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Target order index " + toOrderIndex + " invalid");
+        }
+        if (fromOrderIndex == toOrderIndex) {
+            throw new InvalidInputException("Source and target order must be different");
+        }
+
+        Order sourceOrder = orders.get(fromOrderIndex);
+        Order targetOrder = orders.get(toOrderIndex);
+
+        OrderItem item = sourceOrder.removeItemByIndex(itemIndex);
+        if (item == null) {
+            throw new EntityNotFoundException("Item index " + itemIndex + " invalid in order " + fromOrderIndex);
+        }
+        targetOrder.addItem(item);
+
+        if (sourceOrder.getItems().isEmpty()) {
+            ticket.removeOrder(sourceOrder);
+        }
+
+        ticketRepository.save(ticket);
+        return ticket;
+    }
+
+    public Ticket mergeOrders(int ticketId, int fromOrderIndex, int intoOrderIndex) {
+        logger.info("Merging order {} into order {} on ticket {}", fromOrderIndex, intoOrderIndex, ticketId);
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        List<Order> orders = ticket.getOrders();
+        if (fromOrderIndex < 0 || fromOrderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Source order index " + fromOrderIndex + " invalid");
+        }
+        if (intoOrderIndex < 0 || intoOrderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Target order index " + intoOrderIndex + " invalid");
+        }
+        if (fromOrderIndex == intoOrderIndex) {
+            throw new InvalidInputException("Source and target order must be different");
+        }
+
+        Order sourceOrder = orders.get(fromOrderIndex);
+        Order targetOrder = orders.get(intoOrderIndex);
+
+        List<OrderItem> itemsToMove = sourceOrder.getItems();
+        for (OrderItem item : itemsToMove) {
+            targetOrder.addItem(item);
+        }
+
+        ticket.removeOrder(sourceOrder);
+        ticketRepository.save(ticket);
+        return ticket;
+    }
+
     public void sendToKitchen(int ticketId) {
         logger.info("Sending ticket {} to kitchen", ticketId);
         ticketRepository.findById(ticketId).orElseThrow(

@@ -1,15 +1,11 @@
 package com.ticketer.models;
 
-public class Extra {
-    public long price;
-    public boolean available;
-    public boolean kitchen;
-
-    public Extra() {}
+public class Extra extends MenuAddon {
+    public Extra() {
+        super();
+    }
 
     public Extra(Extra other) {
-        this.price = other.price;
-        this.available = other.available;
-        this.kitchen = other.kitchen;
+        super(other);
     }
 }

@@ -108,7 +108,7 @@ public class TicketControllerTest {
                 when(menuService.getItem("Entrees", "TestItem")).thenReturn(menuItem);
 
                 when(menuService.createOrderItem("Entrees", "TestItem", "Fries", null))
-                                .thenReturn(new OrderItem("TestItem", "Fries", null, 1000, 200, 0, null));
+                                .thenReturn(new OrderItem("test-category", "TestItem", "Fries", null, 1000, 200, 0, null));
 
                 doAnswer(invocation -> {
                         OrderItem item = invocation.getArgument(2);
@@ -223,7 +223,7 @@ public class TicketControllerTest {
         public void testGetTicketTally() throws Exception {
                 Ticket ticket = new Ticket(1);
                 Order order = new Order(1300);
-                order.addItem(new OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
+                order.addItem(new OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);
@@ -238,9 +238,9 @@ public class TicketControllerTest {
         public void testGetTicketKitchenTally() throws Exception {
                 Ticket ticket = new Ticket(1);
                 Order order = new Order(1300);
-                order.addItem(new OrderItem("Burger", "Fries", null, 1000, 0, 0, null));
-                order.addItem(new OrderItem("Pizza", "None", null, 1200, 0, 0, null));
-                order.addItem(new OrderItem("Coke", "None", null, 200, 0, 0, null));
+                order.addItem(new OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
+                order.addItem(new OrderItem("test-category", "Pizza", "None", null, 1200, 0, 0, null));
+                order.addItem(new OrderItem("test-category", "Coke", "None", null, 200, 0, 0, null));
                 ticket.addOrder(order);
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);
@@ -347,5 +347,50 @@ public class TicketControllerTest {
                                 .contentType("application/json")
                                 .content(json))
                                 .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        public void testMoveItem() throws Exception {
+                Ticket ticket = new Ticket(1);
+                ticket.setTableNumber("Table1");
+                Order o1 = new Order();
+                o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+                Order o2 = new Order();
+                o2.addItem(new OrderItem("cat", "Coke", null, null, 200, 0, 0, null));
+                ticket.addOrder(o1);
+                ticket.addOrder(o2);
+
+                when(ticketService.moveItemBetweenOrders(1, 0, 0, 1)).thenReturn(ticket);
+                when(ticketService.getTicket(1)).thenReturn(ticket);
+
+                String json = "{\"targetOrderIndex\":1}";
+                mockMvc.perform(put("/api/tickets/1/orders/0/items/0/move")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload.id").value(1));
+
+                verify(ticketService).moveItemBetweenOrders(1, 0, 0, 1);
+        }
+
+        @Test
+        public void testMergeOrders() throws Exception {
+                Ticket ticket = new Ticket(1);
+                ticket.setTableNumber("Table1");
+                Order o1 = new Order();
+                o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+                ticket.addOrder(o1);
+
+                when(ticketService.mergeOrders(1, 0, 1)).thenReturn(ticket);
+                when(ticketService.getTicket(1)).thenReturn(ticket);
+
+                String json = "{\"targetOrderIndex\":1}";
+                mockMvc.perform(put("/api/tickets/1/orders/0/merge")
+                                .contentType("application/json")
+                                .content(json))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.payload.id").value(1));
+
+                verify(ticketService).mergeOrders(1, 0, 1);
         }
 }

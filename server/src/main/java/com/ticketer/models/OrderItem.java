@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class OrderItem {
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String category;
     private String name;
     private String selectedSide;
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -17,13 +19,15 @@ public class OrderItem {
     private String comment;
 
     @JsonCreator
-    public OrderItem(@JsonProperty("name") String name,
+    public OrderItem(@JsonProperty("category") String category,
+            @JsonProperty("name") String name,
             @JsonProperty("selectedSide") String selectedSide,
             @JsonProperty("selectedExtra") String selectedExtra,
             @JsonProperty("mainPrice") long mainPrice,
             @JsonProperty("sidePrice") long sidePrice,
             @JsonProperty("extraPrice") long extraPrice,
             @JsonProperty("comment") String comment) {
+        this.category = category;
         this.name = name;
         this.selectedSide = selectedSide;
         this.selectedExtra = selectedExtra;
@@ -40,6 +44,15 @@ public class OrderItem {
                     name, mainPrice / 100.0, selectedSide, sidePrice / 100.0, (mainPrice + sidePrice + extraPrice) / 100.0);
         }
         return String.format("Item: %s, Total: $%.2f", name, mainPrice / 100.0);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getName() {

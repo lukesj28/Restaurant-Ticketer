@@ -27,9 +27,9 @@ public class RestaurantStateService {
     private final ScheduledExecutorService scheduler;
     private final java.util.concurrent.ExecutorService closingExecutor;
     private final java.time.Clock clock;
-    private boolean isOpen;
-    private boolean forcedOpen;
-    private LocalDate forcedClosedDate;
+    private volatile boolean isOpen;
+    private volatile boolean forcedOpen;
+    private volatile LocalDate forcedClosedDate;
 
     public RestaurantStateService(SettingsService settingsService, TicketService ticketService) {
         this(settingsService, ticketService, java.time.Clock.systemUTC());
@@ -63,58 +63,57 @@ public class RestaurantStateService {
         return isOpen;
     }
 
-    public void forceOpen() {
+    public synchronized void forceOpen() {
         forcedOpen = true;
         forcedClosedDate = null;
-        setOpenState();
         checkAndScheduleState();
     }
 
-    public void forceClose() {
+    public synchronized void forceClose() {
         forcedOpen = false;
         forcedClosedDate = LocalDate.now(clock);
         handleClosing();
     }
 
-    public void checkAndScheduleState() {
-        LocalDate today = LocalDate.now(clock);
+    public synchronized void checkAndScheduleState() {
+        try {
+            LocalDate today = LocalDate.now(clock);
 
-        if (forcedClosedDate != null) {
-            if (forcedClosedDate.equals(today)) {
-                if (isOpen) {
-                    handleClosing();
+            if (forcedClosedDate != null) {
+                if (forcedClosedDate.equals(today)) {
+                    if (isOpen) {
+                        handleClosing();
+                    } else {
+                        setClosedState();
+                    }
+                    scheduleNextDayCheck();
+                    return;
+                } else {
+                    forcedClosedDate = null;
+                }
+            }
+
+            DayOfWeek dayOfWeek = today.getDayOfWeek();
+            String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
+
+            String openTimeStr = settingsService.getOpenTime(dayName);
+            String closeTimeStr = settingsService.getCloseTime(dayName);
+
+            logger.info("Scheduler check: Today is {} ({}), Current Time: {}", today, dayName, LocalTime.now(clock));
+            logger.info("Configured Hours: Open={}, Close={}", openTimeStr, closeTimeStr);
+
+            if (openTimeStr == null || closeTimeStr == null) {
+                logger.info("No hours configured for today. Determining state based on force/default.");
+                if (forcedOpen) {
+                    setOpenState();
+                    scheduleNextDayCheck();
                 } else {
                     setClosedState();
+                    scheduleNextDayCheck();
                 }
-                scheduleNextDayCheck();
                 return;
-            } else {
-                forcedClosedDate = null;
             }
-        }
 
-        DayOfWeek dayOfWeek = today.getDayOfWeek();
-        String dayName = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toLowerCase();
-
-        String openTimeStr = settingsService.getOpenTime(dayName);
-        String closeTimeStr = settingsService.getCloseTime(dayName);
-
-        logger.info("Scheduler check: Today is {} ({}), Current Time: {}", today, dayName, LocalTime.now(clock));
-        logger.info("Configured Hours: Open={}, Close={}", openTimeStr, closeTimeStr);
-
-        if (openTimeStr == null || closeTimeStr == null) {
-            logger.info("No hours configured for today. Determining state based on force/default.");
-            if (forcedOpen) {
-                setOpenState();
-                scheduleNextDayCheck();
-            } else {
-                setClosedState();
-                scheduleNextDayCheck();
-            }
-            return;
-        }
-
-        try {
             LocalTime openTime = LocalTime.parse(openTimeStr);
             LocalTime closeTime = LocalTime.parse(closeTimeStr);
             LocalTime now = LocalTime.now(clock);
@@ -165,6 +164,9 @@ public class RestaurantStateService {
         } catch (DateTimeParseException e) {
             logger.error("Error parsing time settings", e);
             setClosedState();
+            scheduleNextDayCheck();
+        } catch (Exception e) {
+            logger.error("Unexpected error in scheduler logic. Scheduling retry next day to recover.", e);
             scheduleNextDayCheck();
         }
     }

@@ -47,6 +47,16 @@ public class Order {
         return false;
     }
 
+    public OrderItem removeItemByIndex(int index) {
+        if (index < 0 || index >= items.size()) {
+            return null;
+        }
+        OrderItem removed = items.remove(index);
+        subtotal -= removed.getPrice();
+        updateTotal();
+        return removed;
+    }
+
     private void updateTotal() {
         this.tax = (subtotal * taxRate + 5000) / 10000;
         total = subtotal + tax;

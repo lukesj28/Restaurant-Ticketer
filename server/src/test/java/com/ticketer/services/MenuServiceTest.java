@@ -242,10 +242,10 @@ public class MenuServiceTest {
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
-        com.ticketer.models.OrderItem orderItem = new com.ticketer.models.OrderItem("Burger", "chips", null, 100, 299, 0, null);
+        com.ticketer.models.OrderItem orderItem = new com.ticketer.models.OrderItem("test-category", "Burger", "chips", null, 100, 299, 0, null);
         assertTrue(menuService.isKitchenRelevant(orderItem));
 
-        com.ticketer.models.OrderItem orderItem2 = new com.ticketer.models.OrderItem("Burger", null, null, 100, 0, 0, null);
+        com.ticketer.models.OrderItem orderItem2 = new com.ticketer.models.OrderItem("test-category", "Burger", null, null, 100, 0, 0, null);
         assertFalse(menuService.isKitchenRelevant(orderItem2));
 
         burger.kitchen = true;
@@ -273,8 +273,8 @@ public class MenuServiceTest {
 
         com.ticketer.models.Ticket ticket = new com.ticketer.models.Ticket(1);
         com.ticketer.models.Order order = new com.ticketer.models.Order();
-        order.addItem(new com.ticketer.models.OrderItem("Burger", "chips", null, 100, 299, 0, null));
-        order.addItem(new com.ticketer.models.OrderItem("Burger", null, null, 100, 0, 0, null));
+        order.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "chips", null, 100, 299, 0, null));
+        order.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", null, null, 100, 0, 0, null));
         ticket.addOrder(order);
 
         java.util.Map<String, Integer> tally = menuService.getKitchenTally(ticket);

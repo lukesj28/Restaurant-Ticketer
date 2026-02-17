@@ -97,7 +97,7 @@ public class MenuServiceIntegrationTest {
 
         MenuItem menuItem = service.getItem("Cat", "Item");
 
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, null, null);
+        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem("test-category", menuItem, null, null);
 
         assertNotNull(item, "Should create OrderItem object");
         assertEquals(menuItem.name, item.getName());
@@ -111,7 +111,7 @@ public class MenuServiceIntegrationTest {
         service.addItem("SideCat", name, 1000L, sides);
 
         MenuItem menuItem = service.getItem("SideCat", name);
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem(menuItem, "Fries", null);
+        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem("test-category", menuItem, "Fries", null);
 
         assertNotNull(item);
         assertEquals(name, item.getName());

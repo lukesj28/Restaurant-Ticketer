@@ -19,8 +19,8 @@ public class OrderTest {
     @Test
     public void testAddItemsAndCalculateTotal() {
         Order order = new Order();
-        OrderItem item1 = new OrderItem("Burger", null, null, 1000, 0, 0, null);
-        OrderItem item2 = new OrderItem("Fries", "Large", null, 550, 0, 0, null);
+        OrderItem item1 = new OrderItem("test-category", "Burger", null, null, 1000, 0, 0, null);
+        OrderItem item2 = new OrderItem("test-category", "Fries", "Large", null, 550, 0, 0, null);
 
         order.addItem(item1);
         order.addItem(item2);
@@ -38,7 +38,7 @@ public class OrderTest {
     @Test
     public void testImmutabilityOfGetItems() {
         Order order = new Order();
-        OrderItem item1 = new OrderItem("Burger", null, null, 1000, 0, 0, null);
+        OrderItem item1 = new OrderItem("test-category", "Burger", null, null, 1000, 0, 0, null);
         order.addItem(item1);
 
         List<OrderItem> retrievedItems = order.getItems();
@@ -50,7 +50,7 @@ public class OrderTest {
     @Test
     public void testTaxCalculation() {
         Order order = new Order(1000);
-        OrderItem item = new OrderItem("Burger", null, null, 1000, 0, 0, null);
+        OrderItem item = new OrderItem("test-category", "Burger", null, null, 1000, 0, 0, null);
 
         order.addItem(item);
 

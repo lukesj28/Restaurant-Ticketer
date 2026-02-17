@@ -5,11 +5,15 @@ import com.ticketer.models.OrderItem;
 import com.ticketer.models.Ticket;
 import com.ticketer.repositories.MenuRepository;
 import com.ticketer.models.Extra;
+import com.ticketer.models.MenuAddon;
 import com.ticketer.models.MenuItem;
 import com.ticketer.models.MenuItemView;
 import com.ticketer.models.Side;
 import com.ticketer.exceptions.EntityNotFoundException;
 import com.ticketer.exceptions.InvalidInputException;
+import com.ticketer.dtos.KitchenTicketDto;
+import com.ticketer.dtos.KitchenOrderGroupDto;
+import com.ticketer.dtos.KitchenItemDto;
 
 import java.util.List;
 import java.util.Map;
@@ -23,9 +27,84 @@ public class MenuService {
 
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MenuService.class);
 
+
     private final MenuRepository menuRepository;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private Menu currentMenu;
+    private static final String NONE_OPTION = "none";
+
+    private <T extends MenuAddon> void addAddon(String category, String itemName, String addonName, long price, java.util.Map<String, T> options, java.util.function.Supplier<T> factory, java.util.function.Consumer<java.util.Map<String, T>> optionsSetter) {
+        if (addonName == null || addonName.trim().isEmpty()) {
+            throw new InvalidInputException("Addon name cannot be empty");
+        }
+        if (NONE_OPTION.equalsIgnoreCase(addonName.trim())) {
+            throw new InvalidInputException("Cannot add 'none' option manually");
+        }
+        if (price < 0) {
+            throw new InvalidInputException("Price cannot be negative");
+        }
+
+        MenuItem item = findItem(category, itemName);
+        java.util.Map<String, T> targetOptions = options;
+        if (targetOptions == null) {
+            targetOptions = new java.util.HashMap<>();
+            optionsSetter.accept(targetOptions);
+        }
+
+        if (targetOptions.containsKey(addonName)) {
+            throw new InvalidInputException("Addon already exists: " + addonName);
+        }
+
+        if (targetOptions.isEmpty() || (targetOptions.size() == 1 && targetOptions.containsKey(NONE_OPTION))) {
+            if (!targetOptions.containsKey(NONE_OPTION)) {
+                T noneOption = factory.get();
+                noneOption.price = 0;
+                noneOption.available = true;
+                targetOptions.put(NONE_OPTION, noneOption);
+            }
+        }
+
+        T newAddon = factory.get();
+        newAddon.price = price;
+        newAddon.available = true;
+        targetOptions.put(addonName, newAddon);
+    }
+
+    private <T extends MenuAddon> void updateAddon(String category, String itemName, String addonName, java.util.Map<String, T> options, Long price, Boolean available, Boolean kitchen) {
+        if (options == null || !options.containsKey(addonName)) {
+            throw new EntityNotFoundException("Addon not found: " + addonName);
+        }
+
+        T addon = options.get(addonName);
+        if (price != null) {
+            addon.price = price;
+        }
+        if (available != null) {
+            addon.available = available;
+        }
+        if (kitchen != null) {
+            addon.kitchen = kitchen;
+        }
+    }
+
+    private <T extends MenuAddon> void removeAddon(String category, String itemName, String addonName, java.util.Map<String, T> options, java.util.function.Consumer<java.util.Map<String, T>> optionsSetter) {
+        if (NONE_OPTION.equalsIgnoreCase(addonName)) {
+            throw new InvalidInputException("Cannot remove 'none' option directly");
+        }
+
+        if (options == null || !options.containsKey(addonName)) {
+            throw new EntityNotFoundException("Addon not found: " + addonName);
+        }
+
+        options.remove(addonName);
+
+        if (options.size() == 1 && options.containsKey(NONE_OPTION)) {
+            optionsSetter.accept(null);
+        } else if (options.isEmpty()) {
+            optionsSetter.accept(null);
+        }
+    }
+
 
     @Autowired
     public MenuService(MenuRepository menuRepository) {
@@ -45,7 +124,8 @@ public class MenuService {
     public MenuItem getItem(String category, String name) {
         lock.readLock().lock();
         try {
-            return findItem(category, name);
+            MenuItem item = findItem(category, name);
+            return new MenuItem(item);
         } finally {
             lock.readLock().unlock();
         }
@@ -67,7 +147,18 @@ public class MenuService {
         lock.readLock().lock();
         try {
             MenuItem item = findItem(category, itemName);
-            return Menu.getItem(item, sideName, extraName);
+            
+            long sidePrice = 0;
+            if (sideName != null && !NONE_OPTION.equalsIgnoreCase(sideName) && item.sideOptions != null && item.sideOptions.containsKey(sideName)) {
+                sidePrice = item.sideOptions.get(sideName).price;
+            }
+
+            long extraPrice = 0;
+            if (extraName != null && !NONE_OPTION.equalsIgnoreCase(extraName) && item.extraOptions != null && item.extraOptions.containsKey(extraName)) {
+                extraPrice = item.extraOptions.get(extraName).price;
+            }
+
+            return new OrderItem(category, item.name, sideName, extraName, item.price, sidePrice, extraPrice, null);
         } finally {
             lock.readLock().unlock();
         }
@@ -80,7 +171,11 @@ public class MenuService {
             if (items == null) {
                 throw new EntityNotFoundException("Category not found: " + categoryName);
             }
-            return new java.util.ArrayList<>(items);
+            List<MenuItem> copy = new java.util.ArrayList<>();
+            for (MenuItem item : items) {
+                copy.add(new MenuItem(item));
+            }
+            return copy;
         } finally {
             lock.readLock().unlock();
         }
@@ -91,7 +186,11 @@ public class MenuService {
         try {
             Map<String, List<MenuItem>> copy = new java.util.LinkedHashMap<>();
             for (Map.Entry<String, List<MenuItem>> entry : currentMenu.getCategories().entrySet()) {
-                copy.put(entry.getKey(), new java.util.ArrayList<>(entry.getValue()));
+                List<MenuItem> listCopy = new java.util.ArrayList<>();
+                for (MenuItem item : entry.getValue()) {
+                    listCopy.add(new MenuItem(item));
+                }
+                copy.put(entry.getKey(), listCopy);
             }
             return copy;
         } finally {
@@ -123,17 +222,6 @@ public class MenuService {
         category = category.toLowerCase();
         lock.writeLock().lock();
         try {
-            Map<String, List<MenuItem>> categories = currentMenu.getCategories();
-
-            List<MenuItem> items = categories.get(category);
-            if (items == null) {
-                items = new java.util.ArrayList<>();
-                categories.put(category, items);
-                if (!currentMenu.getCategoryOrder().contains(category)) {
-                    currentMenu.getCategoryOrder().add(category);
-                }
-            }
-
             Map<String, Side> sideObjects = null;
             if (sides != null && !sides.isEmpty()) {
                 sideObjects = new java.util.HashMap<>();
@@ -147,7 +235,7 @@ public class MenuService {
 
             MenuItem newItem = new MenuItem(name, price, true, sideObjects, null, null, null);
             newItem.kitchen = kitchen;
-            items.add(newItem);
+            currentMenu.addItem(category, newItem);
             menuRepository.saveMenu(currentMenu);
         } finally {
             lock.writeLock().unlock();
@@ -203,9 +291,10 @@ public class MenuService {
             throw new InvalidInputException("New name cannot be empty");
         }
         lock.writeLock().lock();
-        try {
-            MenuItem item = findItem(category, oldName);
-            item.name = newName;
+            try {
+            findItem(category, oldName);
+            
+            currentMenu.renameItem(oldName, newName);
             menuRepository.saveMenu(currentMenu);
         } finally {
             lock.writeLock().unlock();
@@ -216,19 +305,10 @@ public class MenuService {
         logger.info("Removing item {} from category {}", itemName, category);
         lock.writeLock().lock();
         try {
-            List<MenuItem> items = currentMenu.getCategory(category.toLowerCase());
-            if (items == null) {
-                throw new EntityNotFoundException("Category not found: " + category);
-            }
-
-            boolean removed = items.removeIf(i -> i.name.equals(itemName));
+            boolean removed = currentMenu.removeItem(category.toLowerCase(), itemName);
 
             if (!removed) {
                 throw new EntityNotFoundException("Item not found: " + itemName + " in category: " + category);
-            }
-
-            if (items.isEmpty()) {
-                currentMenu.getCategories().remove(category.toLowerCase());
             }
 
             menuRepository.saveMenu(currentMenu);
@@ -298,39 +378,9 @@ public class MenuService {
             if (oldCategory.equals(newCategory))
                 return;
 
-            List<MenuItem> oldItems = currentMenu.getCategory(oldCategory);
-            MenuItem item = null;
-            if (oldItems != null) {
-                for (MenuItem i : oldItems) {
-                    if (i.name.equals(itemName)) {
-                        item = i;
-                        break;
-                    }
-                }
-            }
+            findItem(oldCategory, itemName);
 
-            if (item == null) {
-                throw new EntityNotFoundException("Item not found: " + itemName + " in category: " + category);
-            }
-
-            if (oldItems != null) {
-                oldItems.remove(item);
-            }
-
-            if (oldItems != null && oldItems.isEmpty()) {
-                currentMenu.getCategories().remove(oldCategory);
-            }
-
-            Map<String, List<MenuItem>> categories = currentMenu.getCategories();
-            List<MenuItem> newItems = categories.get(newCategory);
-            if (newItems == null) {
-                newItems = new java.util.ArrayList<>();
-                categories.put(newCategory, newItems);
-                if (!currentMenu.getCategoryOrder().contains(newCategory)) {
-                    currentMenu.getCategoryOrder().add(newCategory);
-                }
-            }
-            newItems.add(item);
+            currentMenu.changeCategory(oldCategory, newCategory, itemName);
 
             menuRepository.saveMenu(currentMenu);
         } finally {
@@ -342,25 +392,11 @@ public class MenuService {
         logger.info("Updating side {} for item {} in {}: price={}, available={}, kitchen={}", sideName, itemName, category, price, available, kitchen);
         lock.writeLock().lock();
         try {
-            MenuItem item = findItem(category, itemName);
-            if (item.sideOptions == null || !item.sideOptions.containsKey(sideName)) {
-                throw new EntityNotFoundException("Side not found: " + sideName);
-            }
-
-            Side side = item.sideOptions.get(sideName);
-            if (price != null) {
-                side.price = price;
-            }
-            if (available != null) {
-                side.available = available;
-            }
-            if (kitchen != null) {
-                side.kitchen = kitchen;
-            }
-
-            menuRepository.saveMenu(currentMenu);
+             MenuItem item = findItem(category, itemName);
+             updateAddon(category, itemName, sideName, item.sideOptions, price, available, kitchen);
+             menuRepository.saveMenu(currentMenu);
         } finally {
-            lock.writeLock().unlock();
+             lock.writeLock().unlock();
         }
     }
 
@@ -370,54 +406,22 @@ public class MenuService {
 
     public void addSide(String category, String itemName, String sideName, long price) {
         logger.info("Adding side {} to item {} in {} with price {}", sideName, itemName, category, price);
-        if (sideName == null || sideName.trim().isEmpty()) {
-            throw new InvalidInputException("Side name cannot be empty");
-        }
-        if ("none".equalsIgnoreCase(sideName.trim())) {
-            throw new InvalidInputException("Cannot add 'none' side manually");
-        }
-        if (price < 0) {
-            throw new InvalidInputException("Side price cannot be negative");
-        }
-
         lock.writeLock().lock();
         try {
             MenuItem item = findItem(category, itemName);
-            if (item.sideOptions == null) {
-                item.sideOptions = new java.util.HashMap<>();
-            }
-
-            if (item.sideOptions.containsKey(sideName)) {
-                throw new InvalidInputException("Side already exists: " + sideName);
-            }
-
-            if (item.sideOptions.isEmpty() || (item.sideOptions.size() == 1 && item.sideOptions.containsKey("none"))) {
-                if (!item.sideOptions.containsKey("none")) {
-                    Side noneSide = new Side();
-                    noneSide.price = 0;
-                    noneSide.available = true;
-                    item.sideOptions.put("none", noneSide);
-                }
-            }
-
-            Side side = new Side();
-            side.price = price;
-            side.available = true;
-            item.sideOptions.put(sideName, side);
-
+            addAddon(category, itemName, sideName, price, item.sideOptions, Side::new, map -> item.sideOptions = map);
+            
             if (item.sideOrder == null) {
-                item.sideOrder = new java.util.ArrayList<>(item.sideOptions.keySet());
+                 item.sideOrder = new java.util.ArrayList<>(item.sideOptions.keySet());
             } else {
-                if (!item.sideOrder.contains(sideName)) {
-                    item.sideOrder.add(sideName);
-                }
+                 if (!item.sideOrder.contains(sideName)) {
+                     item.sideOrder.add(sideName);
+                 }
             }
-
-            if (item.sideOrder.contains("none")) {
-                item.sideOrder.remove("none");
-                item.sideOrder.add("none");
+            if (item.sideOrder.contains(NONE_OPTION)) {
+                item.sideOrder.remove(NONE_OPTION);
+                item.sideOrder.add(NONE_OPTION);
             }
-
             menuRepository.saveMenu(currentMenu);
         } finally {
             lock.writeLock().unlock();
@@ -426,28 +430,13 @@ public class MenuService {
 
     public void removeSide(String category, String itemName, String sideName) {
         logger.info("Removing side {} from item {} in {}", sideName, itemName, category);
-        if ("none".equalsIgnoreCase(sideName)) {
-            throw new InvalidInputException("Cannot remove 'none' side directly");
-        }
-
         lock.writeLock().lock();
         try {
-            MenuItem item = findItem(category, itemName);
-            if (item.sideOptions == null || !item.sideOptions.containsKey(sideName)) {
-                throw new EntityNotFoundException("Side not found: " + sideName);
-            }
-
-            item.sideOptions.remove(sideName);
-
-            if (item.sideOptions.size() == 1 && item.sideOptions.containsKey("none")) {
-                item.sideOptions = null;
-            } else if (item.sideOptions.isEmpty()) {
-                item.sideOptions = null;
-            }
-
-            menuRepository.saveMenu(currentMenu);
+             MenuItem item = findItem(category, itemName);
+             removeAddon(category, itemName, sideName, item.sideOptions, map -> item.sideOptions = map);
+             menuRepository.saveMenu(currentMenu);
         } finally {
-            lock.writeLock().unlock();
+             lock.writeLock().unlock();
         }
     }
 
@@ -570,9 +559,9 @@ public class MenuService {
 
             List<String> newOrder = new java.util.ArrayList<>(order);
 
-            if (item.sideOptions.containsKey("none")) {
-                newOrder.remove("none");
-                newOrder.add("none");
+            if (item.sideOptions.containsKey(NONE_OPTION)) {
+                newOrder.remove(NONE_OPTION);
+                newOrder.add(NONE_OPTION);
             }
 
             item.sideOrder = newOrder;
@@ -584,44 +573,13 @@ public class MenuService {
 
     public void addExtra(String category, String itemName, String extraName, long price) {
         logger.info("Adding extra {} to item {} in {} with price {}", extraName, itemName, category, price);
-        if (extraName == null || extraName.trim().isEmpty()) {
-            throw new InvalidInputException("Extra name cannot be empty");
-        }
-        if ("none".equalsIgnoreCase(extraName.trim())) {
-            throw new InvalidInputException("Cannot add 'none' extra manually");
-        }
-        if (price < 0) {
-            throw new InvalidInputException("Extra price cannot be negative");
-        }
-
         lock.writeLock().lock();
         try {
-            MenuItem item = findItem(category, itemName);
-            if (item.extraOptions == null) {
-                item.extraOptions = new java.util.HashMap<>();
-            }
-
-            if (item.extraOptions.containsKey(extraName)) {
-                throw new InvalidInputException("Extra already exists: " + extraName);
-            }
-
-            if (item.extraOptions.isEmpty() || (item.extraOptions.size() == 1 && item.extraOptions.containsKey("none"))) {
-                if (!item.extraOptions.containsKey("none")) {
-                    Extra noneExtra = new Extra();
-                    noneExtra.price = 0;
-                    noneExtra.available = true;
-                    item.extraOptions.put("none", noneExtra);
-                }
-            }
-
-            Extra extra = new Extra();
-            extra.price = price;
-            extra.available = true;
-            item.extraOptions.put(extraName, extra);
-
-            menuRepository.saveMenu(currentMenu);
+             MenuItem item = findItem(category, itemName);
+             addAddon(category, itemName, extraName, price, item.extraOptions, Extra::new, map -> item.extraOptions = map);
+             menuRepository.saveMenu(currentMenu);
         } finally {
-            lock.writeLock().unlock();
+             lock.writeLock().unlock();
         }
     }
 
@@ -629,25 +587,11 @@ public class MenuService {
         logger.info("Updating extra {} for item {} in {}: price={}, available={}, kitchen={}", extraName, itemName, category, price, available, kitchen);
         lock.writeLock().lock();
         try {
-            MenuItem item = findItem(category, itemName);
-            if (item.extraOptions == null || !item.extraOptions.containsKey(extraName)) {
-                throw new EntityNotFoundException("Extra not found: " + extraName);
-            }
-
-            Extra extra = item.extraOptions.get(extraName);
-            if (price != null) {
-                extra.price = price;
-            }
-            if (available != null) {
-                extra.available = available;
-            }
-            if (kitchen != null) {
-                extra.kitchen = kitchen;
-            }
-
-            menuRepository.saveMenu(currentMenu);
+             MenuItem item = findItem(category, itemName);
+             updateAddon(category, itemName, extraName, item.extraOptions, price, available, kitchen);
+             menuRepository.saveMenu(currentMenu);
         } finally {
-            lock.writeLock().unlock();
+             lock.writeLock().unlock();
         }
     }
 
@@ -657,28 +601,13 @@ public class MenuService {
 
     public void removeExtra(String category, String itemName, String extraName) {
         logger.info("Removing extra {} from item {} in {}", extraName, itemName, category);
-        if ("none".equalsIgnoreCase(extraName)) {
-            throw new InvalidInputException("Cannot remove 'none' extra directly");
-        }
-
         lock.writeLock().lock();
         try {
-            MenuItem item = findItem(category, itemName);
-            if (item.extraOptions == null || !item.extraOptions.containsKey(extraName)) {
-                throw new EntityNotFoundException("Extra not found: " + extraName);
-            }
-
-            item.extraOptions.remove(extraName);
-
-            if (item.extraOptions.size() == 1 && item.extraOptions.containsKey("none")) {
-                item.extraOptions = null;
-            } else if (item.extraOptions.isEmpty()) {
-                item.extraOptions = null;
-            }
-
-            menuRepository.saveMenu(currentMenu);
+             MenuItem item = findItem(category, itemName);
+             removeAddon(category, itemName, extraName, item.extraOptions, map -> item.extraOptions = map);
+             menuRepository.saveMenu(currentMenu);
         } finally {
-            lock.writeLock().unlock();
+             lock.writeLock().unlock();
         }
     }
 
@@ -711,23 +640,20 @@ public class MenuService {
     public boolean isKitchenRelevant(OrderItem orderItem) {
         lock.readLock().lock();
         try {
-            for (Map.Entry<String, List<MenuItem>> entry : currentMenu.getCategories().entrySet()) {
-                for (MenuItem menuItem : entry.getValue()) {
-                    if (menuItem.name.equals(orderItem.getName())) {
-                        if (menuItem.kitchen) return true;
-                        if (orderItem.getSelectedSide() != null && menuItem.sideOptions != null) {
-                            Side side = menuItem.sideOptions.get(orderItem.getSelectedSide());
-                            if (side != null && side.kitchen) return true;
-                        }
-                        if (orderItem.getSelectedExtra() != null && menuItem.extraOptions != null) {
-                            Extra extra = menuItem.extraOptions.get(orderItem.getSelectedExtra());
-                            if (extra != null && extra.kitchen) return true;
-                        }
-                        return false;
-                    }
-                }
-            }
-            return false;
+             MenuItem menuItem = currentMenu.getItem(orderItem.getName());
+             
+             if (menuItem != null) {
+                 if (menuItem.kitchen) return true;
+                 if (orderItem.getSelectedSide() != null && menuItem.sideOptions != null) {
+                     Side side = menuItem.sideOptions.get(orderItem.getSelectedSide());
+                     if (side != null && side.kitchen) return true;
+                 }
+                 if (orderItem.getSelectedExtra() != null && menuItem.extraOptions != null) {
+                     Extra extra = menuItem.extraOptions.get(orderItem.getSelectedExtra());
+                     if (extra != null && extra.kitchen) return true;
+                 }
+             }
+             return false;
         } finally {
             lock.readLock().unlock();
         }
@@ -739,20 +665,20 @@ public class MenuService {
             java.util.Map<String, Integer> tally = new java.util.LinkedHashMap<>();
             for (com.ticketer.models.Order order : ticket.getOrders()) {
                 for (OrderItem item : order.getItems()) {
-                    MenuItem menuItem = findMenuItemByName(item.getName());
+                    MenuItem menuItem = currentMenu.getItem(item.getName());
                     if (menuItem == null) continue;
 
                     if (menuItem.kitchen) {
                         tally.merge(item.getName(), 1, Integer::sum);
                     }
-                    if (item.getSelectedSide() != null && !"none".equalsIgnoreCase(item.getSelectedSide())
+                    if (item.getSelectedSide() != null && !NONE_OPTION.equalsIgnoreCase(item.getSelectedSide())
                             && menuItem.sideOptions != null) {
                         Side side = menuItem.sideOptions.get(item.getSelectedSide());
                         if (side != null && side.kitchen) {
                             tally.merge(item.getSelectedSide(), 1, Integer::sum);
                         }
                     }
-                    if (item.getSelectedExtra() != null && !"none".equalsIgnoreCase(item.getSelectedExtra())
+                    if (item.getSelectedExtra() != null && !NONE_OPTION.equalsIgnoreCase(item.getSelectedExtra())
                             && menuItem.extraOptions != null) {
                         Extra extra = menuItem.extraOptions.get(item.getSelectedExtra());
                         if (extra != null && extra.kitchen) {
@@ -767,14 +693,103 @@ public class MenuService {
         }
     }
 
-    private MenuItem findMenuItemByName(String name) {
-        for (List<MenuItem> items : currentMenu.getCategories().values()) {
-            for (MenuItem item : items) {
-                if (item.name.equals(name)) {
-                    return item;
+    public KitchenTicketDto getKitchenDetails(Ticket ticket) {
+        lock.readLock().lock();
+        try {
+            java.util.Map<String, Integer> tally = new java.util.LinkedHashMap<>();
+            java.util.List<KitchenOrderGroupDto> kitchenOrders = new java.util.ArrayList<>();
+
+            for (com.ticketer.models.Order order : ticket.getOrders()) {
+                for (OrderItem item : order.getItems()) {
+                    MenuItem menuItem = currentMenu.getItem(item.getName());
+                    if (menuItem == null) continue;
+
+                    if (menuItem.kitchen) {
+                        tally.merge(item.getName(), 1, Integer::sum);
+                    }
+                    if (item.getSelectedSide() != null && !NONE_OPTION.equalsIgnoreCase(item.getSelectedSide())
+                            && menuItem.sideOptions != null) {
+                        Side side = menuItem.sideOptions.get(item.getSelectedSide());
+                        if (side != null && side.kitchen) {
+                            tally.merge(item.getSelectedSide(), 1, Integer::sum);
+                        }
+                    }
+                    if (item.getSelectedExtra() != null && !NONE_OPTION.equalsIgnoreCase(item.getSelectedExtra())
+                            && menuItem.extraOptions != null) {
+                        Extra extra = menuItem.extraOptions.get(item.getSelectedExtra());
+                        if (extra != null && extra.kitchen) {
+                            tally.merge(item.getSelectedExtra(), 1, Integer::sum);
+                        }
+                    }
                 }
             }
+
+            for (com.ticketer.models.Order order : ticket.getOrders()) {
+                List<KitchenItemDto> groupItems = new java.util.ArrayList<>();
+                java.util.Map<String, java.util.Map<String, java.util.Map<String, Integer>>> grouped = new java.util.LinkedHashMap<>();
+
+                for (OrderItem item : order.getItems()) {
+                    boolean relevant = false;
+                    MenuItem menuItem = null;
+                    if (item.getCategory() != null) {
+                        try {
+                            menuItem = findItem(item.getCategory(), item.getName());
+                        } catch (EntityNotFoundException e) {
+                        }
+                    }
+                    
+                    if (menuItem != null) {
+                        if (menuItem.kitchen) relevant = true;
+                        else if (item.getSelectedSide() != null && !NONE_OPTION.equalsIgnoreCase(item.getSelectedSide()) && menuItem.sideOptions != null) {
+                            Side side = menuItem.sideOptions.get(item.getSelectedSide());
+                            if (side != null && side.kitchen) relevant = true;
+                        }
+                        else if (item.getSelectedExtra() != null && !NONE_OPTION.equalsIgnoreCase(item.getSelectedExtra()) && menuItem.extraOptions != null) {
+                            Extra extra = menuItem.extraOptions.get(item.getSelectedExtra());
+                            if (extra != null && extra.kitchen) relevant = true;
+                        }
+                    }
+                    
+                    if (!relevant) continue;
+
+                    if (item.getComment() != null && !item.getComment().trim().isEmpty()) {
+                        groupItems.add(new KitchenItemDto(item.getName(), item.getSelectedSide(), item.getSelectedExtra(), 1, item.getComment()));
+                    } else {
+                        String sideKey = item.getSelectedSide() != null ? item.getSelectedSide() : "";
+                        String extraKey = item.getSelectedExtra() != null ? item.getSelectedExtra() : "";
+                        grouped.computeIfAbsent(item.getName(), k -> new java.util.LinkedHashMap<>())
+                               .computeIfAbsent(sideKey, k -> new java.util.LinkedHashMap<>())
+                               .merge(extraKey, 1, Integer::sum);
+                    }
+                }
+
+                for (java.util.Map.Entry<String, java.util.Map<String, java.util.Map<String, Integer>>> nameEntry : grouped.entrySet()) {
+                    for (java.util.Map.Entry<String, java.util.Map<String, Integer>> sideEntry : nameEntry.getValue().entrySet()) {
+                        String side = sideEntry.getKey().isEmpty() ? null : sideEntry.getKey();
+                        for (java.util.Map.Entry<String, Integer> extraEntry : sideEntry.getValue().entrySet()) {
+                            String extra = extraEntry.getKey().isEmpty() ? null : extraEntry.getKey();
+                            groupItems.add(new KitchenItemDto(nameEntry.getKey(), side, extra, extraEntry.getValue(), null));
+                        }
+                    }
+                }
+
+                if (!groupItems.isEmpty() || (order.getComment() != null && !order.getComment().trim().isEmpty())) {
+                    kitchenOrders.add(new KitchenOrderGroupDto(order.getComment(), groupItems));
+                }
+            }
+
+            return new KitchenTicketDto(
+                    ticket.getId(),
+                    ticket.getTableNumber(),
+                    tally,
+                    kitchenOrders,
+                    ticket.getCreatedAt() != null ? ticket.getCreatedAt().toString() : null,
+                    ticket.getComment());
+
+        } finally {
+            lock.readLock().unlock();
         }
-        return null;
     }
+
+
 }

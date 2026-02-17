@@ -54,7 +54,7 @@ public class MenuTest {
         sides.put("chips", chips);
         MenuItem fish = new MenuItem("Fish", 1000, true, sides, null, null, null);
 
-        OrderItem result = Menu.getItem(fish, "chips", null);
+        OrderItem result = Menu.getItem("test-category", fish, "chips", null);
         assertEquals("Fish", result.getName());
         assertEquals("chips", result.getSelectedSide());
         assertEquals(1000, result.getMainPrice());
@@ -65,7 +65,7 @@ public class MenuTest {
     @Test
     public void testGetItemWithoutSides() {
         MenuItem burger = new MenuItem("Burger", 1000, true, null, null, null, null);
-        OrderItem result = Menu.getItem(burger, null, null);
+        OrderItem result = Menu.getItem("test-category", burger, null, null);
         assertEquals("Burger", result.getName());
         assertEquals(1000, result.getMainPrice());
         assertEquals(0, result.getSidePrice());
@@ -78,13 +78,13 @@ public class MenuTest {
         Map<String, Side> sides = new HashMap<>();
         sides.put("fries", new Side());
         MenuItem fish = new MenuItem("Fish", 1000, true, sides, null, null, null);
-        Menu.getItem(fish, "invalid_side", null);
+        Menu.getItem("test-category", fish, "invalid_side", null);
     }
 
     @Test
     public void testGetItemWithSideIgnored() {
         MenuItem burger = new MenuItem("Burger", 1000, true, null, null, null, null);
-        OrderItem result = Menu.getItem(burger, "Fries", null);
+        OrderItem result = Menu.getItem("test-category", burger, "Fries", null);
         assertEquals("Burger", result.getName());
         assertEquals(1000, result.getMainPrice());
         assertEquals(0, result.getSidePrice());
