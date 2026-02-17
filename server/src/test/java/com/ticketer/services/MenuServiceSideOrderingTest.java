@@ -42,7 +42,7 @@ public class MenuServiceSideOrderingTest {
         items.add(burger);
         data.put("mains", items);
 
-        Menu menu = new Menu(data, new ArrayList<>(), null);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
@@ -72,7 +72,7 @@ public class MenuServiceSideOrderingTest {
         items.add(burger);
         data.put("mains", items);
 
-        Menu menu = new Menu(data, new ArrayList<>(), null);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 
@@ -108,7 +108,7 @@ public class MenuServiceSideOrderingTest {
         items.add(burger);
         data.put("mains", items);
 
-        Menu menu = new Menu(data, new ArrayList<>(), null);
+        Menu menu = new Menu(data, null);
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 

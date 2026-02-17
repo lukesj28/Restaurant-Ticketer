@@ -16,7 +16,7 @@ public class MenuServiceConcurrencyTest {
         MenuRepository repo = mock(MenuRepository.class);
         Map<String, List<MenuItem>> data = new HashMap<>();
         data.put("test", new ArrayList<>());
-        Menu menu = new Menu(data, new ArrayList<>(), new ArrayList<>());
+        Menu menu = new Menu(data, new ArrayList<>());
         when(repo.getMenu()).thenReturn(menu);
 
         MenuService service = new MenuService(repo);

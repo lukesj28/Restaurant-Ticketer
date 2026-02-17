@@ -6,6 +6,7 @@ public record ItemDto(
                 String name,
                 long price,
                 boolean available,
+                boolean kitchen,
                 Map<String, SideDto> sides,
                 java.util.List<String> sideOrder,
                 Map<String, ExtraDto> extras,

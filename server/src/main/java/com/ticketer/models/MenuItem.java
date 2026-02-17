@@ -10,6 +10,7 @@ public class MenuItem {
     public String name;
     public long price;
     public boolean available;
+    public boolean kitchen;
     @JsonProperty("sides")
     public Map<String, Side> sideOptions;
     @JsonProperty("sideOrder")
@@ -42,6 +43,7 @@ public class MenuItem {
         this.name = other.name;
         this.price = other.price;
         this.available = other.available;
+        this.kitchen = other.kitchen;
         if (other.sideOptions != null) {
             this.sideOptions = new java.util.HashMap<>();
             for (Map.Entry<String, Side> entry : other.sideOptions.entrySet()) {

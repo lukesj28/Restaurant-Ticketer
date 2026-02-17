@@ -47,27 +47,21 @@ public class FileMenuRepository implements MenuRepository {
         File file = new File(filePath);
         if (!file.exists()) {
             logger.warn("Menu file not found at {}, returning empty menu", filePath);
-            return new Menu(new HashMap<>(), new ArrayList<>(), null);
+            return new Menu(new HashMap<>(), null);
         }
 
         try (FileReader reader = new FileReader(file)) {
             JsonNode root = objectMapper.readTree(reader);
             if (root == null || root.isNull()) {
-                return new Menu(new HashMap<>(), new ArrayList<>(), null);
+                return new Menu(new HashMap<>(), null);
             }
 
             Map<String, List<MenuItem>> categories = new HashMap<>();
-            List<String> kitchenItems = new ArrayList<>();
             List<String> categoryOrder = null;
 
             JsonNode categoriesNode;
             if (root.has("categories")) {
                 categoriesNode = root.get("categories");
-                if (root.has("kitchenItems")) {
-                    kitchenItems = objectMapper.convertValue(root.get("kitchenItems"),
-                            new TypeReference<List<String>>() {
-                            });
-                }
                 if (root.has("categoryOrder")) {
                     categoryOrder = objectMapper.convertValue(root.get("categoryOrder"),
                             new TypeReference<List<String>>() {
@@ -76,7 +70,7 @@ public class FileMenuRepository implements MenuRepository {
             } else {
                 logger.warn("Menu file {} uses invalid format or is missing 'categories' field. Returning empty menu.",
                         filePath);
-                return new Menu(new HashMap<>(), new ArrayList<>(), null);
+                return new Menu(new HashMap<>(), null);
             }
 
             Iterator<Map.Entry<String, JsonNode>> fields = categoriesNode.fields();
@@ -97,6 +91,7 @@ public class FileMenuRepository implements MenuRepository {
 
                     int price = itemNode.has("price") ? itemNode.get("price").asInt() : 0;
                     boolean available = itemNode.has("available") && itemNode.get("available").asBoolean();
+                    boolean kitchen = itemNode.has("kitchen") && itemNode.get("kitchen").asBoolean();
 
                     Map<String, Side> sides = null;
                     List<String> sideOrder = null;
@@ -122,12 +117,14 @@ public class FileMenuRepository implements MenuRepository {
                                 new TypeReference<List<String>>() {
                                 });
                     }
-                    items.add(new MenuItem(itemName, price, available, sides, sideOrder, extras, extraOrder));
+                    MenuItem item = new MenuItem(itemName, price, available, sides, sideOrder, extras, extraOrder);
+                    item.kitchen = kitchen;
+                    items.add(item);
                 }
                 categories.put(categoryName, items);
             }
             logger.info("Successfully loaded menu from {}", filePath);
-            return new Menu(categories, kitchenItems, categoryOrder);
+            return new Menu(categories, categoryOrder);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load menu from " + filePath, e);
         }
@@ -155,6 +152,7 @@ public class FileMenuRepository implements MenuRepository {
                     ObjectNode itemNode = objectMapper.createObjectNode();
                     itemNode.put("price", item.price);
                     itemNode.put("available", item.available);
+                    itemNode.put("kitchen", item.kitchen);
 
                     if (item.sideOptions != null && !item.sideOptions.isEmpty()) {
                         itemNode.set("sides", objectMapper.valueToTree(item.sideOptions));
@@ -178,7 +176,6 @@ public class FileMenuRepository implements MenuRepository {
             }
 
             root.set("categories", categoriesNode);
-            root.set("kitchenItems", objectMapper.valueToTree(menu.getKitchenItems()));
 
             if (categoryOrder != null && !categoryOrder.isEmpty()) {
                 ArrayNode categoryOrderNode = objectMapper.createArrayNode();

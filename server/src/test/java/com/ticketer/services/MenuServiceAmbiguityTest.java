@@ -44,7 +44,7 @@ public class MenuServiceAmbiguityTest {
         mixers.add(mixersCoke);
         data.put("mixers", mixers);
 
-        Menu menu = new Menu(data, new ArrayList<>(), new ArrayList<>(data.keySet()));
+        Menu menu = new Menu(data, new ArrayList<>(data.keySet()));
         when(menuRepository.getMenu()).thenReturn(menu);
         menuService = new MenuService(menuRepository);
 

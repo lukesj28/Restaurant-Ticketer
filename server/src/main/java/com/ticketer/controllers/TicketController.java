@@ -74,17 +74,7 @@ public class TicketController {
             throw new EntityNotFoundException("Ticket not found");
         }
 
-        java.util.Map<String, Integer> fullTally = ticket.getTally();
-        List<String> kitchenItems = menuService.getKitchenItems();
-
-        java.util.Map<String, Integer> kitchenTally = new java.util.HashMap<>();
-        for (String item : kitchenItems) {
-            if (fullTally.containsKey(item)) {
-                kitchenTally.put(item, fullTally.get(item));
-            }
-        }
-
-        return ApiResponse.success(kitchenTally);
+        return ApiResponse.success(menuService.getKitchenTally(ticket));
     }
 
     @PostMapping("/{ticketId}/orders")
@@ -158,22 +148,15 @@ public class TicketController {
 
     @GetMapping("/active/kitchen")
     public ApiResponse<List<KitchenTicketDto>> getActiveKitchenTickets() {
-        List<String> kitchenItems = menuService.getKitchenItems();
         List<Ticket> kitchenTickets = ticketService.getKitchenTickets();
 
         List<KitchenTicketDto> result = kitchenTickets.stream().map(ticket -> {
-            java.util.Map<String, Integer> fullTally = ticket.getTally();
-            java.util.Map<String, Integer> kitchenTally = new java.util.LinkedHashMap<>();
-            for (String item : kitchenItems) {
-                if (fullTally.containsKey(item)) {
-                    kitchenTally.put(item, fullTally.get(item));
-                }
-            }
+            java.util.Map<String, Integer> kitchenTally = menuService.getKitchenTally(ticket);
 
             List<KitchenOrderGroupDto> kitchenOrders = new java.util.ArrayList<>();
 
             for (Order order : ticket.getOrders()) {
-                List<KitchenItemDto> groupItems = groupKitchenItems(order, kitchenItems);
+                List<KitchenItemDto> groupItems = groupKitchenItems(order, menuService);
                 if (!groupItems.isEmpty() || (order.getComment() != null && !order.getComment().trim().isEmpty())) {
                     kitchenOrders.add(new KitchenOrderGroupDto(order.getComment(), groupItems));
                 }
@@ -191,12 +174,12 @@ public class TicketController {
         return ApiResponse.success(result);
     }
 
-    private List<KitchenItemDto> groupKitchenItems(Order order, List<String> kitchenItems) {
+    private List<KitchenItemDto> groupKitchenItems(Order order, MenuService menuSvc) {
         List<KitchenItemDto> result = new java.util.ArrayList<>();
         java.util.Map<String, java.util.Map<String, java.util.Map<String, Integer>>> grouped = new java.util.LinkedHashMap<>();
 
         for (OrderItem item : order.getItems()) {
-            if (!kitchenItems.contains(item.getName())) {
+            if (!menuSvc.isKitchenRelevant(item)) {
                 continue;
             }
             if (item.getComment() != null && !item.getComment().trim().isEmpty()) {
@@ -210,14 +193,12 @@ public class TicketController {
             }
         }
 
-        for (String kitchenItemName : kitchenItems) {
-            if (grouped.containsKey(kitchenItemName)) {
-                for (java.util.Map.Entry<String, java.util.Map<String, Integer>> sideEntry : grouped.get(kitchenItemName).entrySet()) {
-                    String side = sideEntry.getKey().isEmpty() ? null : sideEntry.getKey();
-                    for (java.util.Map.Entry<String, Integer> extraEntry : sideEntry.getValue().entrySet()) {
-                        String extra = extraEntry.getKey().isEmpty() ? null : extraEntry.getKey();
-                        result.add(new KitchenItemDto(kitchenItemName, side, extra, extraEntry.getValue(), null));
-                    }
+        for (java.util.Map.Entry<String, java.util.Map<String, java.util.Map<String, Integer>>> nameEntry : grouped.entrySet()) {
+            for (java.util.Map.Entry<String, java.util.Map<String, Integer>> sideEntry : nameEntry.getValue().entrySet()) {
+                String side = sideEntry.getKey().isEmpty() ? null : sideEntry.getKey();
+                for (java.util.Map.Entry<String, Integer> extraEntry : sideEntry.getValue().entrySet()) {
+                    String extra = extraEntry.getKey().isEmpty() ? null : extraEntry.getKey();
+                    result.add(new KitchenItemDto(nameEntry.getKey(), side, extra, extraEntry.getValue(), null));
                 }
             }
         }

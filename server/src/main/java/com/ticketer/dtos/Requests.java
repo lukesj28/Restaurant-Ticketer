@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 public class Requests {
-    public record ItemCreateRequest(String category, String name, long price, Map<String, Long> sides) {
+    public record ItemCreateRequest(String category, String name, long price, Map<String, Long> sides, Boolean kitchen) {
     }
 
     public record ItemPriceUpdateRequest(long newPrice) {
@@ -22,7 +22,7 @@ public class Requests {
     public record ItemCategoryUpdateRequest(String newCategory) {
     }
 
-    public record SideUpdateRequest(Long price, Boolean available) {
+    public record SideUpdateRequest(Long price, Boolean available, Boolean kitchen) {
     }
 
     public record SideCreateRequest(String name, long price) {
@@ -61,7 +61,7 @@ public class Requests {
     public record ExtraCreateRequest(String name, long price) {
     }
 
-    public record ExtraUpdateRequest(Long price, Boolean available) {
+    public record ExtraUpdateRequest(Long price, Boolean available, Boolean kitchen) {
     }
 
     public record ExtraReorderRequest(List<String> order) {

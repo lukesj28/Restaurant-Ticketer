@@ -13,7 +13,7 @@ public class MenuTest {
         mains.add(new MenuItem("Burger", 1000, true, null, null, null, null));
         categories.put("mains", mains);
 
-        Menu menu = new Menu(categories, null, null);
+        Menu menu = new Menu(categories, null);
         assertEquals(categories, menu.getCategories());
         assertNotNull(menu.getCategory("mains"));
         assertEquals(1, menu.getCategory("mains").size());
@@ -27,7 +27,7 @@ public class MenuTest {
         mains.add(new MenuItem("Burger", 1000, true, null, null, null, null));
         categories.put("mains", mains);
 
-        Menu menu = new Menu(categories, null, null);
+        Menu menu = new Menu(categories, null);
         List<MenuItemView> items = menu.getAllItems();
         assertEquals(1, items.size());
         assertEquals("Burger", items.get(0).name);
@@ -41,7 +41,7 @@ public class MenuTest {
         mains.add(new MenuItem("Burger", 1000, true, null, null, null, null));
         categories.put("mains", mains);
 
-        Menu menu = new Menu(categories, null, null);
+        Menu menu = new Menu(categories, null);
         assertNotNull(menu.getItem("Burger"));
         assertNull(menu.getItem("Pizza"));
     }

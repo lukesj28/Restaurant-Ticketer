@@ -73,7 +73,8 @@ public class MenuController {
     @PostMapping("/items")
     public ApiResponse<ItemDto> addItem(@RequestBody Requests.ItemCreateRequest request) {
         logger.info("Received request to add item: {} to category: {}", request.name(), request.category());
-        menuService.addItem(request.category(), request.name(), request.price(), request.sides());
+        boolean kitchen = request.kitchen() != null && request.kitchen();
+        menuService.addItem(request.category(), request.name(), request.price(), request.sides(), kitchen);
         MenuItem item = menuService.getItem(request.category(), request.name());
         return ApiResponse.success(DtoMapper.toItemDto(item));
     }
@@ -134,7 +135,7 @@ public class MenuController {
             @PathVariable("itemName") String itemName,
             @PathVariable("sideName") String sideName,
             @RequestBody Requests.SideUpdateRequest request) {
-        menuService.updateSide(categoryName, itemName, sideName, request.price(), request.available());
+        menuService.updateSide(categoryName, itemName, sideName, request.price(), request.available(), request.kitchen());
         return getAllItems();
     }
 
@@ -153,21 +154,12 @@ public class MenuController {
         return ApiResponse.success(java.util.Collections.emptyList());
     }
 
-    @GetMapping("/kitchen-items")
-    public ApiResponse<List<String>> getKitchenItems() {
-        return ApiResponse.success(menuService.getKitchenItems());
-    }
-
-    @PostMapping("/kitchen-items/{itemName}")
-    public ApiResponse<List<String>> addKitchenItem(@PathVariable String itemName) {
-        menuService.addKitchenItem(itemName);
-        return ApiResponse.success(menuService.getKitchenItems());
-    }
-
-    @DeleteMapping("/kitchen-items/{itemName}")
-    public ApiResponse<List<String>> removeKitchenItem(@PathVariable String itemName) {
-        menuService.removeKitchenItem(itemName);
-        return ApiResponse.success(menuService.getKitchenItems());
+    @PutMapping("/categories/{categoryName}/items/{itemName}/kitchen")
+    public ApiResponse<List<ItemDto>> editItemKitchen(@PathVariable("categoryName") String categoryName,
+            @PathVariable("itemName") String itemName,
+            @RequestBody java.util.Map<String, Boolean> request) {
+        menuService.editItemKitchen(categoryName, itemName, Boolean.TRUE.equals(request.get("kitchen")));
+        return getAllItems();
     }
 
     @PutMapping("/categories/reorder")
@@ -223,7 +215,7 @@ public class MenuController {
             @PathVariable("itemName") String itemName,
             @PathVariable("extraName") String extraName,
             @RequestBody Requests.ExtraUpdateRequest request) {
-        menuService.updateExtra(categoryName, itemName, extraName, request.price(), request.available());
+        menuService.updateExtra(categoryName, itemName, extraName, request.price(), request.available(), request.kitchen());
         return getAllItems();
     }
 

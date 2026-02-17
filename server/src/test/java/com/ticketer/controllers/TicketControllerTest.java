@@ -245,10 +245,10 @@ public class TicketControllerTest {
 
                 when(ticketService.getTicket(1)).thenReturn(ticket);
 
-                List<String> kitchenItems = new ArrayList<>();
-                kitchenItems.add("Burger");
-                kitchenItems.add("Pizza");
-                when(menuService.getKitchenItems()).thenReturn(kitchenItems);
+                java.util.Map<String, Integer> kitchenTally = new java.util.LinkedHashMap<>();
+                kitchenTally.put("Burger", 1);
+                kitchenTally.put("Pizza", 1);
+                when(menuService.getKitchenTally(ticket)).thenReturn(kitchenTally);
 
                 mockMvc.perform(get("/api/tickets/1/tally/kitchen"))
                                 .andExpect(status().isOk())

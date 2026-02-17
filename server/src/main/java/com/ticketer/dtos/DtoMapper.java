@@ -63,19 +63,20 @@ public class DtoMapper {
             sides = item.sideOptions.entrySet().stream()
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
-                            e -> new SideDto(e.getValue().price, e.getValue().available)));
+                            e -> new SideDto(e.getValue().price, e.getValue().available, e.getValue().kitchen)));
         }
         Map<String, ExtraDto> extras = null;
         if (item.extraOptions != null) {
             extras = item.extraOptions.entrySet().stream()
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
-                            e -> new ExtraDto(e.getValue().price, e.getValue().available)));
+                            e -> new ExtraDto(e.getValue().price, e.getValue().available, e.getValue().kitchen)));
         }
         return new ItemDto(
                 item.name,
                 item.price,
                 item.available,
+                item.kitchen,
                 sides,
                 item.sideOrder,
                 extras,

@@ -46,9 +46,8 @@ const Menu = () => {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-    // Kitchen Items State
-    const [kitchenItems, setKitchenItems] = useState([]);
-    const [isKitchenItem, setIsKitchenItem] = useState(false); // For Create/Edit modals
+    // Kitchen Item State (for create modal only)
+    const [isKitchenItem, setIsKitchenItem] = useState(false);
 
     // New Side Input State
     const [newSide, setNewSide] = useState({ name: '', price: '' });
@@ -84,7 +83,6 @@ const Menu = () => {
 
     useEffect(() => {
         fetchMenu();
-        fetchKitchenItems();
     }, []);
 
     const fetchMenu = async () => {
@@ -120,26 +118,16 @@ const Menu = () => {
         }
     };
 
-    const fetchKitchenItems = async () => {
-        try {
-            const data = await api.get('/menu/kitchen-items');
-            setKitchenItems(data || []);
-        } catch (e) {
-            console.error("Failed to fetch kitchen items:", e);
-        }
-    };
-
     const handleEditClick = (item, categoryName) => {
         setEditItem({ ...item, originalName: item.name, originalCategory: categoryName });
-        const isKitchen = kitchenItems.includes(item.name);
-        setIsKitchenItem(isKitchen);
         setEditForm({
             price: (item.price / 100).toFixed(2),
             available: item.available,
+            kitchen: item.kitchen || false,
             name: item.name,
             category: categoryName,
-            sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {}, // Deep copy to avoid mutating original ref
-            sideOrder: item.sideOrder ? [...item.sideOrder] : [], // Clone explicit order
+            sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {},
+            sideOrder: item.sideOrder ? [...item.sideOrder] : [],
             extras: item.extras ? JSON.parse(JSON.stringify(item.extras)) : {},
             extraOrder: item.extraOrder ? [...item.extraOrder] : []
         });
@@ -441,26 +429,21 @@ const Menu = () => {
             }
 
             // Kitchen Status
-            const wasKitchen = kitchenItems.includes(editItem.originalName);
-            // Note: If renamed, we use the new name for kitchen status update if needed, but the backend rename should handle the old name removal.
-            // However, renameItem in backend typically handles migrating the name in kitchenItems list.
-            // So we just need to check if the state changed.
-            if (isKitchenItem && !wasKitchen) {
-                await api.post(`/menu/kitchen-items/${encodeURIComponent(currentName)}`);
-            } else if (!isKitchenItem && wasKitchen) {
-                await api.delete(`/menu/kitchen-items/${encodeURIComponent(currentName)}`);
+            if (editForm.kitchen !== (editItem.kitchen || false)) {
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/kitchen`, { kitchen: editForm.kitchen });
             }
 
             // Sides updates (only for existing sides that changed)
             if (editForm.sides) {
                 for (const [sideName, sideData] of Object.entries(editForm.sides)) {
-                    if (sideName === 'none') continue; // Skip none
-                    if (sidesToDelete.includes(sideName)) continue; // Will be deleted
+                    if (sideName === 'none') continue;
+                    if (sidesToDelete.includes(sideName)) continue;
                     const originalSide = editItem.sides && editItem.sides[sideName];
-                    if (originalSide && (originalSide.price !== sideData.price || originalSide.available !== sideData.available)) {
+                    if (originalSide && (originalSide.price !== sideData.price || originalSide.available !== sideData.available || originalSide.kitchen !== sideData.kitchen)) {
                         await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/sides/${encodeURIComponent(sideName)}`, {
                             price: sideData.price,
-                            available: sideData.available
+                            available: sideData.available,
+                            kitchen: sideData.kitchen
                         });
                     }
                 }
@@ -483,10 +466,11 @@ const Menu = () => {
                     if (extraName === 'none') continue;
                     if (extrasToDelete.includes(extraName)) continue;
                     const originalExtra = editItem.extras && editItem.extras[extraName];
-                    if (originalExtra && (originalExtra.price !== extraData.price || originalExtra.available !== extraData.available)) {
+                    if (originalExtra && (originalExtra.price !== extraData.price || originalExtra.available !== extraData.available || originalExtra.kitchen !== extraData.kitchen)) {
                         await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/${encodeURIComponent(extraName)}`, {
                             price: extraData.price,
-                            available: extraData.available
+                            available: extraData.available,
+                            kitchen: extraData.kitchen
                         });
                     }
                 }
@@ -499,7 +483,6 @@ const Menu = () => {
 
             setIsEditModalOpen(false);
             fetchMenu();
-            fetchKitchenItems();
             toast.success('Item updated successfully');
         } catch (e) {
             toast.error('Failed to update item: ' + e.message);
@@ -513,19 +496,15 @@ const Menu = () => {
                 name: newItem.name,
                 category: newItem.category,
                 price: Math.round(parseFloat(newItem.price) * 100),
-                sides: {} // Default empty
+                sides: {},
+                kitchen: isKitchenItem
             });
-
-            if (isKitchenItem) {
-                await api.post(`/menu/kitchen-items/${newItem.name}`);
-            }
 
             setIsCreateModalOpen(false);
             setNewItem({ name: '', category: '', price: '' });
             setIsKitchenItem(false);
             setIsCreatingNewCategory(false);
             fetchMenu();
-            fetchKitchenItems();
             toast.success('Item created successfully');
         } catch (error) {
             toast.error('Failed to create item: ' + error.message);
@@ -538,7 +517,6 @@ const Menu = () => {
                 await api.delete(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}`);
                 setIsEditModalOpen(false);
                 fetchMenu();
-                fetchKitchenItems();
                 toast.success('Item deleted successfully');
             } catch (e) {
                 toast.error(e.message);
@@ -670,8 +648,8 @@ const Menu = () => {
                     <label>
                         <input
                             type="checkbox"
-                            checked={isKitchenItem}
-                            onChange={e => setIsKitchenItem(e.target.checked)}
+                            checked={editForm.kitchen || false}
+                            onChange={e => setEditForm({ ...editForm, kitchen: e.target.checked })}
                         />
                         Kitchen Item
                     </label>
@@ -714,6 +692,16 @@ const Menu = () => {
                                             sides: {
                                                 ...prev.sides,
                                                 [sideName]: { ...prev.sides[sideName], available: newAvail }
+                                            }
+                                        }));
+                                    }}
+                                    onKitchenChange={e => {
+                                        const newKitchen = e.target.checked;
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            sides: {
+                                                ...prev.sides,
+                                                [sideName]: { ...prev.sides[sideName], kitchen: newKitchen }
                                             }
                                         }));
                                     }}
@@ -808,6 +796,16 @@ const Menu = () => {
                                             extras: {
                                                 ...prev.extras,
                                                 [extraName]: { ...prev.extras[extraName], available: newAvail }
+                                            }
+                                        }));
+                                    }}
+                                    onKitchenChange={e => {
+                                        const newKitchen = e.target.checked;
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            extras: {
+                                                ...prev.extras,
+                                                [extraName]: { ...prev.extras[extraName], kitchen: newKitchen }
                                             }
                                         }));
                                     }}
@@ -1110,7 +1108,7 @@ const SortableItem = ({ item, category, onEdit }) => {
     );
 };
 
-const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onDelete }) => {
+const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onKitchenChange, onDelete }) => {
     return (
         <div className="side-edit-row">
             <span className="side-name">{sideName}</span>
@@ -1129,6 +1127,14 @@ const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onDelet
                 />
                 Avail
             </label>
+            <label className="side-avail-label">
+                <input
+                    type="checkbox"
+                    checked={sideData.kitchen || false}
+                    onChange={onKitchenChange}
+                />
+                Kitchen
+            </label>
             <button
                 type="button"
                 className="side-delete-btn"
@@ -1141,7 +1147,7 @@ const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onDelet
     );
 };
 
-const ExtraRow = ({ extraName, extraData, onPriceChange, onAvailableChange, onDelete }) => {
+const ExtraRow = ({ extraName, extraData, onPriceChange, onAvailableChange, onKitchenChange, onDelete }) => {
     return (
         <div className="extra-edit-row">
             <span className="extra-name">{extraName}</span>
@@ -1159,6 +1165,14 @@ const ExtraRow = ({ extraName, extraData, onPriceChange, onAvailableChange, onDe
                     onChange={onAvailableChange}
                 />
                 Avail
+            </label>
+            <label className="extra-avail-label">
+                <input
+                    type="checkbox"
+                    checked={extraData.kitchen || false}
+                    onChange={onKitchenChange}
+                />
+                Kitchen
             </label>
             <button
                 type="button"

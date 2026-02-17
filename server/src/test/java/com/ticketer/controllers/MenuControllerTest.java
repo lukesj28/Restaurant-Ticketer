@@ -117,7 +117,7 @@ public class MenuControllerTest {
                                 .content(json))
                                 .andExpect(status().isOk());
 
-                verify(menuService).addItem(eq("Entrees"), eq("NewItem"), eq(1000L), any());
+                verify(menuService).addItem(eq("Entrees"), eq("NewItem"), eq(1000L), any(), eq(false));
         }
 
         @Test
@@ -208,13 +208,13 @@ public class MenuControllerTest {
                 when(menuService.getItem("Entrees", "Item")).thenReturn(item);
                 when(menuService.getCategories()).thenReturn(new HashMap<>());
 
-                Requests.SideUpdateRequest request = new Requests.SideUpdateRequest(200L, true);
+                Requests.SideUpdateRequest request = new Requests.SideUpdateRequest(200L, true, null);
                 mockMvc.perform(put("/api/menu/categories/Entrees/items/Burger/sides/Chips")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(mapper.writeValueAsString(request)))
                                 .andExpect(status().isOk());
 
-                verify(menuService).updateSide("Entrees", "Burger", "Chips", 200L, true);
+                verify(menuService).updateSide("Entrees", "Burger", "Chips", 200L, true, null);
         }
 
         @Test
@@ -245,7 +245,7 @@ public class MenuControllerTest {
         @Test
         public void testAddItemInvalid() throws Exception {
                 doThrow(new InvalidInputException("Item name cannot be empty"))
-                                .when(menuService).addItem(any(), any(), anyLong(), any());
+                                .when(menuService).addItem(any(), any(), anyLong(), any(), eq(false));
 
                 String json = "{\"category\":\"\",\"name\":\"\",\"price\":-100,\"sides\":{}}";
                 mockMvc.perform(post("/api/menu/items")

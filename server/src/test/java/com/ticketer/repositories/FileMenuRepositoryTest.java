@@ -34,7 +34,6 @@ public class FileMenuRepositoryTest {
         Menu menu = repo.getMenu();
         assertNotNull(menu);
         assertTrue(menu.getCategories().isEmpty());
-        assertTrue(menu.getKitchenItems().isEmpty());
     }
 
     @Test
@@ -47,7 +46,7 @@ public class FileMenuRepositoryTest {
     @Test
     public void testSaveAndLoad() {
         FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
-        Menu menu = new Menu(new java.util.HashMap<>(), new java.util.ArrayList<>(), null);
+        Menu menu = new Menu(new java.util.HashMap<>(), null);
         repo.saveMenu(menu);
 
         File f = new File(TEST_FILE);
@@ -63,10 +62,9 @@ public class FileMenuRepositoryTest {
         String json = "{" +
                 "\"categories\": {" +
                 "\"mains\": {" +
-                "\"Burger\": { \"price\": 1000, \"available\": true }" +
+                "\"Burger\": { \"price\": 1000, \"available\": true, \"kitchen\": true }" +
                 "}" +
-                "}," +
-                "\"kitchenItems\": [\"Burger\"]" +
+                "}" +
                 "}";
         Files.write(new File(TEST_FILE).toPath(), json.getBytes());
 
@@ -75,7 +73,26 @@ public class FileMenuRepositoryTest {
 
         assertNotNull(loaded);
         assertTrue(loaded.getCategories().containsKey("mains"));
-        assertEquals(1, loaded.getKitchenItems().size());
-        assertEquals("Burger", loaded.getKitchenItems().get(0));
+        assertEquals(1, loaded.getCategories().get("mains").size());
+        assertTrue(loaded.getCategories().get("mains").get(0).kitchen);
+    }
+
+    @Test
+    public void testKitchenFieldSaveAndLoad() {
+        FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
+
+        java.util.Map<String, java.util.List<com.ticketer.models.MenuItem>> categories = new java.util.HashMap<>();
+        java.util.List<com.ticketer.models.MenuItem> items = new java.util.ArrayList<>();
+        com.ticketer.models.MenuItem item = new com.ticketer.models.MenuItem("Fish", 1000, true, null, null, null, null);
+        item.kitchen = true;
+        items.add(item);
+        categories.put("mains", items);
+
+        Menu menu = new Menu(categories, null);
+        repo.saveMenu(menu);
+
+        Menu loaded = repo.getMenu();
+        assertNotNull(loaded);
+        assertTrue(loaded.getCategories().get("mains").get(0).kitchen);
     }
 }
