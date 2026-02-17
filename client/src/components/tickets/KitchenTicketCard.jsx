@@ -12,7 +12,7 @@ import './KitchenTicketCard.css';
  * - Items with optional item comments
  * - Complete button
  */
-const KitchenTicketCard = ({ ticket, onComplete }) => {
+const KitchenTicketCard = ({ ticket, onComplete, isHighlighted }) => {
     const time = new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Format tally entries, e.g. "2x Burger"
@@ -21,7 +21,7 @@ const KitchenTicketCard = ({ ticket, onComplete }) => {
     ));
 
     return (
-        <Card className="kitchen-ticket-card">
+        <Card className={`kitchen-ticket-card ${isHighlighted ? 'kitchen-ticket-highlight' : ''}`}>
             <div className="kitchen-header">
                 <span className="kitchen-table">Table {ticket.tableNumber}</span>
                 <span className="kitchen-time">{time}</span>
