@@ -81,6 +81,14 @@ public class FileTicketRepository implements TicketRepository {
             }
         }
 
+        for (int i = 0; i < closedTickets.size(); i++) {
+            if (closedTickets.get(i).getId() == ticket.getId()) {
+                closedTickets.set(i, ticket);
+                appendLog(new LogEntry(LogType.UPDATE, ticket));
+                return ticket;
+            }
+        }
+
         activeTickets.add(ticket);
         appendLog(new LogEntry(LogType.CREATE, ticket));
         return ticket;

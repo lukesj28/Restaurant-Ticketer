@@ -102,6 +102,12 @@ public class Ticket {
         return orders.stream().mapToLong(Order::getTax).sum();
     }
 
+    public void recalculatePersistedTotals() {
+        this.persistedSubtotal = orders.stream().mapToLong(Order::getSubtotal).sum();
+        this.persistedTax = orders.stream().mapToLong(Order::getTax).sum();
+        this.persistedTotal = orders.stream().mapToLong(Order::getTotal).sum();
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -125,6 +131,14 @@ public class Ticket {
     public void setComment(String comment) {
         this.comment = comment;
     }
+
+    @JsonIgnore
+    private String orderLabel;
+
+    @JsonIgnore
+    public String getOrderLabel() { return orderLabel; }
+
+    public void setOrderLabel(String orderLabel) { this.orderLabel = orderLabel; }
 
     @JsonIgnore
     public java.util.Map<String, Integer> getTally() {

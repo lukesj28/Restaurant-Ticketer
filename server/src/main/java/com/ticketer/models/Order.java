@@ -62,6 +62,14 @@ public class Order {
         total = subtotal + tax;
     }
 
+    public void recalculateSubtotal() {
+        this.subtotal = 0;
+        for (OrderItem item : items) {
+            this.subtotal += item.getPrice();
+        }
+        updateTotal();
+    }
+
     public void setTaxRate(int taxRate) {
         this.taxRate = taxRate;
         updateTotal();

@@ -28,7 +28,9 @@ const DraggableItem = ({ orderIndex, itemIndex, children }) => {
             style={{ opacity: isDragging ? 0.4 : 1 }}
             className="order-item-row draggable-item"
         >
-            <span className="drag-handle" {...listeners} {...attributes}>&#x2630;</span>
+            <div className="item-drag-handle" {...listeners} {...attributes}>
+                ⠿
+            </div>
             {children}
         </div>
     );
@@ -46,8 +48,7 @@ const DraggableOrderHandle = ({ orderIndex, children }) => {
             className="order-header"
             style={{ opacity: isDragging ? 0.4 : 1 }}
         >
-            <span className="drag-handle order-drag-handle" {...listeners} {...attributes}>&#x2630;</span>
-            {children}
+            {children(listeners, attributes)}
         </div>
     );
 };
@@ -83,9 +84,15 @@ const TicketDetail = () => {
     const [selectedItemForSides, setSelectedItemForSides] = useState(null);
     const [selectedItemForExtras, setSelectedItemForExtras] = useState(null);
     const [pendingSideName, setPendingSideName] = useState(null);
+    const [menuSearch, setMenuSearch] = useState('');
     const [commentDrafts, setCommentDrafts] = useState({});
     const commentTimers = React.useRef({});
     const [activeDrag, setActiveDrag] = useState(null);
+    const [selectedOrdersForPrint, setSelectedOrdersForPrint] = useState(new Set());
+    const [editingPrice, setEditingPrice] = useState(null);
+    const [editingPriceValue, setEditingPriceValue] = useState('');
+    const [itemView, setItemView] = useState(false);
+    const hasInitializedView = React.useRef(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -93,6 +100,7 @@ const TicketDetail = () => {
     );
 
     useEffect(() => {
+        hasInitializedView.current = false;
         fetchTicket();
         fetchMenu();
     }, [id]);
@@ -101,11 +109,9 @@ const TicketDetail = () => {
         try {
             const data = await api.get(`/tickets/${id}`);
             setTicket(data);
-            // Default to last order if exists, else -1
-            if (data.orders.length > 0) {
-                // But wait, user might want to add to specific order.
-                // For simplified UI, maybe always add to newest order or create new if explicitly requested.
-                // Let's track active order index.
+            if (!hasInitializedView.current) {
+                setItemView(data.status === 'COMPLETED');
+                hasInitializedView.current = true;
             }
         } catch (error) {
             console.error("Failed to fetch ticket", error);
@@ -182,6 +188,7 @@ const TicketDetail = () => {
     };
 
     const handleSendToKitchen = async () => {
+        setItemView(true);
         try {
             await api.post(`/tickets/${id}/kitchen`);
             toast.success('Ticket sent to kitchen!');
@@ -206,6 +213,60 @@ const TicketDetail = () => {
         } catch (e) {
             toast.error('Print failed: ' + e.message);
         }
+    };
+
+    const handlePrintSelectedOrders = async () => {
+        if (selectedOrdersForPrint.size === 0) return;
+        try {
+            await api.post(`/print/ticket/${id}/orders`, {
+                orderIndices: Array.from(selectedOrdersForPrint).sort((a, b) => a - b)
+            });
+            toast.success(`Printed ${selectedOrdersForPrint.size} selected order(s)!`);
+            setSelectedOrdersForPrint(new Set());
+        } catch (e) {
+            toast.error('Print failed: ' + e.message);
+        }
+    };
+
+    const toggleOrderForPrint = (idx) => {
+        setSelectedOrdersForPrint(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) {
+                next.delete(idx);
+            } else {
+                next.add(idx);
+            }
+            return next;
+        });
+    };
+
+    const handleUpdateItemPrice = async (orderIndex, itemIndex, newPriceCents) => {
+        try {
+            await api.put(`/tickets/${id}/orders/${orderIndex}/items/${itemIndex}/price`, { newPrice: newPriceCents });
+            setEditingPrice(null);
+            fetchTicket();
+        } catch (e) {
+            toast.error('Failed to update price: ' + e.message);
+        }
+    };
+
+    const startEditingPrice = (orderIndex, itemIndex, currentPriceCents) => {
+        setEditingPrice({ orderIndex, itemIndex, originalCents: currentPriceCents });
+        setEditingPriceValue((currentPriceCents / 100).toFixed(2));
+    };
+
+    const commitPriceEdit = (orderIndex, itemIndex) => {
+        const parsed = parseFloat(editingPriceValue);
+        if (isNaN(parsed) || parsed < 0) {
+            setEditingPrice(null);
+            return;
+        }
+        const cents = Math.round(parsed * 100);
+        if (cents === editingPrice?.originalCents) {
+            setEditingPrice(null);
+            return;
+        }
+        handleUpdateItemPrice(orderIndex, itemIndex, cents);
     };
 
     const getCommentValue = (key, serverValue) => {
@@ -397,7 +458,7 @@ const TicketDetail = () => {
         }
     };
 
-    const isDndEnabled = ticket.status !== 'CLOSED' && (ticket.orders || []).length > 1;
+    const isDndEnabled = (ticket.orders || []).length > 1;
 
     const renderDragOverlay = () => {
         if (!activeDrag || !ticket) return null;
@@ -430,37 +491,63 @@ const TicketDetail = () => {
         return null;
     };
 
+    const isActive = !ticket.status || ticket.status === 'ACTIVE';
+
     const renderOrderBlock = (order, idx) => (
-        <div key={idx} className={`order-block ${ticket.status !== 'CLOSED' && selectedOrderIndex === idx ? 'selected-order' : ''}`}>
+        <div key={idx} className={`order-block ${isActive && selectedOrderIndex === idx ? 'selected-order' : ''}`}>
             {isDndEnabled ? (
                 <DraggableOrderHandle orderIndex={idx}>
-                    <span>Order #{idx + 1}</span>
-                    <div className="order-totals">
-                        <span className="order-subtotal">Sub: ${(order.subtotal / 100).toFixed(2)}</span>
-                        <span className="order-total">Tot: ${(order.total / 100).toFixed(2)}</span>
-                        {ticket.status !== 'CLOSED' && (
-                            <button
-                                className="delete-order-btn"
-                                onClick={() => handleDeleteOrder(idx)}
-                                title="Delete Order"
-                            >&#128465;&#65039;</button>
-                        )}
-                        {ticket.status === 'CLOSED' && (
-                            <button
-                                className="print-order-btn"
-                                onClick={() => handlePrintOrder(idx)}
-                                title="Print Order"
-                            >&#128424;&#65039;</button>
-                        )}
-                    </div>
+                    {(listeners, attributes) => (
+                        <>
+                            <div className="order-header-left">
+                                {ticket.status === 'CLOSED' && (
+                                    <input
+                                        type="checkbox"
+                                        className="order-print-checkbox"
+                                        checked={selectedOrdersForPrint.has(idx)}
+                                        onChange={() => toggleOrderForPrint(idx)}
+                                    />
+                                )}
+                                <span className="order-label-handle" {...listeners} {...attributes}>Order #{idx + 1}</span>
+                            </div>
+                            <div className="order-totals">
+                                <span className="order-subtotal">Sub: ${(order.subtotal / 100).toFixed(2)}</span>
+                                <span className="order-total">Tot: ${(order.total / 100).toFixed(2)}</span>
+                                {isActive && (
+                                    <button
+                                        className="delete-order-btn"
+                                        onClick={() => handleDeleteOrder(idx)}
+                                        title="Delete Order"
+                                    >&#128465;&#65039;</button>
+                                )}
+                                {ticket.status === 'CLOSED' && (
+                                    <button
+                                        className="print-order-btn"
+                                        onClick={() => handlePrintOrder(idx)}
+                                        title="Print Order"
+                                    >&#128424;&#65039;</button>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </DraggableOrderHandle>
             ) : (
                 <div className="order-header">
-                    <span>Order #{idx + 1}</span>
+                    <div className="order-header-left">
+                        {ticket.status === 'CLOSED' && (
+                            <input
+                                type="checkbox"
+                                className="order-print-checkbox"
+                                checked={selectedOrdersForPrint.has(idx)}
+                                onChange={() => toggleOrderForPrint(idx)}
+                            />
+                        )}
+                        <span>Order #{idx + 1}</span>
+                    </div>
                     <div className="order-totals">
                         <span className="order-subtotal">Sub: ${(order.subtotal / 100).toFixed(2)}</span>
                         <span className="order-total">Tot: ${(order.total / 100).toFixed(2)}</span>
-                        {ticket.status !== 'CLOSED' && (
+                        {isActive && (
                             <button
                                 className="delete-order-btn"
                                 onClick={() => handleDeleteOrder(idx)}
@@ -477,7 +564,7 @@ const TicketDetail = () => {
                     </div>
                 </div>
             )}
-            {ticket.status !== 'CLOSED' && (
+            {isActive && (
                 <div className="order-comment">
                     <input
                         type="text"
@@ -485,11 +572,10 @@ const TicketDetail = () => {
                         placeholder="Order comment..."
                         value={getCommentValue(`order-${idx}`, order.comment)}
                         onChange={(e) => handleCommentChange(`order-${idx}`, e.target.value, (v) => saveOrderComment(idx, v))}
-                        disabled={ticket.status !== 'ACTIVE'}
                     />
                 </div>
             )}
-            {ticket.status === 'CLOSED' && order.comment && (
+            {!isActive && order.comment && (
                 <div className="order-comment">
                     <span className="comment-display">{order.comment}</span>
                 </div>
@@ -506,23 +592,43 @@ const TicketDetail = () => {
                                 {item.selectedExtra && item.selectedExtra !== 'none' && (
                                     <div className="item-extra">+ {item.selectedExtra} (${(item.extraPrice / 100).toFixed(2)})</div>
                                 )}
-                                {ticket.status !== 'CLOSED' && (
+                                {isActive && (
                                     <input
                                         type="text"
                                         className="comment-input item-comment-input"
                                         placeholder="Note..."
                                         value={getCommentValue(`item-${idx}-${iIdx}`, item.comment)}
                                         onChange={(e) => handleCommentChange(`item-${idx}-${iIdx}`, e.target.value, (v) => saveItemComment(idx, iIdx, v))}
-                                        disabled={ticket.status !== 'ACTIVE'}
                                     />
                                 )}
-                                {ticket.status === 'CLOSED' && item.comment && (
+                                {!isActive && item.comment && (
                                     <span className="comment-display item-comment-display">{item.comment}</span>
                                 )}
                             </div>
                             <div className="item-price-col">
-                                <span>${((item.mainPrice + item.sidePrice + (item.extraPrice || 0)) / 100).toFixed(2)}</span>
-                                {ticket.status !== 'CLOSED' && (
+                                {ticket.status === 'CLOSED' && editingPrice && editingPrice.orderIndex === idx && editingPrice.itemIndex === iIdx ? (
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        className="item-price-input"
+                                        value={editingPriceValue}
+                                        onChange={(e) => setEditingPriceValue(e.target.value)}
+                                        onBlur={() => commitPriceEdit(idx, iIdx)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') commitPriceEdit(idx, iIdx);
+                                            if (e.key === 'Escape') setEditingPrice(null);
+                                        }}
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <span
+                                        className={ticket.status === 'CLOSED' ? 'item-price-editable' : ''}
+                                        onClick={ticket.status === 'CLOSED' ? () => startEditingPrice(idx, iIdx, item.mainPrice + item.sidePrice + (item.extraPrice || 0)) : undefined}
+                                    >
+                                        ${((item.mainPrice + item.sidePrice + (item.extraPrice || 0)) / 100).toFixed(2)}
+                                    </span>
+                                )}
+                                {isActive && (
                                     <button
                                         className="delete-item-btn"
                                         onClick={() => handleDeleteItem(idx, item)}
@@ -548,129 +654,225 @@ const TicketDetail = () => {
                     );
                 })}
             </div>
-            {ticket.status !== 'CLOSED' && (
+            {isActive && (
                 <div className="order-actions">
-                    <Button size="small" variant="primary" onClick={() => {
-                        setSelectedOrderIndex(idx);
-                        setIsMenuOpen(true);
-                    }}>+ Add Item</Button>
+                    <Button variant="primary" className="add-item-btn" onClick={() => openMenuModal(idx)}>+ Add Item</Button>
                 </div>
             )}
         </div>
     );
 
+    const sortedCategories = Object.entries(menu)
+        .sort(([catA], [catB]) => {
+            const idxA = categoryOrder.indexOf(catA);
+            const idxB = categoryOrder.indexOf(catB);
+            if (idxA === -1 && idxB === -1) return catA.localeCompare(catB);
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
+        });
+
+    const closeMenuModal = () => {
+        setIsMenuOpen(false);
+        setSelectedItemForSides(null);
+        setSelectedItemForExtras(null);
+        setPendingSideName(null);
+        setMenuSearch('');
+    };
+
+    const openMenuModal = (orderIdx) => {
+        setSelectedOrderIndex(orderIdx);
+        setSelectedItemForSides(null);
+        setSelectedItemForExtras(null);
+        setPendingSideName(null);
+        setMenuSearch('');
+        setIsMenuOpen(true);
+    };
+
+    const handleItemClick = (category, item) => {
+        const hasSides = item.sides && Object.keys(item.sides).length > 0;
+        if (hasSides) {
+            setSelectedItemForSides({ ...item, category });
+        } else if (hasExtras(item)) {
+            setSelectedItemForExtras({ ...item, category });
+            setPendingSideName(null);
+        } else {
+            handleAddItem(category, item.name, null, null);
+        }
+    };
+
+    const renderItemGrid = (items, category) => (
+        <div className="menu-items-grid">
+            {items.map(item => (
+                <button
+                    key={item.name}
+                    className={`menu-item-btn ${!item.available ? 'unavailable' : ''}`}
+                    disabled={!item.available}
+                    onClick={() => handleItemClick(category, item)}
+                >
+                    <div className="item-name">{item.name}</div>
+                    <div className="item-price">${(item.price / 100).toFixed(2)}</div>
+                </button>
+            ))}
+        </div>
+    );
+
+    const isSelectingSidesOrExtras = !!(selectedItemForSides || selectedItemForExtras);
+    const searchTerm = menuSearch.trim().toLowerCase();
+    const isSearching = searchTerm.length > 0 && !isSelectingSidesOrExtras;
+
+    const renderMenuModalContent = () => {
+        // Side selection view — full panel, no search/sidebar
+        if (selectedItemForExtras) {
+            return (
+                <div className="menu-panel-content">
+                    <div className="menu-panel-heading">
+                        <Button size="small" variant="secondary" onClick={() => {
+                            setSelectedItemForExtras(null);
+                            setPendingSideName(null);
+                            if (selectedItemForExtras.sides && Object.keys(selectedItemForExtras.sides).length > 0) {
+                                setSelectedItemForSides(selectedItemForExtras);
+                            }
+                        }}>Back</Button>
+                        <h4>Select Extra for {selectedItemForExtras.name}</h4>
+                    </div>
+                    <div className="menu-items-grid">
+                        {Object.entries(selectedItemForExtras.extras || {})
+                            .sort(([extraA], [extraB]) => {
+                                const order = selectedItemForExtras.extraOrder || [];
+                                const idxA = order.indexOf(extraA);
+                                const idxB = order.indexOf(extraB);
+                                if (idxA === -1 && idxB === -1) return 0;
+                                if (idxA === -1) return 1;
+                                if (idxB === -1) return -1;
+                                return idxA - idxB;
+                            })
+                            .map(([extraName, extraData]) => (
+                                <button
+                                    key={extraName}
+                                    className={`menu-item-btn ${!extraData.available ? 'unavailable' : ''}`}
+                                    disabled={!extraData.available}
+                                    onClick={() => handleAddItem(selectedItemForExtras.category, selectedItemForExtras.name, pendingSideName, extraName)}
+                                >
+                                    <div className="item-name">{extraName}</div>
+                                    <div className="item-price">${(extraData.price / 100).toFixed(2)}</div>
+                                </button>
+                            ))}
+                    </div>
+                </div>
+            );
+        }
+
+        if (selectedItemForSides) {
+            return (
+                <div className="menu-panel-content">
+                    <div className="menu-panel-heading">
+                        <Button size="small" variant="secondary" onClick={() => setSelectedItemForSides(null)}>Back</Button>
+                        <h4>Select Side for {selectedItemForSides.name}</h4>
+                    </div>
+                    <div className="menu-items-grid">
+                        {Object.entries(selectedItemForSides.sides || {})
+                            .sort(([sideA], [sideB]) => {
+                                const order = selectedItemForSides.sideOrder || [];
+                                const idxA = order.indexOf(sideA);
+                                const idxB = order.indexOf(sideB);
+                                if (idxA === -1 && idxB === -1) return 0;
+                                if (idxA === -1) return 1;
+                                if (idxB === -1) return -1;
+                                return idxA - idxB;
+                            })
+                            .map(([sideName, sideData]) => (
+                                <button
+                                    key={sideName}
+                                    className={`menu-item-btn ${!sideData.available ? 'unavailable' : ''}`}
+                                    disabled={!sideData.available}
+                                    onClick={() => proceedAfterSide(selectedItemForSides, sideName)}
+                                >
+                                    <div className="item-name">{sideName}</div>
+                                    <div className="item-price">${(sideData.price / 100).toFixed(2)}</div>
+                                </button>
+                            ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // Search results — continuous scroll filtered
+        if (isSearching) {
+            return (
+                <div className="menu-scroll-content">
+                    {sortedCategories.map(([category, items]) => {
+                        const filtered = items.filter(item =>
+                            item.name.toLowerCase().includes(searchTerm)
+                        );
+                        if (filtered.length === 0) return null;
+                        return (
+                            <div key={category} className="menu-section">
+                                <div className="menu-section-title">{category}</div>
+                                {renderItemGrid(filtered, category)}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        // Default: continuous scroll with section titles
+        return (
+            <div className="menu-scroll-content">
+                {sortedCategories.map(([category, items]) => (
+                    <div key={category} className="menu-section">
+                        <div className="menu-section-title">{category}</div>
+                        {renderItemGrid(items, category)}
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    const renderItemView = () => {
+        const allItems = (ticket.orders || []).flatMap(order => order.items);
+        if (allItems.length === 0) return <div className="empty-orders">No items yet.</div>;
+        return (
+            <div className="item-view-list">
+                {allItems.map((item, idx) => (
+                    <div key={idx} className="item-view-row">
+                        <span className="item-view-name">{item.name}</span>
+                        {item.selectedSide && item.selectedSide !== 'none' && (
+                            <span className="item-view-sub">+ {item.selectedSide}</span>
+                        )}
+                        {item.selectedExtra && item.selectedExtra !== 'none' && (
+                            <span className="item-view-sub">+ {item.selectedExtra}</span>
+                        )}
+                        {item.comment && (
+                            <span className="item-view-note">{item.comment}</span>
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     const renderMenuModal = () => (
         <Modal
             isOpen={isMenuOpen}
-            onClose={() => { setIsMenuOpen(false); setSelectedItemForSides(null); setSelectedItemForExtras(null); setPendingSideName(null); }}
+            onClose={closeMenuModal}
             title="Add Item"
+            className="modal-large"
         >
-            <div className="menu-selection">
-                {selectedItemForExtras ? (
-                    <div className="extra-selection-block">
-                        <div className="extra-selection-header">
-                            <Button size="small" variant="secondary" onClick={() => {
-                                setSelectedItemForExtras(null);
-                                setPendingSideName(null);
-                                // Go back to sides if item has sides, otherwise to menu
-                                if (selectedItemForExtras.sides && Object.keys(selectedItemForExtras.sides).length > 0) {
-                                    setSelectedItemForSides(selectedItemForExtras);
-                                }
-                            }}>Back</Button>
-                            <h4>Select Extra for {selectedItemForExtras.name}</h4>
-                        </div>
-                        <div className="menu-items-grid">
-                            {Object.entries(selectedItemForExtras.extras || {})
-                                .sort(([extraA], [extraB]) => {
-                                    const order = selectedItemForExtras.extraOrder || [];
-                                    const idxA = order.indexOf(extraA);
-                                    const idxB = order.indexOf(extraB);
-                                    if (idxA === -1 && idxB === -1) return 0;
-                                    if (idxA === -1) return 1;
-                                    if (idxB === -1) return -1;
-                                    return idxA - idxB;
-                                })
-                                .map(([extraName, extraData]) => (
-                                    <button
-                                        key={extraName}
-                                        className={`menu-item-btn ${!extraData.available ? 'unavailable' : ''}`}
-                                        disabled={!extraData.available}
-                                        onClick={() => handleAddItem(selectedItemForExtras.category, selectedItemForExtras.name, pendingSideName, extraName)}
-                                    >
-                                        <div className="item-name">{extraName}</div>
-                                        <div className="item-price">${(extraData.price / 100).toFixed(2)}</div>
-                                    </button>
-                                ))}
-                        </div>
+            <div className="menu-modal-inner">
+                {!isSelectingSidesOrExtras && (
+                    <div className="menu-search-bar">
+                        <input
+                            type="text"
+                            className="menu-search-input"
+                            placeholder="Search menu..."
+                            value={menuSearch}
+                            onChange={(e) => setMenuSearch(e.target.value)}
+                        />
                     </div>
-                ) : selectedItemForSides ? (
-                    <div className="side-selection-block">
-                        <div className="side-selection-header">
-                            <Button size="small" variant="secondary" onClick={() => setSelectedItemForSides(null)}>Back</Button>
-                            <h4>Select Side for {selectedItemForSides.name}</h4>
-                        </div>
-                        <div className="menu-items-grid">
-                            {Object.entries(selectedItemForSides.sides || {})
-                                .sort(([sideA], [sideB]) => {
-                                    const order = selectedItemForSides.sideOrder || [];
-                                    const idxA = order.indexOf(sideA);
-                                    const idxB = order.indexOf(sideB);
-                                    if (idxA === -1 && idxB === -1) return 0;
-                                    if (idxA === -1) return 1;
-                                    if (idxB === -1) return -1;
-                                    return idxA - idxB;
-                                })
-                                .map(([sideName, sideData]) => (
-                                    <button
-                                        key={sideName}
-                                        className={`menu-item-btn ${!sideData.available ? 'unavailable' : ''}`}
-                                        disabled={!sideData.available}
-                                        onClick={() => proceedAfterSide(selectedItemForSides, sideName)}
-                                    >
-                                        <div className="item-name">{sideName}</div>
-                                        <div className="item-price">${(sideData.price / 100).toFixed(2)}</div>
-                                    </button>
-                                ))}
-                        </div>
-                    </div>
-                ) : (
-                    Object.entries(menu)
-                        .sort(([catA], [catB]) => {
-                            const idxA = categoryOrder.indexOf(catA);
-                            const idxB = categoryOrder.indexOf(catB);
-                            if (idxA === -1 && idxB === -1) return catA.localeCompare(catB);
-                            if (idxA === -1) return 1;
-                            if (idxB === -1) return -1;
-                            return idxA - idxB;
-                        })
-                        .map(([category, items]) => (
-                            <div key={category} className="menu-category-block">
-                                <h4>{category}</h4>
-                                <div className="menu-items-grid">
-                                    {items.map(item => (
-                                        <button
-                                            key={item.name}
-                                            className={`menu-item-btn ${!item.available ? 'unavailable' : ''}`}
-                                            disabled={!item.available}
-                                            onClick={() => {
-                                                const hasSides = item.sides && Object.keys(item.sides).length > 0;
-                                                if (hasSides) {
-                                                    setSelectedItemForSides({ ...item, category });
-                                                } else if (hasExtras(item)) {
-                                                    setSelectedItemForExtras({ ...item, category });
-                                                    setPendingSideName(null);
-                                                } else {
-                                                    handleAddItem(category, item.name, null, null);
-                                                }
-                                            }}
-                                        >
-                                            <div className="item-name">{item.name}</div>
-                                            <div className="item-price">${(item.price / 100).toFixed(2)}</div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )))}
+                )}
+                {renderMenuModalContent()}
             </div>
         </Modal>
     );
@@ -695,19 +897,20 @@ const TicketDetail = () => {
                     }}>&larr; Back</Button>
                 <h2>Table {ticket.tableNumber} <span className="id-sub">#{ticket.id}</span></h2>
                 <div className="header-actions">
-                    {(!ticket.status || ticket.status === 'ACTIVE') && (
-                        <>
-                            <Button variant="warning" onClick={handleSendToKitchen}>Send to Kitchen</Button>
-                            <Button variant="success" onClick={() => handleStatusChange('completed')}>Complete</Button>
-                        </>
-                    )}
+                    <button
+                        className={`view-toggle-btn ${itemView ? 'view-toggle-active' : ''}`}
+                        onClick={() => setItemView(v => !v)}
+                        title={itemView ? 'Switch to order view' : 'Switch to item view'}
+                    >
+                        {itemView ? 'Orders' : 'Items'}
+                    </button>
                     <div className={`status-badge status-${ticket.status ? ticket.status.toLowerCase() : 'active'}`}>
                         {ticket.status || 'ACTIVE'}
                     </div>
                 </div>
             </div>
 
-            {ticket.status !== 'CLOSED' && (
+            {isActive && (
                 <div className="ticket-comment">
                     <input
                         type="text"
@@ -715,35 +918,36 @@ const TicketDetail = () => {
                         placeholder="Ticket comment..."
                         value={getCommentValue('ticket', ticket.comment)}
                         onChange={(e) => handleCommentChange('ticket', e.target.value, saveTicketComment)}
-                        disabled={ticket.status !== 'ACTIVE'}
                     />
                 </div>
             )}
-            {ticket.status === 'CLOSED' && ticket.comment && (
+            {ticket.status !== 'ACTIVE' && ticket.comment && (
                 <div className="ticket-comment">
                     <span className="comment-display">{ticket.comment}</span>
                 </div>
             )}
 
-            <div className="orders-list">
-                {isDndEnabled ? (
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                        onDragCancel={handleDragCancel}
-                    >
-                        {ordersContent}
-                        <DragOverlay>
-                            {renderDragOverlay()}
-                        </DragOverlay>
-                    </DndContext>
-                ) : (
-                    ordersContent
-                )}
-                {(ticket.orders || []).length === 0 && <div className="empty-orders">No orders yet.</div>}
-            </div>
+            {itemView ? renderItemView() : (
+                <div className="orders-list">
+                    {isDndEnabled ? (
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            onDragCancel={handleDragCancel}
+                        >
+                            {ordersContent}
+                            <DragOverlay>
+                                {renderDragOverlay()}
+                            </DragOverlay>
+                        </DndContext>
+                    ) : (
+                        ordersContent
+                    )}
+                    {(ticket.orders || []).length === 0 && <div className="empty-orders">No orders yet.</div>}
+                </div>
+            )}
 
             <div className="detail-footer">
                 <div className="totals-row">
@@ -756,23 +960,45 @@ const TicketDetail = () => {
                         <span className="amount">${(ticket.total / 100).toFixed(2)}</span>
                     </div>
                 </div>
-                <div className="action-row">
-                    {ticket.status !== 'CLOSED' && (
+
+                {isActive && (
+                    <div className="footer-primary-actions">
                         <Button variant="secondary" onClick={handleAddOrder}>+ Add Order</Button>
-                    )}
-                </div>
-                <div className="status-actions">
-                    {ticket.status === 'COMPLETED' && (
-                        <Button variant="warning" onClick={() => handleStatusChange('active')}>Reopen Ticket</Button>
-                    )}
-                    {ticket.status !== 'CLOSED' && (
+                        <Button variant="warning" onClick={handleSendToKitchen}>Send to Kitchen</Button>
+                    </div>
+                )}
+
+                {ticket.status === 'COMPLETED' && (
+                    <div className="footer-primary-actions">
                         <Button variant="danger" onClick={() => handleStatusChange('closed')}>Close Ticket</Button>
+                        <Button variant="secondary" onClick={handleAddOrder}>+ Add Order</Button>
+                    </div>
+                )}
+
+                <div className="footer-secondary-actions">
+                    {isActive && (
+                        <>
+                            <Button variant="success" className="btn-ghost" onClick={() => handleStatusChange('completed')}>Mark Complete</Button>
+                            <Button variant="danger" className="btn-ghost" onClick={() => handleStatusChange('closed')}>Close Ticket</Button>
+                            <Button variant="danger" className="btn-ghost" onClick={handleDeleteTicket}>Delete Ticket</Button>
+                        </>
                     )}
-                    {ticket.status !== 'CLOSED' && (
-                        <Button variant="danger" onClick={handleDeleteTicket}>Delete Ticket</Button>
+                    {ticket.status === 'COMPLETED' && (
+                        <>
+                            <Button variant="warning" className="btn-ghost" onClick={() => handleStatusChange('active')}>Reopen Ticket</Button>
+                            <Button variant="danger" className="btn-ghost" onClick={handleDeleteTicket}>Delete Ticket</Button>
+                        </>
                     )}
                     {ticket.status === 'CLOSED' && (
-                        <Button variant="primary" onClick={handlePrintReceipt}>&#128424;&#65039; Print Receipt</Button>
+                        <>
+                            <Button variant="secondary" onClick={handleAddOrder}>+ Add Order</Button>
+                            <Button variant="primary" onClick={handlePrintReceipt}>&#128424;&#65039; Print Receipt</Button>
+                            {selectedOrdersForPrint.size > 0 && (
+                                <Button variant="primary" className="print-selected-btn" onClick={handlePrintSelectedOrders}>
+                                    &#128424;&#65039; Print Selected ({selectedOrdersForPrint.size})
+                                </Button>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

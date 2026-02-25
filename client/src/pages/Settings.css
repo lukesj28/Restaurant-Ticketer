@@ -463,10 +463,10 @@ input:checked+.slider:before {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     white-space: pre;
     min-height: 200px;
-    width: 100%;
-    max-width: 380px;
+    width: max-content;
+    max-width: 100%;
     overflow-x: auto;
-    margin: 0;
+    margin: 0 auto;
 }
 
 .receipt-half-gap {

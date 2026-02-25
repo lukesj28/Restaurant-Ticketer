@@ -76,6 +76,18 @@ public class OrderItem {
         return mainPrice;
     }
 
+    public void setMainPrice(long price) {
+        this.mainPrice = price;
+    }
+
+    public void setSidePrice(long price) {
+        this.sidePrice = price;
+    }
+
+    public void setExtraPrice(long price) {
+        this.extraPrice = price;
+    }
+
     public long getSidePrice() {
         return sidePrice;
     }

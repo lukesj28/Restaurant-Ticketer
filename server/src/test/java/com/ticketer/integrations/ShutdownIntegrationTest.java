@@ -77,7 +77,8 @@ public class ShutdownIntegrationTest {
         await().atMost(5, TimeUnit.SECONDS).until(() -> {
             return ticketService.getActiveTickets().isEmpty() &&
                     ticketService.getCompletedTickets().isEmpty() &&
-                    ticketService.getClosedTickets().isEmpty();
+                    ticketService.getClosedTickets().isEmpty() &&
+                    !new File("target/test-tickets/shutdown/recovery.json").exists();
         });
 
         assertFalse(new File("target/test-tickets/shutdown/recovery.json").exists(), "Recovery file should be deleted");

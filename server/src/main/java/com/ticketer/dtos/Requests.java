@@ -72,4 +72,10 @@ public class Requests {
 
     public record MergeOrdersRequest(int targetOrderIndex) {
     }
+
+    public record PrintOrdersRequest(List<Integer> orderIndices) {
+    }
+
+    public record UpdateItemPriceRequest(long newPrice) {
+    }
 }

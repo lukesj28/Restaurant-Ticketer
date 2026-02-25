@@ -30,6 +30,7 @@ const Settings = () => {
 
     // Receipt layout drafts
     const [draftBlocks, setDraftBlocks] = useState([]);
+    const [draftFontSize, setDraftFontSize] = useState(2);
 
     // Printer settings drafts
     const [draftPrinter, setDraftPrinter] = useState({
@@ -92,8 +93,13 @@ const Settings = () => {
             }
 
             // Receipt blocks
-            if (data.receipt && data.receipt.blocks) {
-                setDraftBlocks(data.receipt.blocks.map((b, i) => ({ ...b, id: i })));
+            if (data.receipt) {
+                if (data.receipt.blocks) {
+                    setDraftBlocks(data.receipt.blocks.map((b, i) => ({ ...b, id: i })));
+                }
+                if (data.receipt.fontSize) {
+                    setDraftFontSize(data.receipt.fontSize);
+                }
             }
 
             // Printer settings
@@ -162,7 +168,8 @@ const Settings = () => {
 
             // 5. Save Receipt Layout
             const blocksToSave = draftBlocks.map(b => ({ type: b.type, content: b.content || null }));
-            promises.push(api.put('/settings/receipt', { blocks: blocksToSave }));
+            const parsedFontSize = parseInt(draftFontSize) || 2;
+            promises.push(api.put('/settings/receipt', { blocks: blocksToSave, fontSize: parsedFontSize }));
 
             await Promise.all(promises);
 
@@ -173,7 +180,7 @@ const Settings = () => {
                 tax: basisPoints,
                 hours: { ...draftHours },
                 restaurant: { ...draftRestaurant },
-                receipt: { blocks: blocksToSave }
+                receipt: { blocks: blocksToSave, fontSize: parsedFontSize }
             };
             setSettings(newSettings);
 
@@ -404,6 +411,17 @@ const Settings = () => {
                 <h2>Receipt Layout</h2>
                 <div className="receipt-editor-container">
                     <div className="receipt-blocks-editor">
+                        <div className="form-group row" style={{ marginBottom: '1rem' }}>
+                            <label>Receipt Font Size</label>
+                            <select 
+                                value={draftFontSize} 
+                                onChange={e => setDraftFontSize(Number(e.target.value))}
+                                style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
+                            >
+                                <option value={1}>Normal</option>
+                                <option value={2}>Large (2x)</option>
+                            </select>
+                        </div>
                         <p className="receipt-editor-hint">Drag blocks to reorder. Add or remove blocks to customize your receipt.</p>
                         <div className="receipt-blocks-list">
                             {draftBlocks.map((block, index) => (
@@ -445,7 +463,7 @@ const Settings = () => {
                     </div>
                     <div className="receipt-preview-panel">
                         <h3>Preview</h3>
-                        <ReceiptPreview blocks={draftBlocks} restaurant={draftRestaurant} />
+                        <ReceiptPreview blocks={draftBlocks} restaurant={draftRestaurant} fontSize={draftFontSize} />
                     </div>
                 </div>
             </div>
@@ -492,24 +510,102 @@ const AddBlockDropdown = ({ onAdd }) => {
 };
 
 // --- Receipt Preview ---
-const PREVIEW_WIDTH = 48;
+const BASE_PREVIEW_WIDTH = 48;
 
-const centerText = (text) => {
-    if (text.length >= PREVIEW_WIDTH) return text.substring(0, PREVIEW_WIDTH);
-    const totalPad = PREVIEW_WIDTH - text.length;
+const centerText = (text, width) => {
+    if (text.length >= width) return text.substring(0, width);
+    const totalPad = width - text.length;
     const leftPad = Math.floor(totalPad / 2);
     const rightPad = totalPad - leftPad;
     return ' '.repeat(leftPad) + text + ' '.repeat(rightPad);
 };
 
-const formatLine = (left, right) => {
-    let spaces = PREVIEW_WIDTH - left.length - right.length;
-    if (spaces < 1) spaces = 1;
-    return left + ' '.repeat(spaces) + right;
+const formatLine = (left, right, width) => {
+    left = left || "";
+    right = right || "";
+    const words = left.split(' ');
+    const priceSpace = right.length;
+    let firstLineAvail = width - priceSpace;
+    if (firstLineAvail < 1) firstLineAvail = 1;
+
+    const lines = [];
+    let currentLine = '';
+    let wordIdx = 0;
+
+    while (wordIdx < words.length) {
+        let word = words[wordIdx];
+        if (currentLine.length === 0) {
+            if (word.length > firstLineAvail) {
+                currentLine = word.substring(0, firstLineAvail);
+                words[wordIdx] = word.substring(firstLineAvail);
+                break;
+            } else {
+                currentLine = word;
+                wordIdx++;
+            }
+        } else {
+            if (currentLine.length + 1 + word.length <= firstLineAvail) {
+                currentLine += ' ' + word;
+                wordIdx++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    let spaces = width - currentLine.length - priceSpace;
+    if (spaces < 0) spaces = 0;
+    lines.push(currentLine + ' '.repeat(spaces) + right);
+
+    currentLine = '';
+    while (wordIdx < words.length) {
+        let word = words[wordIdx];
+        if (!word) {
+            wordIdx++;
+            continue;
+        }
+        if (currentLine.length === 0) {
+            if (word.length > width) {
+                lines.push(word.substring(0, width));
+                words[wordIdx] = word.substring(width);
+            } else {
+                currentLine = word;
+                wordIdx++;
+            }
+        } else {
+            if (currentLine.length + 1 + word.length <= width) {
+                currentLine += ' ' + word;
+                wordIdx++;
+            } else {
+                lines.push(currentLine);
+                currentLine = '';
+            }
+        }
+    }
+    if (currentLine.length > 0) {
+        lines.push(currentLine);
+    }
+
+    return lines.join('\n');
 };
 
-const ReceiptPreview = ({ blocks, restaurant }) => {
+const ReceiptPreview = ({ blocks, restaurant, fontSize = 2 }) => {
     const lines = [];
+    let parsedFontSize = parseInt(fontSize) || 2;
+    if (parsedFontSize > 2) parsedFontSize = 2; // Clamp
+    
+    let previewWidth = 48;
+    let cssFontSize = '14px';
+    let cssLineHeight = '1.4';
+    if (parsedFontSize === 1) {
+        previewWidth = 48;
+        cssFontSize = '14px';
+        cssLineHeight = '1.4';
+    } else if (parsedFontSize === 2) {
+        previewWidth = 24;
+        cssFontSize = '24px';
+        cssLineHeight = '1.4'; // Matches standard spacing visually when font is large, OR 2.0 to double it
+    }
 
     const sampleItems = [
         { name: 'Burger', mainPrice: 1299, side: 'Fries', sidePrice: 399 },
@@ -521,56 +617,55 @@ const ReceiptPreview = ({ blocks, restaurant }) => {
     blocks.forEach((block) => {
         switch (block.type) {
             case 'RESTAURANT_NAME':
-                if (restaurant.name) lines.push(centerText(restaurant.name));
+                if (restaurant.name) lines.push(centerText(restaurant.name, previewWidth));
                 break;
             case 'ADDRESS':
                 if (restaurant.address) {
                     const commaIdx = restaurant.address.indexOf(',');
                     if (commaIdx > 0) {
-                        lines.push(centerText(restaurant.address.substring(0, commaIdx).trim()));
-                        lines.push(centerText(restaurant.address.substring(commaIdx + 1).trim()));
+                        lines.push(centerText(restaurant.address.substring(0, commaIdx).trim(), previewWidth));
+                        lines.push(centerText(restaurant.address.substring(commaIdx + 1).trim(), previewWidth));
                     } else {
-                        lines.push(centerText(restaurant.address));
+                        lines.push(centerText(restaurant.address, previewWidth));
                     }
                 }
                 break;
             case 'PHONE':
-                if (restaurant.phone) lines.push(centerText(restaurant.phone));
+                if (restaurant.phone) lines.push(centerText(restaurant.phone, previewWidth));
                 break;
             case 'TIMESTAMP':
                 lines.push(centerText(new Date().toLocaleString('en-US', {
                     year: 'numeric', month: '2-digit', day: '2-digit',
                     hour: '2-digit', minute: '2-digit', hour12: false
-                })));
+                }), previewWidth));
                 break;
             case 'TABLE_NUMBER':
-                lines.push(formatLine('Table: 5', ''));
+                lines.push(formatLine('Table: 5', '', previewWidth));
                 break;
             case 'CUSTOM_TEXT':
-                if (block.content) lines.push(centerText(block.content));
+                if (block.content) lines.push(centerText(block.content, previewWidth));
                 break;
             case 'DIVIDER':
-                lines.push('-'.repeat(PREVIEW_WIDTH));
+                lines.push('-'.repeat(previewWidth));
                 break;
             case 'SPACE':
-                lines.push(' '.repeat(PREVIEW_WIDTH));
+                lines.push(' '.repeat(previewWidth));
                 break;
             case 'ITEMS':
                 sampleItems.forEach((item, idx) => {
-                    lines.push(formatLine(item.name, formatPrice(item.mainPrice)));
+                    lines.push(formatLine(item.name, formatPrice(item.mainPrice), previewWidth));
                     if (item.side) {
-                        lines.push(formatLine('  + ' + item.side, formatPrice(item.sidePrice)));
+                        lines.push(formatLine('  + ' + item.side, formatPrice(item.sidePrice), previewWidth));
                     }
-                    // Small gap between items (not after the last)
                     if (idx < sampleItems.length - 1) {
                         lines.push('__HALF_GAP__');
                     }
                 });
                 break;
             case 'TOTALS':
-                lines.push(formatLine('Subtotal', formatPrice(1948)));
-                lines.push(formatLine('Tax', formatPrice(253)));
-                lines.push(formatLine('TOTAL', formatPrice(2201)));
+                lines.push(formatLine('Subtotal', formatPrice(1948), previewWidth));
+                lines.push(formatLine('Tax', formatPrice(253), previewWidth));
+                lines.push(formatLine('TOTAL', formatPrice(2201), previewWidth));
                 break;
             default:
                 break;
@@ -579,7 +674,7 @@ const ReceiptPreview = ({ blocks, restaurant }) => {
 
     return (
         <div className="receipt-preview">
-            <pre className="receipt-paper">
+            <pre className="receipt-paper" style={{ fontSize: cssFontSize, lineHeight: cssLineHeight }}>
                 {lines.map((line, i) =>
                     line === '__HALF_GAP__'
                         ? <span key={i} className="receipt-half-gap">{'\n'}</span>

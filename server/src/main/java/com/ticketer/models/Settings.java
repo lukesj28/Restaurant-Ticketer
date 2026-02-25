@@ -156,18 +156,30 @@ public class Settings {
 
     public static class ReceiptSettings {
         private List<ReceiptBlock> blocks;
+        private int fontSize;
 
         public ReceiptSettings() {
             this.blocks = new ArrayList<>();
+            this.fontSize = 2;
         }
 
         @JsonCreator
-        public ReceiptSettings(@JsonProperty("blocks") List<ReceiptBlock> blocks) {
+        public ReceiptSettings(@JsonProperty("blocks") List<ReceiptBlock> blocks,
+                               @JsonProperty("fontSize") Integer fontSize) {
             this.blocks = blocks != null ? blocks : new ArrayList<>();
+            if (fontSize != null && (fontSize == 1 || fontSize == 2)) {
+                this.fontSize = fontSize;
+            } else {
+                this.fontSize = 2;
+            }
         }
 
         public List<ReceiptBlock> getBlocks() {
             return blocks;
+        }
+
+        public int getFontSize() {
+            return fontSize;
         }
 
         public static ReceiptSettings defaultLayout() {
@@ -185,7 +197,7 @@ public class Settings {
                     new ReceiptBlock("TOTALS", null),
                     new ReceiptBlock("DIVIDER", null),
                     new ReceiptBlock("SPACE", null),
-                    new ReceiptBlock("CUSTOM_TEXT", "Thank you!"))));
+                    new ReceiptBlock("CUSTOM_TEXT", "Thank you!"))), 2);
         }
     }
 }

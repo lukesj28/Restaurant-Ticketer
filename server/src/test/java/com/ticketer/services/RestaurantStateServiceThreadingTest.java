@@ -4,6 +4,7 @@ import com.ticketer.repositories.SettingsRepository;
 import com.ticketer.repositories.TicketRepository;
 import com.ticketer.models.Settings;
 import com.ticketer.models.Ticket;
+import com.ticketer.services.AnalysisService;
 import org.junit.Test;
 
 import java.time.Clock;
@@ -25,7 +26,17 @@ public class RestaurantStateServiceThreadingTest {
         java.time.LocalDateTime localDate = java.time.LocalDateTime.parse("2023-01-02T18:00:00");
         Clock fixedClock = Clock.fixed(localDate.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
 
-        RestaurantStateService service = new RestaurantStateService(settingsService, ticketService, fixedClock);
+        RestaurantStateService service = new RestaurantStateService(settingsService, ticketService, new PrintService(null, null, null) {
+            @Override
+            public void printTicket(int ticketId) {
+            }
+            @Override
+            public void printOrder(int ticketId, int orderIndex) {
+            }
+            @Override
+            public void printDailyStats(com.ticketer.dtos.DailyStatsDto stats) {
+            }
+        }, new AnalysisService(ticketService.getTicketRepository(), null, null, fixedClock), fixedClock);
         settingsService.setHours("09:00 - 19:00");
         service.checkAndScheduleState();
         settingsService.setHours("09:00 - 17:00");

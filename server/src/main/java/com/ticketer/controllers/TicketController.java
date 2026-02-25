@@ -158,6 +158,16 @@ public class TicketController {
         return getTicket(ticketId);
     }
 
+    @PutMapping("/{ticketId}/orders/{orderIndex}/items/{itemIndex}/price")
+    public ApiResponse<TicketDto> updateItemPrice(@PathVariable("ticketId") int ticketId,
+            @PathVariable("orderIndex") int orderIndex,
+            @PathVariable("itemIndex") int itemIndex,
+            @RequestBody Requests.UpdateItemPriceRequest request) {
+        logger.info("Updating item price: ticket={}, order={}, item={}, newPrice={}", ticketId, orderIndex, itemIndex, request.newPrice());
+        ticketService.updateItemPrice(ticketId, orderIndex, itemIndex, request.newPrice());
+        return getTicket(ticketId);
+    }
+
     @PutMapping("/{ticketId}/orders/{orderIndex}/items/{itemIndex}/comment")
     public ApiResponse<TicketDto> updateItemComment(@PathVariable("ticketId") int ticketId,
             @PathVariable("orderIndex") int orderIndex,

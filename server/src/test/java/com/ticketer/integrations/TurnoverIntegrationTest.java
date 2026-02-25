@@ -6,6 +6,8 @@ import com.ticketer.repositories.FileSettingsRepository;
 import com.ticketer.services.TicketService;
 import com.ticketer.services.RestaurantStateService;
 import com.ticketer.services.SettingsService;
+import com.ticketer.services.PrintService;
+import com.ticketer.services.AnalysisService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +46,14 @@ public class TurnoverIntegrationTest {
         SettingsService settingsService = new SettingsService(new FileSettingsRepository(mapper));
 
         ticketService = new TicketService(ticketRepository, clock);
-        restaurantStateService = new RestaurantStateService(settingsService, ticketService);
+        PrintService dummyPrintService = new PrintService(ticketService, settingsService, null) {
+            @Override
+            public void printDailyStats(com.ticketer.dtos.DailyStatsDto stats) {
+            }
+        };
+
+        AnalysisService dummyAnalysisService = new AnalysisService(ticketRepository, mapper, TEST_DIR, clock);
+        restaurantStateService = new RestaurantStateService(settingsService, ticketService, dummyPrintService, dummyAnalysisService);
     }
 
     @AfterEach
@@ -83,6 +92,7 @@ public class TurnoverIntegrationTest {
 
     @Test
     public void testShutdownLeavesTimestampNull() throws IOException {
+        restaurantStateService.forceOpen();
         Ticket t = ticketService.createTicket("T2");
 
         ticketService.moveToCompleted(t.getId());

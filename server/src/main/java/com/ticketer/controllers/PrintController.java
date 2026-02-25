@@ -1,6 +1,7 @@
 package com.ticketer.controllers;
 
 import com.ticketer.api.ApiResponse;
+import com.ticketer.dtos.Requests;
 import com.ticketer.services.PrintService;
 
 import org.slf4j.Logger;
@@ -35,5 +36,14 @@ public class PrintController {
         logger.info("Received request to print order {} for ticket {}", orderIndex, ticketId);
         printService.printOrder(ticketId, orderIndex);
         return ApiResponse.success("Order receipt printed successfully");
+    }
+
+    @PostMapping("/ticket/{ticketId}/orders")
+    public ApiResponse<String> printOrders(
+            @PathVariable("ticketId") int ticketId,
+            @RequestBody Requests.PrintOrdersRequest request) {
+        logger.info("Received request to print orders {} for ticket {}", request.orderIndices(), ticketId);
+        printService.printOrders(ticketId, request.orderIndices());
+        return ApiResponse.success("Selected orders printed successfully");
     }
 }

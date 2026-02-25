@@ -37,6 +37,10 @@ public class TicketService {
         this(ticketRepository, Clock.systemDefaultZone());
     }
 
+    public TicketRepository getTicketRepository() {
+        return ticketRepository;
+    }
+
     private void initializeTicketCounter() {
         int maxId = 0;
         for (Ticket t : ticketRepository.findAllActive()) {
@@ -115,10 +119,6 @@ public class TicketService {
         Ticket ticket = ticketRepository.findById(ticketId).orElse(null);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
-        }
-
-        if (ticketRepository.findAllClosed().contains(ticket)) {
-            throw new ActionNotAllowedException("Cannot modify a closed ticket.");
         }
 
         if (ticketRepository.findAllCompleted().contains(ticket)) {
@@ -381,6 +381,36 @@ public class TicketService {
                 completed.stream().mapToLong(Ticket::getTotal).sum();
     }
 
+    public Ticket updateItemPrice(int ticketId, int orderIndex, int itemIndex, long newPrice) {
+        logger.info("Updating item price: ticket={}, order={}, item={}, newPrice={}", ticketId, orderIndex, itemIndex, newPrice);
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        if (!"CLOSED".equalsIgnoreCase(ticket.getStatus())) {
+            throw new ActionNotAllowedException("Can only edit prices on closed tickets.");
+        }
+        if (newPrice < 0) {
+            throw new InvalidInputException("Price cannot be negative");
+        }
+        List<Order> orders = ticket.getOrders();
+        if (orderIndex < 0 || orderIndex >= orders.size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
+        }
+        Order order = orders.get(orderIndex);
+        List<OrderItem> items = order.getItems();
+        if (itemIndex < 0 || itemIndex >= items.size()) {
+            throw new EntityNotFoundException("Item index " + itemIndex + " invalid");
+        }
+        items.get(itemIndex).setMainPrice(newPrice);
+        items.get(itemIndex).setSidePrice(0);
+        items.get(itemIndex).setExtraPrice(0);
+        order.recalculateSubtotal();
+        ticket.recalculatePersistedTotals();
+        ticketRepository.save(ticket);
+        return ticket;
+    }
+
     public Ticket moveItemBetweenOrders(int ticketId, int fromOrderIndex, int itemIndex, int toOrderIndex) {
         logger.info("Moving item {} from order {} to order {} on ticket {}", itemIndex, fromOrderIndex, toOrderIndex, ticketId);
         Ticket ticket = getTicket(ticketId);
@@ -471,4 +501,6 @@ public class TicketService {
     public List<Ticket> getKitchenTickets() {
         return ticketRepository.findAllKitchen();
     }
+
+
 }

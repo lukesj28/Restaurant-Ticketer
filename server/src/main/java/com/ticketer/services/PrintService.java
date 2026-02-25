@@ -27,7 +27,6 @@ import java.util.List;
 public class PrintService {
 
     private static final Logger logger = LoggerFactory.getLogger(PrintService.class);
-    private static final int RECEIPT_WIDTH = 48;
 
     private final TicketService ticketService;
     private final SettingsService settingsService;
@@ -101,7 +100,15 @@ public class PrintService {
             throw new EntityNotFoundException("Order not found: " + orderIndex);
         }
 
-        Order order = ticket.getOrders().get(orderIndex);
+        Ticket filteredTicket = new Ticket(ticket.getId());
+        filteredTicket.setTableNumber(ticket.getTableNumber());
+        filteredTicket.setStatus(ticket.getStatus());
+        filteredTicket.setCreatedAt(ticket.getCreatedAt());
+        filteredTicket.setClosedAt(ticket.getClosedAt());
+        filteredTicket.setComment(ticket.getComment());
+        filteredTicket.setOrders(java.util.List.of(ticket.getOrders().get(orderIndex)));
+        filteredTicket.setOrderLabel("Order #" + (orderIndex + 1));
+        filteredTicket.recalculatePersistedTotals();
 
         logger.info("Getting printer output stream via SerialPortManager");
 
@@ -112,9 +119,7 @@ public class PrintService {
                 logger.info("Connected to printer at {} baud, formatting order {} receipt for ticket {}",
                         serialPortManager.getBaudRate(), orderIndex, ticketId);
 
-                printOrderHeader(escpos, orderIndex);
-                printOrderItems(escpos, order);
-                printOrderTotal(escpos, order);
+                renderReceiptBlocks(escpos, filteredTicket);
 
                 escpos.feed(4);
                 escpos.cut(EscPos.CutMode.PART);
@@ -128,25 +133,134 @@ public class PrintService {
         }
     }
 
+    public void printOrders(int ticketId, List<Integer> orderIndices) {
+        logger.info("Attempting to print orders {} for ticket {}", orderIndices, ticketId);
+
+        Ticket ticket = ticketService.getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket not found: " + ticketId);
+        }
+        if (!"CLOSED".equals(ticket.getStatus())) {
+            throw new ActionNotAllowedException("Only closed tickets can be printed");
+        }
+
+        List<Order> allOrders = ticket.getOrders();
+        List<Order> selectedOrders = new java.util.ArrayList<>();
+        for (int idx : orderIndices) {
+            if (idx < 0 || idx >= allOrders.size()) {
+                throw new EntityNotFoundException("Order index " + idx + " not found");
+            }
+            selectedOrders.add(allOrders.get(idx));
+        }
+
+        int earliestOrderNum = orderIndices.stream().mapToInt(Integer::intValue).min().orElse(0) + 1;
+
+        Ticket filteredTicket = new Ticket(ticket.getId());
+        filteredTicket.setTableNumber(ticket.getTableNumber());
+        filteredTicket.setStatus(ticket.getStatus());
+        filteredTicket.setCreatedAt(ticket.getCreatedAt());
+        filteredTicket.setClosedAt(ticket.getClosedAt());
+        filteredTicket.setComment(ticket.getComment());
+        filteredTicket.setOrders(selectedOrders);
+        filteredTicket.setOrderLabel("Order #" + earliestOrderNum);
+        filteredTicket.recalculatePersistedTotals();
+
+        try {
+            OutputStream outputStream = serialPortManager.getOutputStream();
+
+            try (EscPos escpos = new EscPos(outputStream)) {
+                renderReceiptBlocks(escpos, filteredTicket);
+
+                escpos.feed(4);
+                escpos.cut(EscPos.CutMode.PART);
+
+                logger.info("Successfully printed selected orders for ticket {}", ticketId);
+            }
+        } catch (IOException e) {
+            logger.error("Failed to print orders for ticket {}: {}", ticketId, e.getMessage(), e);
+            throw new PrinterException(
+                    "Printer unavailable. Please check that the printer is connected and powered on.", e);
+        }
+    }
+
+    public void printDailyStats(com.ticketer.dtos.DailyStatsDto stats) {
+        logger.info("Attempting to print daily stats");
+        logger.info("Getting printer output stream via SerialPortManager");
+
+        try {
+            OutputStream outputStream = serialPortManager.getOutputStream();
+
+            try (EscPos escpos = new EscPos(outputStream)) {
+                logger.info("Connected to printer at {} baud, formatting daily stats receipt",
+                        serialPortManager.getBaudRate());
+                
+                int fontSize = settingsService.getReceiptSettings().getFontSize();
+                int receiptWidth = getReceiptWidth(fontSize);
+
+                printDailyStatsHeader(escpos, fontSize, receiptWidth);
+                printDailyStatsBody(escpos, stats, fontSize, receiptWidth);
+
+                escpos.feed(4);
+                escpos.cut(EscPos.CutMode.PART);
+
+                logger.info("Successfully printed daily stats");
+            }
+        } catch (IOException e) {
+            logger.error("Failed to print daily stats: {}", e.getMessage(), e);
+            throw new PrinterException(
+                    "Printer unavailable. Please check that the printer is connected and powered on.", e);
+        }
+    }
+
     private void renderReceiptBlocks(EscPos escpos, Ticket ticket) throws IOException {
         Settings.ReceiptSettings receiptSettings = settingsService.getReceiptSettings();
         Settings.RestaurantDetails restaurant = settingsService.getRestaurantDetails();
         List<Settings.ReceiptBlock> blocks = receiptSettings.getBlocks();
+        int fontSize = receiptSettings.getFontSize();
+        int receiptWidth = getReceiptWidth(fontSize);
 
         for (Settings.ReceiptBlock block : blocks) {
-            renderBlock(escpos, block, ticket, restaurant);
+            renderBlock(escpos, block, ticket, restaurant, fontSize, receiptWidth);
         }
     }
 
+    private int getReceiptWidth(int size) {
+        switch (size) {
+            case 2: return 24;
+            case 1:
+            default: return 48;
+        }
+    }
+
+    private Style createStyle(int size, EscPosConst.Justification justification, boolean bold) {
+        Style style = new Style().setJustification(justification).setBold(bold);
+        switch (size) {
+            case 2:
+                style.setFontName(Style.FontName.Font_A_Default);
+                style.setFontSize(Style.FontSize._2, Style.FontSize._2);
+                break;
+            case 1:
+            default:
+                style.setFontName(Style.FontName.Font_A_Default);
+                style.setFontSize(Style.FontSize._1, Style.FontSize._1);
+                break;
+        }
+        return style;
+    }
+
     private void renderBlock(EscPos escpos, Settings.ReceiptBlock block, Ticket ticket,
-            Settings.RestaurantDetails restaurant) throws IOException {
-        Style leftStyle = new Style().setJustification(EscPosConst.Justification.Left_Default);
-        Style centerStyle = new Style().setJustification(EscPosConst.Justification.Center);
-        Style boldCenterStyle = new Style()
-                .setJustification(EscPosConst.Justification.Center)
-                .setBold(true);
+            Settings.RestaurantDetails restaurant, int fontSizeVal, int receiptWidth) throws IOException {
+
+        Style leftStyle = createStyle(fontSizeVal, EscPosConst.Justification.Left_Default, false);
+        Style centerStyle = createStyle(fontSizeVal, EscPosConst.Justification.Center, false);
+        Style boldCenterStyle = createStyle(fontSizeVal, EscPosConst.Justification.Center, true);
 
         escpos.setStyle(leftStyle);
+        if (fontSizeVal == 2) {
+            escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+        } else {
+            escpos.write(new byte[]{0x1B, 0x32}, 0, 2);
+        }
 
         switch (block.getType()) {
             case "RESTAURANT_NAME":
@@ -181,6 +295,10 @@ public class PrintService {
                 if (tableNum != null && !tableNum.isEmpty()) {
                     escpos.writeLF("Table: " + tableNum);
                 }
+                String orderLabel = ticket.getOrderLabel();
+                if (orderLabel != null && !orderLabel.isEmpty()) {
+                    escpos.writeLF(orderLabel);
+                }
                 break;
             case "CUSTOM_TEXT":
                 String content = block.getContent();
@@ -189,16 +307,16 @@ public class PrintService {
                 }
                 break;
             case "DIVIDER":
-                escpos.writeLF(repeatChar('-', RECEIPT_WIDTH));
+                escpos.writeLF(repeatChar('-', receiptWidth));
                 break;
             case "SPACE":
                 escpos.feed(1);
                 break;
             case "ITEMS":
-                printTicketItems(escpos, ticket);
+                printTicketItems(escpos, ticket, fontSizeVal, receiptWidth);
                 break;
             case "TOTALS":
-                printTicketTotals(escpos, ticket);
+                printTicketTotals(escpos, ticket, fontSizeVal, receiptWidth);
                 break;
             default:
                 logger.warn("Unknown receipt block type: {}", block.getType());
@@ -206,78 +324,75 @@ public class PrintService {
         }
     }
 
-    private void printOrderHeader(EscPos escpos, int orderIndex) throws IOException {
-        Style centerStyle = new Style().setJustification(EscPosConst.Justification.Center);
-
-        escpos.writeLF(centerStyle, repeatChar('-', RECEIPT_WIDTH));
-        escpos.writeLF(centerStyle, getCurrentDateTime() + " - Order #" + (orderIndex + 1));
-        escpos.writeLF(centerStyle, repeatChar('-', RECEIPT_WIDTH));
-        escpos.feed(1);
-    }
-
-    private void printTicketItems(EscPos escpos, Ticket ticket) throws IOException {
+    private void printTicketItems(EscPos escpos, Ticket ticket, int fontSizeVal, int receiptWidth) throws IOException {
         List<OrderItem> allItems = new java.util.ArrayList<>();
         for (Order order : ticket.getOrders()) {
             allItems.addAll(order.getItems());
         }
         for (int i = 0; i < allItems.size(); i++) {
-            printItem(escpos, allItems.get(i));
+            printItem(escpos, allItems.get(i), fontSizeVal, receiptWidth);
             if (i < allItems.size() - 1) {
                 escpos.write(new byte[] { 0x1B, 0x4A, 20 }, 0, 3);
             }
         }
     }
 
-    private void printOrderItems(EscPos escpos, Order order) throws IOException {
-        List<OrderItem> items = order.getItems();
-        for (int i = 0; i < items.size(); i++) {
-            printItem(escpos, items.get(i));
-            if (i < items.size() - 1) {
-                escpos.write(new byte[] { 0x1B, 0x4A, 20 }, 0, 3);
-            }
+    private void printItem(EscPos escpos, OrderItem item, int fontSizeVal, int receiptWidth) throws IOException {
+        Style normalStyle = createStyle(fontSizeVal, EscPosConst.Justification.Left_Default, false);
+        escpos.setStyle(normalStyle);
+        if (fontSizeVal == 2) {
+            escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+        } else {
+            escpos.write(new byte[]{0x1B, 0x32}, 0, 2);
         }
-    }
 
-    private void printItem(EscPos escpos, OrderItem item) throws IOException {
         String mainPrice = formatPrice(item.getMainPrice());
-        String mainLine = formatLine(item.getName(), mainPrice);
-        escpos.writeLF(mainLine);
+        for (String line : formatLineWrapped(item.getName(), mainPrice, receiptWidth)) {
+            escpos.writeLF(line);
+        }
 
         if (item.getSelectedSide() != null && !"none".equalsIgnoreCase(item.getSelectedSide())) {
             String sidePrice = formatPrice(item.getSidePrice());
-            String sideLine = formatLine("  + " + item.getSelectedSide(), sidePrice);
-            escpos.writeLF(sideLine);
+            for (String line : formatLineWrapped("  + " + item.getSelectedSide(), sidePrice, receiptWidth)) {
+                escpos.writeLF(line);
+            }
         }
 
         if (item.getSelectedExtra() != null && !"none".equalsIgnoreCase(item.getSelectedExtra())) {
             String extraPrice = formatPrice(item.getExtraPrice());
-            String extraLine = formatLine("  + " + item.getSelectedExtra(), extraPrice);
-            escpos.writeLF(extraLine);
+            for (String line : formatLineWrapped("  + " + item.getSelectedExtra(), extraPrice, receiptWidth)) {
+                escpos.writeLF(line);
+            }
         }
     }
 
-    private void printTicketTotals(EscPos escpos, Ticket ticket) throws IOException {
-        String subtotalLine = formatLine("Subtotal", formatPrice(ticket.getSubtotal()));
-        escpos.writeLF(subtotalLine);
+    private void printTicketTotals(EscPos escpos, Ticket ticket, int fontSizeVal, int receiptWidth) throws IOException {
+        Style normalStyle = createStyle(fontSizeVal, EscPosConst.Justification.Left_Default, false);
+        escpos.setStyle(normalStyle);
+        if (fontSizeVal == 2) {
+            escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+        } else {
+            escpos.write(new byte[]{0x1B, 0x32}, 0, 2);
+        }
+        for (String line : formatLineWrapped("Subtotal", formatPrice(ticket.getSubtotal()), receiptWidth)) {
+            escpos.writeLF(line);
+        }
 
         long tax = ticket.getTax();
-        String taxLine = formatLine("Tax", formatPrice(tax));
-        escpos.writeLF(taxLine);
+        for (String line : formatLineWrapped("Tax", formatPrice(tax), receiptWidth)) {
+            escpos.writeLF(line);
+        }
 
-        Style boldStyle = new Style().setBold(true);
-        String totalLine = formatLine("TOTAL", formatPrice(ticket.getTotal()));
-        escpos.writeLF(boldStyle, totalLine);
-    }
-
-    private void printOrderTotal(EscPos escpos, Order order) throws IOException {
-        escpos.feed(1);
-        escpos.writeLF(repeatChar('-', RECEIPT_WIDTH));
-
-        Style boldStyle = new Style().setBold(true);
-        String totalLine = formatLine("Order Total", formatPrice(order.getTotal()));
-        escpos.writeLF(boldStyle, totalLine);
-
-        escpos.writeLF(repeatChar('-', RECEIPT_WIDTH));
+        Style boldStyle = createStyle(fontSizeVal, EscPosConst.Justification.Left_Default, true);
+        escpos.setStyle(boldStyle);
+        if (fontSizeVal == 2) {
+            escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+        } else {
+            escpos.write(new byte[]{0x1B, 0x32}, 0, 2);
+        }
+        for (String line : formatLineWrapped("TOTAL", formatPrice(ticket.getTotal()), receiptWidth)) {
+            escpos.writeLF(line);
+        }
     }
 
     private String getCurrentDateTime() {
@@ -290,11 +405,142 @@ public class PrintService {
         return String.format("$%.2f", cents / 100.0);
     }
 
-    private String formatLine(String left, String right) {
-        int spaces = RECEIPT_WIDTH - left.length() - right.length();
-        if (spaces < 1)
-            spaces = 1;
-        return left + repeatChar(' ', spaces) + right;
+    private List<String> formatLineWrapped(String left, String right, int receiptWidth) {
+        List<String> lines = new java.util.ArrayList<>();
+        if (left == null) left = "";
+        if (right == null) right = "";
+        
+        String[] words = left.split(" ");
+        int priceSpace = right.length();
+        int firstLineAvail = receiptWidth - priceSpace;
+        if (firstLineAvail <= 0) firstLineAvail = 1;
+
+        StringBuilder currentLine = new StringBuilder();
+        int wordIdx = 0;
+
+        while (wordIdx < words.length) {
+            String word = words[wordIdx];
+            if (currentLine.length() == 0) {
+                if (word.length() > firstLineAvail) {
+                    currentLine.append(word.substring(0, firstLineAvail));
+                    words[wordIdx] = word.substring(firstLineAvail);
+                    break;
+                } else {
+                    currentLine.append(word);
+                    wordIdx++;
+                }
+            } else {
+                if (currentLine.length() + 1 + word.length() <= firstLineAvail) {
+                    currentLine.append(" ").append(word);
+                    wordIdx++;
+                } else {
+                    break;
+                }
+            }
+        }
+        
+        int spaces = receiptWidth - currentLine.length() - priceSpace;
+        if (spaces < 0) spaces = 0;
+        
+        if (currentLine.length() == 0) {
+            lines.add(repeatChar(' ', receiptWidth - priceSpace) + right);
+        } else {
+            lines.add(currentLine.toString() + repeatChar(' ', spaces) + right);
+        }
+
+        currentLine = new StringBuilder();
+        while (wordIdx < words.length) {
+            String word = words[wordIdx];
+            if (word.isEmpty()) {
+                wordIdx++;
+                continue;
+            }
+            if (currentLine.length() == 0) {
+                if (word.length() > receiptWidth) {
+                    lines.add(word.substring(0, receiptWidth));
+                    words[wordIdx] = word.substring(receiptWidth);
+                } else {
+                    currentLine.append(word);
+                    wordIdx++;
+                }
+            } else {
+                if (currentLine.length() + 1 + word.length() <= receiptWidth) {
+                    currentLine.append(" ").append(word);
+                    wordIdx++;
+                } else {
+                    lines.add(currentLine.toString());
+                    currentLine = new StringBuilder();
+                }
+            }
+        }
+        
+        if (currentLine.length() > 0) {
+            lines.add(currentLine.toString());
+        }
+
+        return lines;
+    }
+
+    private void printDailyStatsHeader(EscPos escpos, int fontSizeVal, int receiptWidth) throws IOException {
+        Style centerStyle = createStyle(fontSizeVal, EscPosConst.Justification.Center, false);
+        Style boldCenterStyle = createStyle(fontSizeVal, EscPosConst.Justification.Center, true);
+
+        escpos.writeLF(centerStyle, repeatChar('=', receiptWidth));
+        escpos.writeLF(boldCenterStyle, "DAILY SALES REPORT");
+        escpos.writeLF(centerStyle, getCurrentDateTime());
+        escpos.writeLF(centerStyle, repeatChar('=', receiptWidth));
+        escpos.feed(1);
+    }
+
+    private void printDailyStatsBody(EscPos escpos, com.ticketer.dtos.DailyStatsDto stats, int fontSizeVal, int receiptWidth) throws IOException {
+        Style normalStyle = createStyle(fontSizeVal, EscPosConst.Justification.Left_Default, false);
+        escpos.setStyle(normalStyle);
+        if (fontSizeVal == 2) {
+            escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+        } else {
+            escpos.write(new byte[]{0x1B, 0x32}, 0, 2);
+        }
+        
+        for (String line : formatLineWrapped("Subtotal:", formatPrice(stats.getSubtotal()), receiptWidth)) {
+            escpos.writeLF(line);
+        }
+        for (String line : formatLineWrapped("Tax:", formatPrice(stats.getTotalTax()), receiptWidth)) {
+            escpos.writeLF(line);
+        }
+        
+        Style boldStyle = createStyle(fontSizeVal, EscPosConst.Justification.Left_Default, true);
+        escpos.setStyle(boldStyle);
+        if (fontSizeVal == 2) {
+            escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+        }
+        for (String line : formatLineWrapped("TOTAL REVENUE:", formatPrice(stats.getTotalRevenue()), receiptWidth)) {
+            escpos.writeLF(line);
+        }
+        
+        escpos.setStyle(normalStyle);
+        if (fontSizeVal == 2) {
+            escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+        }
+        escpos.feed(1);
+        escpos.writeLF(repeatChar('-', receiptWidth));
+        
+        for (String line : formatLineWrapped("Tot Tickets:", String.valueOf(stats.getTicketCount()), receiptWidth)) {
+            escpos.writeLF(line);
+        }
+        for (String line : formatLineWrapped("Tot Orders:", String.valueOf(stats.getOrderCount()), receiptWidth)) {
+            escpos.writeLF(normalStyle, line);
+        }
+        
+        String turnoverStr = stats.getAverageTurnoverTimeMinutes() + " min";
+        for (String line : formatLineWrapped("Avg Turnover:", turnoverStr, receiptWidth)) {
+            escpos.writeLF(normalStyle, line);
+        }
+        
+        for (String line : formatLineWrapped("Avg / Ticket:", formatPrice(stats.getAverageCostPerTicket()), receiptWidth)) {
+            escpos.writeLF(normalStyle, line);
+        }
+        
+        escpos.writeLF(repeatChar('-', receiptWidth));
     }
 
     private String repeatChar(char c, int count) {

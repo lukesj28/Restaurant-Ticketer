@@ -17,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.ticketer.models.AnalysisReport;
+
 @Service
 public class RestaurantStateService {
 
@@ -24,6 +26,8 @@ public class RestaurantStateService {
 
     private final SettingsService settingsService;
     private final TicketService ticketService;
+    private final PrintService printService;
+    private final AnalysisService analysisService;
     private final ScheduledExecutorService scheduler;
     private final java.util.concurrent.ExecutorService closingExecutor;
     private final java.time.Clock clock;
@@ -31,15 +35,16 @@ public class RestaurantStateService {
     private volatile boolean forcedOpen;
     private volatile LocalDate forcedClosedDate;
 
-    public RestaurantStateService(SettingsService settingsService, TicketService ticketService) {
-        this(settingsService, ticketService, java.time.Clock.systemUTC());
+    public RestaurantStateService(SettingsService settingsService, TicketService ticketService, PrintService printService, AnalysisService analysisService) {
+        this(settingsService, ticketService, printService, analysisService, java.time.Clock.systemUTC());
     }
 
     @Autowired
-
-    public RestaurantStateService(SettingsService settingsService, TicketService ticketService, java.time.Clock clock) {
+    public RestaurantStateService(SettingsService settingsService, TicketService ticketService, PrintService printService, AnalysisService analysisService, java.time.Clock clock) {
         this.settingsService = settingsService;
         this.ticketService = ticketService;
+        this.printService = printService;
+        this.analysisService = analysisService;
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
         this.closingExecutor = Executors.newSingleThreadExecutor();
         this.clock = clock.withZone(java.time.ZoneId.systemDefault());
@@ -200,6 +205,11 @@ public class RestaurantStateService {
     }
 
     private void handleClosing() {
+        if (!isOpen) {
+            logger.info("Closing sequence ignored - already closed.");
+            scheduleNextDayCheck();
+            return;
+        }
         setClosedState();
         closingExecutor.execute(this::runClosingSequence);
         scheduleNextDayCheck();
@@ -233,7 +243,28 @@ public class RestaurantStateService {
         logger.info("Finalizing closing sequence. Moving remaining tickets to closed.");
         ticketService.discardActiveTickets();
         ticketService.forceCloseCompletedTickets();
+
         ticketService.serializeClosedTickets();
+        
+        try {
+            LocalDate today = LocalDate.now(clock);
+            AnalysisReport report = analysisService.generateReport(today, today);
+            
+            com.ticketer.dtos.DailyStatsDto stats = new com.ticketer.dtos.DailyStatsDto(
+                report.getTotalTotalCents(),
+                report.getTotalSubtotalCents(),
+                report.getTotalTotalCents() - report.getTotalSubtotalCents(),
+                report.getTotalTicketCount(),
+                report.getTotalOrderCount(),
+                report.getAverageTurnoverTimeMinutes(),
+                report.getAverageTicketTotalCents()
+            );
+            
+            printService.printDailyStats(stats);
+        } catch (Exception e) {
+            logger.error("Failed to print daily stats during closing sequence", e);
+        }
+
         ticketService.deleteRecoveryFile();
         logger.info("Closing sequence completed.");
     }

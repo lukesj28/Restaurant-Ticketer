@@ -7,6 +7,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.time.Clock;
 import java.time.ZoneId;
+import com.ticketer.services.AnalysisService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -19,6 +20,12 @@ public class RestaurantStateServiceTest {
     @Mock
     private TicketService ticketService;
 
+    @Mock
+    private PrintService printService;
+
+    @Mock
+    private AnalysisService analysisService;
+
     private RestaurantStateService restaurantStateService;
     private Clock fixedClock;
 
@@ -30,7 +37,7 @@ public class RestaurantStateServiceTest {
     }
 
     private void initService() {
-        restaurantStateService = new RestaurantStateService(settingsService, ticketService, fixedClock);
+        restaurantStateService = new RestaurantStateService(settingsService, ticketService, printService, analysisService, fixedClock);
     }
 
     @Test
@@ -173,6 +180,7 @@ public class RestaurantStateServiceTest {
     public void testClosingSequenceCompletesWhenAllClosed() throws Exception {
         initService();
         when(ticketService.areAllTicketsClosed()).thenReturn(true);
+        when(analysisService.generateReport(any(), any())).thenReturn(new com.ticketer.models.AnalysisReport());
 
         java.lang.reflect.Method method = RestaurantStateService.class.getDeclaredMethod("runClosingSequence");
         method.setAccessible(true);
