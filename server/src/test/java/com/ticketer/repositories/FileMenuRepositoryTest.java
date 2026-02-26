@@ -1,6 +1,9 @@
 package com.ticketer.repositories;
 
+import com.ticketer.models.BaseItem;
+import com.ticketer.models.CategoryEntry;
 import com.ticketer.models.Menu;
+import com.ticketer.models.MenuItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,6 +11,12 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,8 +28,7 @@ public class FileMenuRepositoryTest {
     @BeforeEach
     public void setUp() {
         new File(TEST_FILE).delete();
-        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+        mapper = new com.ticketer.config.JacksonConfig().objectMapper();
     }
 
     @AfterEach
@@ -34,6 +42,7 @@ public class FileMenuRepositoryTest {
         Menu menu = repo.getMenu();
         assertNotNull(menu);
         assertTrue(menu.getCategories().isEmpty());
+        assertTrue(menu.getBaseItems().isEmpty());
     }
 
     @Test
@@ -46,7 +55,7 @@ public class FileMenuRepositoryTest {
     @Test
     public void testSaveAndLoad() {
         FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
-        Menu menu = new Menu(new java.util.HashMap<>(), null);
+        Menu menu = new Menu(new LinkedHashMap<>(), new LinkedHashMap<>(), new LinkedHashMap<>(), new ArrayList<>());
         repo.saveMenu(menu);
 
         File f = new File(TEST_FILE);
@@ -55,17 +64,22 @@ public class FileMenuRepositoryTest {
         Menu loaded = repo.getMenu();
         assertNotNull(loaded);
         assertTrue(loaded.getCategories().isEmpty());
+        assertTrue(loaded.getBaseItems().isEmpty());
     }
 
     @Test
-    public void testLoadMenu() throws IOException {
-        String json = "{" +
-                "\"categories\": {" +
-                "\"mains\": {" +
-                "\"Burger\": { \"price\": 1000, \"available\": true, \"kitchen\": true }" +
-                "}" +
-                "}" +
-                "}";
+    public void testLoadMenuFromJson() throws IOException {
+        UUID id = UUID.randomUUID();
+        String json = "{"
+                + "\"baseItems\": {"
+                + "  \"" + id + "\": {\"name\": \"Burger\", \"price\": 1000, \"available\": true, \"kitchen\": true}"
+                + "},"
+                + "\"categories\": {"
+                + "  \"mains\": {\"visible\": true, \"items\": [{\"baseItemId\": \"" + id + "\", \"sideSources\": []}]}"
+                + "},"
+                + "\"combos\": {},"
+                + "\"categoryOrder\": [\"mains\"]"
+                + "}";
         Files.write(new File(TEST_FILE).toPath(), json.getBytes());
 
         FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
@@ -73,26 +87,56 @@ public class FileMenuRepositoryTest {
 
         assertNotNull(loaded);
         assertTrue(loaded.getCategories().containsKey("mains"));
-        assertEquals(1, loaded.getCategories().get("mains").size());
-        assertTrue(loaded.getCategories().get("mains").get(0).kitchen);
+        assertEquals(1, loaded.getCategories().get("mains").getItems().size());
+        assertEquals(id, loaded.getCategories().get("mains").getItems().get(0).getBaseItemId());
+        assertNotNull(loaded.getBaseItem(id));
+        assertEquals("Burger", loaded.getBaseItem(id).getName());
+        assertTrue(loaded.getBaseItem(id).isKitchen());
     }
 
     @Test
     public void testKitchenFieldSaveAndLoad() {
         FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
 
-        java.util.Map<String, java.util.List<com.ticketer.models.MenuItem>> categories = new java.util.HashMap<>();
-        java.util.List<com.ticketer.models.MenuItem> items = new java.util.ArrayList<>();
-        com.ticketer.models.MenuItem item = new com.ticketer.models.MenuItem("Fish", 1000, true, null, null, null, null);
-        item.kitchen = true;
-        items.add(item);
-        categories.put("mains", items);
+        UUID id = UUID.randomUUID();
+        Map<UUID, BaseItem> baseItems = new LinkedHashMap<>();
+        baseItems.put(id, new BaseItem(id, "Fish", 1000, true, true));
 
-        Menu menu = new Menu(categories, null);
+        List<MenuItem> items = new ArrayList<>();
+        items.add(new MenuItem(id, Collections.emptyList()));
+
+        Map<String, CategoryEntry> categories = new LinkedHashMap<>();
+        categories.put("mains", new CategoryEntry(true, items));
+
+        Menu menu = new Menu(baseItems, categories, new LinkedHashMap<>(), new ArrayList<>(categories.keySet()));
         repo.saveMenu(menu);
 
         Menu loaded = repo.getMenu();
         assertNotNull(loaded);
-        assertTrue(loaded.getCategories().get("mains").get(0).kitchen);
+        assertTrue(loaded.getBaseItem(id).isKitchen());
+    }
+
+    @Test
+    public void testCategoryOrderPreserved() {
+        FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
+
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        Map<UUID, BaseItem> baseItems = new LinkedHashMap<>();
+        baseItems.put(id1, new BaseItem(id1, "Starter", 500, true, false));
+        baseItems.put(id2, new BaseItem(id2, "Main", 1500, true, false));
+
+        Map<String, CategoryEntry> categories = new LinkedHashMap<>();
+        categories.put("starters", new CategoryEntry(true,
+                Collections.singletonList(new MenuItem(id1, Collections.emptyList()))));
+        categories.put("mains", new CategoryEntry(true,
+                Collections.singletonList(new MenuItem(id2, Collections.emptyList()))));
+
+        List<String> order = List.of("mains", "starters");
+        Menu menu = new Menu(baseItems, categories, new LinkedHashMap<>(), order);
+        repo.saveMenu(menu);
+
+        Menu loaded = repo.getMenu();
+        assertEquals(List.of("mains", "starters"), loaded.getCategoryOrder());
     }
 }

@@ -1,7 +1,7 @@
 package com.ticketer.integrations;
 
-import com.ticketer.models.MenuItem;
-import com.ticketer.models.MenuItemView;
+import com.ticketer.models.BaseItem;
+import com.ticketer.models.Menu;
 import com.ticketer.repositories.FileMenuRepository;
 import com.ticketer.services.MenuService;
 import com.ticketer.exceptions.EntityNotFoundException;
@@ -10,12 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,211 +30,162 @@ public class MenuServiceIntegrationTest {
     @BeforeEach
     public void setUp() {
         testMenuFile = tempDir.resolve("test-menu-service.json").toFile();
-
-        try {
-            String json = "{ \"TestCategory\": { \"TestItemAdd\": { \"price\": 1234, \"available\": true, \"sides\": {} } } }";
-            Files.write(testMenuFile.toPath(), json.getBytes());
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to set up test environment", e);
-        }
-
-        mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
-
+        mapper = new com.ticketer.config.JacksonConfig().objectMapper();
         service = new MenuService(new FileMenuRepository(testMenuFile.getAbsolutePath(), mapper));
     }
 
     @Test
     public void testInitialization() {
-        assertNotNull(service.getCategories(), "Categories should function");
+        assertNotNull(service.getMenu());
+        assertTrue(service.getMenu().getBaseItems().isEmpty());
     }
 
     @Test
-    public void testGetItem() {
-        Map<String, List<MenuItem>> categories = service.getCategories();
-        if (!categories.isEmpty()) {
-            String cat = categories.keySet().iterator().next();
-            List<MenuItem> items = categories.get(cat);
-            if (!items.isEmpty()) {
-                MenuItem item = items.get(0);
-                MenuItem found = service.getItem(cat, item.name);
-                assertNotNull(found, "Should find existing item");
-                assertEquals(item.name, found.name);
-            }
-        }
+    public void testCreateBaseItem() {
+        BaseItem item = service.createBaseItem("Burger", 1000, false);
+        assertNotNull(item.getId());
+        assertEquals("Burger", item.getName());
+        assertEquals(1000, item.getPrice());
+        assertFalse(item.isKitchen());
     }
 
     @Test
-    public void testRemoveItem() {
-        service.addItem("TempCat", "ToRemove", 1000, null);
+    public void testCreateBaseItemAndAddToCategory() {
+        BaseItem item = service.createBaseItem("Fish", 1200, true);
+        service.addMenuItemToCategory("Mains", item.getId(), Collections.emptyList());
 
-        service.removeItem("TempCat", "ToRemove");
+        Menu menu = service.getMenu();
+        assertNotNull(menu.getCategory("Mains"));
+        assertEquals(1, menu.getCategory("Mains").getItems().size());
+        assertEquals(item.getId(), menu.getCategory("Mains").getItems().get(0).getBaseItemId());
+    }
 
-        assertThrows(EntityNotFoundException.class, () -> {
-            service.getItem("TempCat", "ToRemove");
-        });
+    @Test
+    public void testUpdateBaseItemPrice() {
+        BaseItem item = service.createBaseItem("Steak", 2000, false);
+        service.updateBaseItemPrice(item.getId(), 2500);
+        assertEquals(2500, service.getBaseItem(item.getId()).getPrice());
+    }
+
+    @Test
+    public void testUpdateBaseItemAvailability() {
+        BaseItem item = service.createBaseItem("Soup", 500, false);
+        assertTrue(item.isAvailable());
+
+        service.updateBaseItemAvailability(item.getId(), false);
+        assertFalse(service.getBaseItem(item.getId()).isAvailable());
+
+        service.updateBaseItemAvailability(item.getId(), true);
+        assertTrue(service.getBaseItem(item.getId()).isAvailable());
+    }
+
+    @Test
+    public void testRenameBaseItem() {
+        BaseItem item = service.createBaseItem("OldName", 1000, false);
+        service.renameBaseItem(item.getId(), "NewName");
+        assertEquals("NewName", service.getBaseItem(item.getId()).getName());
+    }
+
+    @Test
+    public void testDeleteBaseItem() {
+        BaseItem item = service.createBaseItem("ToDelete", 1000, false);
+        UUID id = item.getId();
+        service.deleteBaseItem(id);
+        assertThrows(EntityNotFoundException.class, () -> service.getBaseItem(id));
+    }
+
+    @Test
+    public void testDeleteBaseItemNotFound() {
+        assertThrows(EntityNotFoundException.class, () -> service.deleteBaseItem(UUID.randomUUID()));
     }
 
     @Test
     public void testRenameCategory() {
-        String oldCat = "OldCat";
-        service.addItem(oldCat, "ItemInCat", 1000, null);
+        BaseItem item = service.createBaseItem("ItemInCat", 1000, false);
+        service.addMenuItemToCategory("OldCat", item.getId(), Collections.emptyList());
 
-        String newCat = "NewCat_Renamed";
-        service.renameCategory(oldCat, newCat);
+        service.renameCategory("OldCat", "NewCat");
 
-        assertThrows(EntityNotFoundException.class, () -> {
-            service.getCategory(oldCat.toLowerCase());
-        });
-        assertNotNull(service.getCategory(newCat.toLowerCase()), "New category should exist");
-    }
-
-    @Test
-    public void testGetItemObject() {
-        service.addItem("Cat", "Item", 1000, null);
-
-        MenuItem menuItem = service.getItem("Cat", "Item");
-
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem("test-category", menuItem, null, null);
-
-        assertNotNull(item, "Should create OrderItem object");
-        assertEquals(menuItem.name, item.getName());
-    }
-
-    @Test
-    public void testGetItemWithSide() {
-        String name = "ItemSideTest";
-        Map<String, Long> sides = new HashMap<>();
-        sides.put("Fries", 200L);
-        service.addItem("SideCat", name, 1000L, sides);
-
-        MenuItem menuItem = service.getItem("SideCat", name);
-        com.ticketer.models.OrderItem item = com.ticketer.models.Menu.getItem("test-category", menuItem, "Fries", null);
-
-        assertNotNull(item);
-        assertEquals(name, item.getName());
-        assertEquals(1000, item.getMainPrice());
-        assertEquals(200, item.getSidePrice());
-        assertEquals(1200, item.getPrice());
-    }
-
-    @Test
-    public void testAddItem() {
-        String cat = "TestCategory";
-        String name = "TestItemAdd";
-        int price = 1234;
-
-        service.addItem(cat, name, price, null);
-
-        MenuItem item = service.getItem(cat, name);
-        assertNotNull(item);
-        assertEquals(name, item.name);
-        assertEquals(price, item.price);
-
-        List<MenuItem> catItems = service.getCategory(cat.toLowerCase());
-        assertNotNull(catItems);
-        assertTrue(catItems.stream().anyMatch(i -> i.name.equals(name)));
-    }
-
-    @Test
-    public void testEditItemPrice() {
-        String name = "PriceItem";
-        service.addItem("Cat", name, 1000, null);
-
-        int newPrice = 9999;
-        service.editItemPrice("Cat", name, newPrice);
-
-        assertEquals(newPrice, service.getItem("Cat", name).price);
-    }
-
-    @Test
-    public void testEditItemAvailability() {
-        String name = "AvailItem";
-        service.addItem("Cat", name, 1000, null);
-
-        service.editItemAvailability("Cat", name, false);
-        assertFalse(service.getItem("Cat", name).available);
-
-        service.editItemAvailability("Cat", name, true);
-        assertTrue(service.getItem("Cat", name).available);
-    }
-
-    @Test
-    public void testRenameItem() {
-        String oldName = "OldNameItem";
-        service.addItem("Cat", oldName, 1000, null);
-
-        String newName = "RenamedItem_" + System.currentTimeMillis();
-        service.renameItem("Cat", oldName, newName);
-
-        assertThrows(EntityNotFoundException.class, () -> {
-            service.getItem("Cat", oldName);
-        });
-        assertNotNull(service.getItem("Cat", newName));
-    }
-
-    @Test
-    public void testChangeCategory() {
-        String name = "CatChangeItem";
-        String oldCat = "Cat1";
-        service.addItem(oldCat, name, 1000, null);
-
-        String newCat = "Cat2_New";
-        service.changeCategory(oldCat, name, newCat);
-
-        List<MenuItem> catItems = service.getCategory(newCat.toLowerCase());
-        assertNotNull(catItems);
-        assertTrue(catItems.stream().anyMatch(i -> i.name.equals(name)));
-
-        assertThrows(EntityNotFoundException.class, () -> service.getCategory(oldCat.toLowerCase()));
-    }
-
-    @Test
-    public void testUpdateSide() {
-        String name = "ItemWithSide";
-        Map<String, Long> sides = new HashMap<>();
-        sides.put("Fries", 200L);
-        service.addItem("SideCat", name, 1000L, sides);
-
-        service.updateSide("SideCat", name, "Fries", 500L, true);
-
-        MenuItem item = service.getItem("SideCat", name);
-        assertNotNull(item.sideOptions);
-        assertEquals(500, item.sideOptions.get("Fries").price);
-    }
-
-    @Test
-    public void testChangeCategorySameCategory() {
-        String name = "SameCatItem";
-        String cat = "SameCat";
-        service.addItem(cat, name, 1000, null);
-
-        service.changeCategory(cat, name, cat);
-
-        assertNotNull(service.getItem(cat, name));
+        Menu menu = service.getMenu();
+        assertNull(menu.getCategory("OldCat"));
+        assertNotNull(menu.getCategory("NewCat"));
     }
 
     @Test
     public void testRenameCategoryNotFound() {
-        assertThrows(EntityNotFoundException.class, () -> {
-            service.renameCategory("NonExistentCat", "NewCat");
-        });
+        assertThrows(EntityNotFoundException.class, () ->
+                service.renameCategory("NonExistentCat", "NewCat"));
     }
 
     @Test
-    public void testGetCategoryOfItemFound() {
+    public void testMoveMenuItemToCategory() {
+        BaseItem item = service.createBaseItem("MoveMe", 1000, false);
+        service.addMenuItemToCategory("Cat1", item.getId(), Collections.emptyList());
 
+        service.moveMenuItemToCategory("Cat1", item.getId(), "Cat2");
+
+        Menu menu = service.getMenu();
+        assertNull(menu.getCategory("Cat1"));
+        assertNotNull(menu.getCategory("Cat2"));
+        assertEquals(item.getId(), menu.getCategory("Cat2").getItems().get(0).getBaseItemId());
     }
 
     @Test
-    public void testGetCategoryOfItemNotFound() {
+    public void testDeleteCategory() {
+        BaseItem item = service.createBaseItem("ItemForDel", 1000, false);
+        service.addMenuItemToCategory("DelCat", item.getId(), Collections.emptyList());
 
+        service.deleteCategory("DelCat");
+
+        assertNull(service.getMenu().getCategory("DelCat"));
     }
 
     @Test
-    public void testGetCategoryNotFound() {
-        assertThrows(EntityNotFoundException.class, () -> {
-            service.getCategory("GhostCategory");
-        });
+    public void testDeleteCategoryNotFound() {
+        assertThrows(EntityNotFoundException.class, () -> service.deleteCategory("GhostCategory"));
+    }
+
+    @Test
+    public void testGetBaseItemNotFound() {
+        assertThrows(EntityNotFoundException.class, () -> service.getBaseItem(UUID.randomUUID()));
+    }
+
+    @Test
+    public void testCreateItemOrderItem() {
+        BaseItem main = service.createBaseItem("Burger", 1200, true);
+        BaseItem side = service.createBaseItem("Fries", 200, false);
+
+        com.ticketer.models.OrderItem item = service.createItemOrderItem(main.getId(), side.getId());
+        assertNotNull(item);
+        assertEquals("Burger", item.getName());
+        assertEquals("Fries", item.getSelectedSide());
+        assertEquals(1200, item.getMainPrice());
+        assertEquals(200, item.getSidePrice());
+        assertEquals(1400, item.getPrice());
+    }
+
+    @Test
+    public void testCreateItemOrderItemNoSide() {
+        BaseItem main = service.createBaseItem("Soda", 300, false);
+
+        com.ticketer.models.OrderItem item = service.createItemOrderItem(main.getId(), null);
+        assertNotNull(item);
+        assertEquals("Soda", item.getName());
+        assertNull(item.getSelectedSide());
+        assertEquals(300, item.getMainPrice());
+        assertEquals(0, item.getSidePrice());
+    }
+
+    @Test
+    public void testCategoryOrderPreservedAfterSave() {
+        BaseItem a = service.createBaseItem("A", 100, false);
+        BaseItem b = service.createBaseItem("B", 200, false);
+        service.addMenuItemToCategory("Starters", a.getId(), Collections.emptyList());
+        service.addMenuItemToCategory("Mains", b.getId(), Collections.emptyList());
+
+        service.reorderCategories(Arrays.asList("Mains", "Starters"));
+
+        MenuService reloaded = new MenuService(new FileMenuRepository(testMenuFile.getAbsolutePath(), mapper));
+        assertEquals(Arrays.asList("Mains", "Starters"), reloaded.getCategoryOrder());
     }
 }

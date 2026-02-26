@@ -1,155 +1,161 @@
 package com.ticketer.models;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
+import java.util.UUID;
 
 public class Menu {
-    private Map<String, List<MenuItem>> categories;
+    private Map<UUID, BaseItem> baseItems;
+    private Map<String, CategoryEntry> categories;
+    private Map<UUID, ComboItem> combos;
     private List<String> categoryOrder;
-
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    private Map<String, MenuItem> nameToItemMap = new java.util.HashMap<>();
 
     @JsonCreator
     public Menu(
-            @com.fasterxml.jackson.annotation.JsonProperty("categories") Map<String, List<MenuItem>> categories,
-            @com.fasterxml.jackson.annotation.JsonProperty("categoryOrder") List<String> categoryOrder) {
-        this.categories = categories;
-        this.categoryOrder = categoryOrder != null ? categoryOrder : new ArrayList<>(categories.keySet());
-        
-        for (List<MenuItem> items : this.categories.values()) {
-            if (items != null) {
-                for (MenuItem item : items) {
-                    nameToItemMap.put(item.name, item);
-                }
-            }
+            @JsonProperty("baseItems") Map<UUID, BaseItem> baseItems,
+            @JsonProperty("categories") Map<String, CategoryEntry> categories,
+            @JsonProperty("combos") Map<UUID, ComboItem> combos,
+            @JsonProperty("categoryOrder") List<String> categoryOrder) {
+        this.baseItems = baseItems != null ? baseItems : new LinkedHashMap<>();
+        this.categories = categories != null ? categories : new LinkedHashMap<>();
+        this.combos = combos != null ? combos : new LinkedHashMap<>();
+        this.categoryOrder = categoryOrder != null
+                ? categoryOrder
+                : new ArrayList<>(this.categories.keySet());
+    }
+
+    public Map<UUID, BaseItem> getBaseItems() { return baseItems; }
+
+    public BaseItem getBaseItem(UUID id) { return baseItems.get(id); }
+
+    public void addBaseItem(BaseItem item) {
+        baseItems.put(item.getId(), item);
+    }
+
+    public boolean removeBaseItem(UUID id) {
+        return baseItems.remove(id) != null;
+    }
+
+    public Map<String, CategoryEntry> getCategories() { return categories; }
+
+    public CategoryEntry getCategory(String name) { return categories.get(name); }
+
+    public List<MenuItem> getCategoryItems(String name) {
+        CategoryEntry entry = categories.get(name);
+        return entry != null ? entry.getItems() : null;
+    }
+
+    public void addCategory(String name, CategoryEntry entry) {
+        categories.put(name, entry);
+        if (!categoryOrder.contains(name)) {
+            categoryOrder.add(name);
         }
     }
 
-    public Map<String, List<MenuItem>> getCategories() {
-        return categories;
+    public boolean removeCategory(String name) {
+        boolean removed = categories.remove(name) != null;
+        if (removed) categoryOrder.remove(name);
+        return removed;
     }
 
-    public List<String> getCategoryOrder() {
-        return categoryOrder;
-    }
-
-    public void setCategoryOrder(List<String> categoryOrder) {
-        this.categoryOrder = categoryOrder;
-    }
-
-    public List<MenuItem> getCategory(String categoryName) {
-        return categories.get(categoryName);
-    }
-
-    public List<MenuItemView> getAllItems() {
-        List<MenuItemView> list = new ArrayList<>();
-        for (String category : categories.keySet()) {
-            List<MenuItem> items = categories.get(category);
-            for (MenuItem item : items) {
-                list.add(new MenuItemView(
-                        item.name,
-                        item.price,
-                        item.available));
-            }
+    public void renameCategory(String oldName, String newName) {
+        CategoryEntry entry = categories.remove(oldName);
+        if (entry != null) {
+            categories.put(newName, entry);
+            int idx = categoryOrder.indexOf(oldName);
+            if (idx >= 0) categoryOrder.set(idx, newName);
         }
-        return list;
     }
 
-    public MenuItem getItem(String name) {
-        return nameToItemMap.get(name);
+    public void setCategoryVisible(String name, boolean visible) {
+        CategoryEntry entry = categories.get(name);
+        if (entry != null) entry.setVisible(visible);
     }
 
-    public void addItem(String category, MenuItem item) {
-        List<MenuItem> items = categories.get(category);
-        if (items == null) {
-            items = new ArrayList<>();
-            categories.put(category, items);
-            if (!categoryOrder.contains(category)) {
-                categoryOrder.add(category);
-            }
+    public boolean isCategoryVisible(String name) {
+        CategoryEntry entry = categories.get(name);
+        return entry != null && entry.isVisible();
+    }
+
+    public void addMenuItem(String category, MenuItem item) {
+        CategoryEntry entry = categories.get(category);
+        if (entry == null) {
+            entry = new CategoryEntry(true, new ArrayList<>());
+            categories.put(category, entry);
+            if (!categoryOrder.contains(category)) categoryOrder.add(category);
         }
-        items.add(item);
-        nameToItemMap.put(item.name, item);
+        entry.getItems().add(item);
     }
 
-    public boolean removeItem(String category, String itemName) {
-        List<MenuItem> items = categories.get(category);
-        if (items == null) return false;
-        
-        boolean removed = items.removeIf(i -> i.name.equals(itemName));
-        if (removed) {
-            nameToItemMap.remove(itemName);
-            if (items.isEmpty()) {
-                categories.remove(category);
-            }
+    public boolean removeMenuItem(String category, UUID baseItemId) {
+        CategoryEntry entry = categories.get(category);
+        if (entry == null) return false;
+        boolean removed = entry.getItems().removeIf(mi -> baseItemId.equals(mi.getBaseItemId()));
+        if (removed && entry.getItems().isEmpty()) {
+            categories.remove(category);
+            categoryOrder.remove(category);
         }
         return removed;
     }
 
-    public void renameItem(String oldName, String newName) {
-        MenuItem item = nameToItemMap.remove(oldName);
-        if (item != null) {
-            item.name = newName;
-            nameToItemMap.put(newName, item);
-        }
-    }
-    
-    public void changeCategory(String oldCategory, String newCategory, String itemName) {
-        List<MenuItem> oldItems = categories.get(oldCategory);
-        if (oldItems == null) return;
-        
-        MenuItem item = null;
-        for (int i = 0; i < oldItems.size(); i++) {
-            if (oldItems.get(i).name.equals(itemName)) {
-                item = oldItems.remove(i);
-                break;
-            }
-        }
-        
-        if (item == null) return;
-        
-        if (oldItems.isEmpty()) {
-            categories.remove(oldCategory);
-        }
-        
-        List<MenuItem> newItems = categories.get(newCategory);
-        if (newItems == null) {
-            newItems = new ArrayList<>();
-            categories.put(newCategory, newItems);
-            if (!categoryOrder.contains(newCategory)) {
-                categoryOrder.add(newCategory);
-            }
-        }
-        newItems.add(item);
+    public MenuItem findMenuItem(String category, UUID baseItemId) {
+        CategoryEntry entry = categories.get(category);
+        if (entry == null) return null;
+        return entry.getItems().stream()
+                .filter(mi -> baseItemId.equals(mi.getBaseItemId()))
+                .findFirst().orElse(null);
     }
 
-    public static OrderItem getItem(String category, MenuItem item, String sideName, String extraName) {
-        long sidePrice = 0;
-        String resolvedSide = null;
-        if (item.hasSides()) {
-            if (sideName != null && item.sideOptions.containsKey(sideName)) {
-                resolvedSide = sideName;
-                sidePrice = item.sideOptions.get(sideName).price;
-            } else if (sideName != null) {
-                throw new IllegalArgumentException("Invalid side selection: " + sideName);
+    public String findCategoryForBaseItem(UUID baseItemId) {
+        for (Map.Entry<String, CategoryEntry> e : categories.entrySet()) {
+            for (MenuItem mi : e.getValue().getItems()) {
+                if (baseItemId.equals(mi.getBaseItemId())) return e.getKey();
             }
         }
-
-        long extraPrice = 0;
-        String resolvedExtra = null;
-        if (item.hasExtras()) {
-            if (extraName != null && item.extraOptions.containsKey(extraName)) {
-                resolvedExtra = extraName;
-                extraPrice = item.extraOptions.get(extraName).price;
-            } else if (extraName != null) {
-                throw new IllegalArgumentException("Invalid extra selection: " + extraName);
-            }
-        }
-
-        return new OrderItem(category, item.name, resolvedSide, resolvedExtra, item.price, sidePrice, extraPrice, null);
+        return null;
     }
+
+    public List<BaseItem> getSideOptions(List<String> sourceCategoryNames) {
+        List<BaseItem> result = new ArrayList<>();
+        if (sourceCategoryNames == null) return result;
+        for (String catName : sourceCategoryNames) {
+            CategoryEntry entry = categories.get(catName);
+            if (entry == null) continue;
+            for (MenuItem mi : entry.getItems()) {
+                BaseItem item = baseItems.get(mi.getBaseItemId());
+                if (item != null && item.isAvailable()) {
+                    result.add(item);
+                }
+            }
+        }
+        return result;
+    }
+
+    public Map<UUID, ComboItem> getCombos() { return combos; }
+
+    public ComboItem getCombo(UUID id) { return combos.get(id); }
+
+    public void addCombo(ComboItem combo) {
+        combos.put(combo.getId(), combo);
+    }
+
+    public boolean removeCombo(UUID id) {
+        return combos.remove(id) != null;
+    }
+
+    public List<ComboItem> getCombosForCategory(String category) {
+        List<ComboItem> result = new ArrayList<>();
+        for (ComboItem c : combos.values()) {
+            if (category.equals(c.getCategory())) result.add(c);
+        }
+        return result;
+    }
+
+    public List<String> getCategoryOrder() { return categoryOrder; }
+
+    public void setCategoryOrder(List<String> categoryOrder) { this.categoryOrder = categoryOrder; }
 }

@@ -196,12 +196,12 @@ public class TicketServiceTest {
     public void testGetClosedTicketsSubtotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(0);
-        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(OrderItem.forItem(null, "Pizza", null, "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
@@ -214,12 +214,12 @@ public class TicketServiceTest {
     public void testGetClosedTicketsTotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(1000);
-        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(2000);
-        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(OrderItem.forItem(null, "Pizza", null, "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllClosed()).thenReturn(Arrays.asList(t1, t2));
@@ -232,12 +232,12 @@ public class TicketServiceTest {
     public void testGetActiveAndCompletedTicketsSubtotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(0);
-        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(OrderItem.forItem(null, "Pizza", null, "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
@@ -251,12 +251,12 @@ public class TicketServiceTest {
     public void testGetActiveAndCompletedTicketsTotal() {
         Ticket t1 = new Ticket(1);
         Order o1 = new Order(1000);
-        o1.addItem(new com.ticketer.models.OrderItem("test-category", "Burger", "Fries", null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, "Fries", 1000, 0));
         t1.addOrder(o1);
 
         Ticket t2 = new Ticket(2);
         Order o2 = new Order(2000);
-        o2.addItem(new com.ticketer.models.OrderItem("test-category", "Pizza", "None", null, 2000, 0, 0, null));
+        o2.addItem(OrderItem.forItem(null, "Pizza", null, "None", 2000, 0));
         t2.addOrder(o2);
 
         when(ticketRepository.findAllActive()).thenReturn(Arrays.asList(t1));
@@ -270,10 +270,10 @@ public class TicketServiceTest {
     public void testMoveItemBetweenOrders() {
         Ticket ticket = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
-        o1.addItem(new OrderItem("cat", "Pizza", null, null, 1200, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, null, 1000, 0));
+        o1.addItem(OrderItem.forItem(null, "Pizza", null, null, 1200, 0));
         Order o2 = new Order(0);
-        o2.addItem(new OrderItem("cat", "Coke", null, null, 200, 0, 0, null));
+        o2.addItem(OrderItem.forItem(null, "Coke", null, null, 200, 0));
         ticket.addOrder(o1);
         ticket.addOrder(o2);
 
@@ -295,9 +295,9 @@ public class TicketServiceTest {
     public void testMoveItemAutoRemovesEmptyOrder() {
         Ticket ticket = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, null, 1000, 0));
         Order o2 = new Order(0);
-        o2.addItem(new OrderItem("cat", "Coke", null, null, 200, 0, 0, null));
+        o2.addItem(OrderItem.forItem(null, "Coke", null, null, 200, 0));
         ticket.addOrder(o1);
         ticket.addOrder(o2);
 
@@ -314,7 +314,7 @@ public class TicketServiceTest {
     public void testMoveItemInvalidIndices() {
         Ticket ticket = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, null, 1000, 0));
         ticket.addOrder(o1);
 
         when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
@@ -329,7 +329,7 @@ public class TicketServiceTest {
     public void testMoveItemSameOrderThrows() {
         Ticket ticket = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, null, 1000, 0));
         ticket.addOrder(o1);
 
         when(ticketRepository.findById(1)).thenReturn(Optional.of(ticket));
@@ -342,10 +342,10 @@ public class TicketServiceTest {
     public void testMergeOrders() {
         Ticket ticket = new Ticket(1);
         Order o1 = new Order(0);
-        o1.addItem(new OrderItem("cat", "Burger", null, null, 1000, 0, 0, null));
+        o1.addItem(OrderItem.forItem(null, "Burger", null, null, 1000, 0));
         Order o2 = new Order(0);
-        o2.addItem(new OrderItem("cat", "Coke", null, null, 200, 0, 0, null));
-        o2.addItem(new OrderItem("cat", "Pizza", null, null, 1200, 0, 0, null));
+        o2.addItem(OrderItem.forItem(null, "Coke", null, null, 200, 0));
+        o2.addItem(OrderItem.forItem(null, "Pizza", null, null, 1200, 0));
         ticket.addOrder(o1);
         ticket.addOrder(o2);
 

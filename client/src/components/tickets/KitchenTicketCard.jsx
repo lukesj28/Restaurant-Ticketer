@@ -51,11 +51,8 @@ const KitchenTicketCard = ({ ticket, onComplete, isHighlighted }) => {
                                         <span className="item-quantity">{item.quantity}× </span>
                                     )}
                                     <span className="item-name">{item.name}</span>
-                                    {item.selectedSide && item.selectedSide !== 'none' && (
+                                    {item.selectedSide != null && (
                                         <span className="item-side"> + {item.selectedSide}</span>
-                                    )}
-                                    {item.selectedExtra && item.selectedExtra !== 'none' && (
-                                        <span className="item-extra"> + {item.selectedExtra}</span>
                                     )}
                                     {item.comment && (
                                         <div className="item-comment">{item.comment}</div>

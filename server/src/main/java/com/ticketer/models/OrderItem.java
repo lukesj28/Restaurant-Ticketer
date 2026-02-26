@@ -1,124 +1,164 @@
 package com.ticketer.models;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
+import java.util.UUID;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class OrderItem {
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    private String category;
-    private String name;
-    private String selectedSide;
+
+    public static final String TYPE_ITEM = "ITEM";
+    public static final String TYPE_COMBO = "COMBO";
+
+    private String type;
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    private String selectedExtra;
+    private UUID menuItemId;
+
+    private String name;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID selectedSideId;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String selectedSide;
+
     private long mainPrice;
     private long sidePrice;
-    private long extraPrice;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UUID comboId;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<ComboComponentSnapshot> components;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<ComboSlotSelection> slotSelections;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String comment;
 
     @JsonCreator
-    public OrderItem(@JsonProperty("category") String category,
+    public OrderItem(
+            @JsonProperty("type") String type,
+            @JsonProperty("menuItemId") UUID menuItemId,
             @JsonProperty("name") String name,
+            @JsonProperty("selectedSideId") UUID selectedSideId,
             @JsonProperty("selectedSide") String selectedSide,
-            @JsonProperty("selectedExtra") String selectedExtra,
             @JsonProperty("mainPrice") long mainPrice,
             @JsonProperty("sidePrice") long sidePrice,
-            @JsonProperty("extraPrice") long extraPrice,
+            @JsonProperty("comboId") UUID comboId,
+            @JsonProperty("components") List<ComboComponentSnapshot> components,
+            @JsonProperty("slotSelections") List<ComboSlotSelection> slotSelections,
             @JsonProperty("comment") String comment) {
-        this.category = category;
+        this.type = type != null ? type : TYPE_ITEM;
+        this.menuItemId = menuItemId;
         this.name = name;
+        this.selectedSideId = selectedSideId;
         this.selectedSide = selectedSide;
-        this.selectedExtra = selectedExtra;
         this.mainPrice = mainPrice;
         this.sidePrice = sidePrice;
-        this.extraPrice = extraPrice;
+        this.comboId = comboId;
+        this.components = components;
+        this.slotSelections = slotSelections;
         this.comment = comment;
     }
 
-    @Override
-    public String toString() {
-        if (selectedSide != null) {
-            return String.format("Item: %s ($%.2f), Side: %s ($%.2f), Total: $%.2f",
-                    name, mainPrice / 100.0, selectedSide, sidePrice / 100.0, (mainPrice + sidePrice + extraPrice) / 100.0);
-        }
-        return String.format("Item: %s, Total: $%.2f", name, mainPrice / 100.0);
+    public static OrderItem forItem(UUID menuItemId, String name,
+            UUID selectedSideId, String selectedSide,
+            long mainPrice, long sidePrice) {
+        return new OrderItem(TYPE_ITEM, menuItemId, name,
+                selectedSideId, selectedSide,
+                mainPrice, sidePrice,
+                null, null, null, null);
     }
 
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    public String getCategory() {
-        return category;
+    public static OrderItem forCombo(UUID comboId, String name,
+            List<ComboComponentSnapshot> components,
+            List<ComboSlotSelection> slotSelections,
+            long price) {
+        return new OrderItem(TYPE_COMBO, null, name,
+                null, null,
+                price, 0,
+                comboId, components, slotSelections, null);
     }
 
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getSelectedSide() {
-        return selectedSide;
-    }
-
-    public String getSelectedExtra() {
-        return selectedExtra;
+    public boolean isCombo() {
+        return TYPE_COMBO.equals(type);
     }
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     public long getPrice() {
-        return mainPrice + sidePrice + extraPrice;
+        return mainPrice + sidePrice;
     }
 
-    public long getMainPrice() {
-        return mainPrice;
-    }
+    public String getType() { return type; }
 
-    public void setMainPrice(long price) {
-        this.mainPrice = price;
-    }
+    public UUID getMenuItemId() { return menuItemId; }
 
-    public void setSidePrice(long price) {
-        this.sidePrice = price;
-    }
+    public String getName() { return name; }
 
-    public void setExtraPrice(long price) {
-        this.extraPrice = price;
-    }
+    public UUID getSelectedSideId() { return selectedSideId; }
 
-    public long getSidePrice() {
-        return sidePrice;
-    }
+    public String getSelectedSide() { return selectedSide; }
 
-    public long getExtraPrice() {
-        return extraPrice;
-    }
+    public long getMainPrice() { return mainPrice; }
 
-    public String getComment() {
-        return comment;
-    }
+    public void setMainPrice(long mainPrice) { this.mainPrice = mainPrice; }
 
-    public void setComment(String comment) {
-        this.comment = comment;
-    }
+    public long getSidePrice() { return sidePrice; }
+
+    public void setSidePrice(long sidePrice) { this.sidePrice = sidePrice; }
+
+    public UUID getComboId() { return comboId; }
+
+    public List<ComboComponentSnapshot> getComponents() { return components; }
+
+    public List<ComboSlotSelection> getSlotSelections() { return slotSelections; }
+
+    public String getComment() { return comment; }
+
+    public void setComment(String comment) { this.comment = comment; }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
-        OrderItem orderItem = (OrderItem) o;
-        return java.util.Objects.equals(name, orderItem.name) &&
-                java.util.Objects.equals(selectedSide, orderItem.selectedSide) &&
-                java.util.Objects.equals(selectedExtra, orderItem.selectedExtra);
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OrderItem other = (OrderItem) o;
+        if (TYPE_COMBO.equals(type)) {
+            return java.util.Objects.equals(comboId, other.comboId)
+                    && java.util.Objects.equals(slotSelections == null ? null :
+                            slotSelections.stream()
+                                    .map(s -> s.getSlotId() + ":" + s.getSelectedBaseItemId())
+                                    .sorted().collect(java.util.stream.Collectors.joining(",")),
+                            other.slotSelections == null ? null :
+                            other.slotSelections.stream()
+                                    .map(s -> s.getSlotId() + ":" + s.getSelectedBaseItemId())
+                                    .sorted().collect(java.util.stream.Collectors.joining(",")));
+        }
+        return java.util.Objects.equals(menuItemId, other.menuItemId)
+                && java.util.Objects.equals(selectedSideId, other.selectedSideId);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(name, selectedSide, selectedExtra);
+        if (TYPE_COMBO.equals(type)) {
+            return java.util.Objects.hash(comboId);
+        }
+        return java.util.Objects.hash(menuItemId, selectedSideId);
     }
 
+    @Override
+    public String toString() {
+        if (TYPE_COMBO.equals(type)) {
+            return String.format("Combo: %s ($%.2f)", name, getPrice() / 100.0);
+        }
+        if (selectedSide != null) {
+            return String.format("Item: %s ($%.2f), Side: %s ($%.2f), Total: $%.2f",
+                    name, mainPrice / 100.0, selectedSide, sidePrice / 100.0, getPrice() / 100.0);
+        }
+        return String.format("Item: %s, Total: $%.2f", name, mainPrice / 100.0);
+    }
 }

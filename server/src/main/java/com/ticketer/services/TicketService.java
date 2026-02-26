@@ -121,6 +121,10 @@ public class TicketService {
             throw new EntityNotFoundException("Ticket with ID " + ticketId + " not found.");
         }
 
+        if (ticketRepository.findAllClosed().contains(ticket)) {
+            throw new ActionNotAllowedException("Cannot add orders to a closed ticket.");
+        }
+
         if (ticketRepository.findAllCompleted().contains(ticket)) {
             ticketRepository.moveToActive(ticket.getId());
         }
@@ -212,6 +216,21 @@ public class TicketService {
         }
         if (!ticket.getOrders().get(orderIndex).removeItem(item)) {
             throw new EntityNotFoundException("Item not found in order " + orderIndex);
+        }
+        ticketRepository.save(ticket);
+    }
+
+    public void removeItemFromOrderByIndex(int ticketId, int orderIndex, int itemIndex) {
+        Ticket ticket = getTicket(ticketId);
+        if (ticket == null) {
+            throw new EntityNotFoundException("Ticket " + ticketId + " not found");
+        }
+        if (orderIndex < 0 || orderIndex >= ticket.getOrders().size()) {
+            throw new EntityNotFoundException("Order index " + orderIndex + " invalid");
+        }
+        OrderItem removed = ticket.getOrders().get(orderIndex).removeItemByIndex(itemIndex);
+        if (removed == null) {
+            throw new EntityNotFoundException("Item index " + itemIndex + " invalid in order " + orderIndex);
         }
         ticketRepository.save(ticket);
     }
@@ -404,7 +423,6 @@ public class TicketService {
         }
         items.get(itemIndex).setMainPrice(newPrice);
         items.get(itemIndex).setSidePrice(0);
-        items.get(itemIndex).setExtraPrice(0);
         order.recalculateSubtotal();
         ticket.recalculatePersistedTotals();
         ticketRepository.save(ticket);

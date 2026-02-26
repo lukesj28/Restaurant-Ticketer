@@ -385,3 +385,299 @@
     font-family: var(--font-body);
     font-size: 0.9rem;
 }
+
+/* Side Sources */
+.side-sources-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
+}
+
+.side-source-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-direction: row;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 0;
+}
+
+.side-source-checkbox input[type="checkbox"] {
+    width: auto;
+    accent-color: var(--color-brand-primary);
+}
+
+/* Combos Section */
+.combos-section {
+    margin-top: var(--spacing-xl);
+    border-top: 2px solid var(--color-border);
+    padding-top: var(--spacing-lg);
+}
+
+.combos-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.combos-section-title {
+    color: var(--color-brand-secondary);
+    font-family: var(--font-heading);
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.combos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.combo-card {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.combo-card:hover {
+    border-color: var(--color-brand-primary);
+    box-shadow: 0 0 0 2px rgba(166, 0, 0, 0.15);
+}
+
+.combo-card-top {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.combo-card-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-text-primary);
+    flex: 1;
+}
+
+.combo-unavailable-badge {
+    font-size: 0.7rem;
+    background-color: var(--color-danger, #dc3545);
+    color: white;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.combo-kitchen-badge {
+    font-size: 0.7rem;
+    background-color: var(--color-brand-secondary);
+    color: white;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.combo-card-components {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+.combo-card-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.combo-slot-tag {
+    font-size: 0.75rem;
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 2px 6px;
+    color: var(--color-text-secondary);
+}
+
+.combo-card-price {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-brand-primary);
+    margin-top: 4px;
+}
+
+/* Item Picker */
+.item-picker {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.item-picker-search {
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+}
+
+.item-picker-search:focus {
+    outline: none;
+    background-color: var(--color-bg-primary);
+}
+
+.item-picker-list {
+    max-height: 160px;
+    overflow-y: auto;
+    background-color: var(--color-bg-secondary);
+}
+
+.item-picker-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    cursor: pointer;
+    transition: background-color 0.15s;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.item-picker-row:last-child {
+    border-bottom: none;
+}
+
+.item-picker-row:hover {
+    background-color: var(--color-bg-tertiary);
+}
+
+.item-picker-row input[type="checkbox"] {
+    width: auto;
+    accent-color: var(--color-brand-primary);
+    flex-shrink: 0;
+}
+
+.item-picker-selected {
+    background-color: rgba(166, 0, 0, 0.06) !important;
+}
+
+.item-picker-name {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--color-text-primary);
+}
+
+.item-picker-price {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+}
+
+.item-picker-empty {
+    padding: var(--spacing-sm);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* Slot Builder */
+.slot-builder {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-bottom: var(--spacing-sm);
+}
+
+.slot-builder-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--color-bg-tertiary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.slot-name-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 4px;
+}
+
+.slot-name-input:focus {
+    outline: none;
+}
+
+.slot-required-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.slot-required-label input[type="checkbox"] {
+    width: auto;
+    accent-color: var(--color-brand-primary);
+}
+
+.slot-remove-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-danger, #dc3545);
+    font-size: 0.9rem;
+    opacity: 0.6;
+    padding: 2px 4px;
+    transition: opacity 0.2s;
+}
+
+.slot-remove-btn:hover {
+    opacity: 1;
+}
+
+.combo-slots-empty {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+    padding: var(--spacing-sm);
+    text-align: center;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+/* Combo info chips (readonly in edit modal) */
+.combo-info-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.combo-info-chip {
+    font-size: 0.8rem;
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+    color: var(--color-text-secondary);
+}

@@ -7,8 +7,6 @@ import org.junit.platform.suite.api.Suite;
 @SelectClasses({
                 com.ticketer.models.OrderItemTest.class,
                 com.ticketer.models.MenuItemTest.class,
-                com.ticketer.models.MenuItemViewTest.class,
-                com.ticketer.models.SideTest.class,
                 com.ticketer.models.SettingsTest.class,
                 com.ticketer.models.OrderTest.class,
                 com.ticketer.models.TicketTest.class,

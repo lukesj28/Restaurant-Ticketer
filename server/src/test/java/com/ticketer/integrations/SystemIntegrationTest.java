@@ -41,7 +41,7 @@ public class SystemIntegrationTest {
 
     @Test
     public void testGetMenu() throws Exception {
-        mockMvc.perform(get("/api/menu/items"))
+        mockMvc.perform(get("/api/menu"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("SUCCESS")));
     }

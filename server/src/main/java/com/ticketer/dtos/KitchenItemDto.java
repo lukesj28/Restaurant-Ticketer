@@ -1,9 +1,12 @@
 package com.ticketer.dtos;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.List;
+
 public record KitchenItemDto(
         String name,
-        String selectedSide,
-        String selectedExtra,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String selectedSide,
         int quantity,
-        String comment) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) String comment,
+        @JsonInclude(JsonInclude.Include.NON_NULL) List<String> slotSelectionNames) {
 }

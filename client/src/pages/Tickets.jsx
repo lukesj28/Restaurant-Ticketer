@@ -16,7 +16,11 @@ const Tickets = () => {
 
     useEffect(() => {
         mounted.current = true;
-        return () => { mounted.current = false; };
+        return () => {
+            mounted.current = false;
+            // Clean up any pending chimes on unmount
+            if (alertIntervalRef.current) clearTimeout(alertIntervalRef.current);
+        };
     }, []);
 
     const [viewMode, setViewMode] = useState('front'); // 'front' | 'back'
@@ -34,7 +38,6 @@ const Tickets = () => {
     const previousTicketsRef = useRef([]);
     // Track highlighted tickets
     const [highlightedTicketIds, setHighlightedTicketIds] = useState([]);
-    const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
     const initialLoadRef = useRef(true);
 
     useEffect(() => {
@@ -70,8 +73,8 @@ const Tickets = () => {
         oscillator.stop(now + 0.6);
     };
 
-    const startAlertLoop = () => {
-        if (alertIntervalRef.current) return; // Already running
+    const playAlertChimes = () => {
+        if (alertIntervalRef.current) return; // Already playing
 
         try {
             if (!audioContextRef.current) {
@@ -83,29 +86,23 @@ const Tickets = () => {
                 ctx.resume();
             }
 
-            // Play immediately
-            playSingleChime(ctx);
-
-            // Loop every 2 seconds
-            alertIntervalRef.current = setInterval(() => {
+            let count = 0;
+            const play = () => {
                 playSingleChime(ctx);
-            }, 2000);
+                count++;
+                if (count < 3) {
+                    alertIntervalRef.current = setTimeout(play, 1000);
+                } else {
+                    alertIntervalRef.current = null;
+                }
+            };
+            
+            play();
             
         } catch (e) {
             console.error("Audio play failed", e);
-        }
-    };
-
-    const stopAlertLoop = () => {
-        if (alertIntervalRef.current) {
-            clearInterval(alertIntervalRef.current);
             alertIntervalRef.current = null;
         }
-    };
-
-    const handleDismissAlert = () => {
-        stopAlertLoop();
-        setIsAlertModalOpen(false);
     };
 
     const checkForUpdates = (currentTickets) => {
@@ -145,8 +142,7 @@ const Tickets = () => {
         });
 
         if (shouldAlert) {
-            startAlertLoop();
-            setIsAlertModalOpen(true);
+            playAlertChimes();
             setHighlightedTicketIds(prev => [...new Set([...prev, ...changedIds])]);
             
             // Clear highlights after 5 seconds
@@ -336,23 +332,6 @@ const Tickets = () => {
                 </form>
             </Modal>
 
-            {/* Alert Modal */}
-            <Modal
-                isOpen={isAlertModalOpen}
-                onClose={handleDismissAlert}
-                title="Kitchen Alert"
-                footer={
-                    <Button variant="primary" onClick={handleDismissAlert}>
-                        Acknowledge
-                    </Button>
-                }
-            >
-                <div className="alert-content">
-                    <p style={{ fontSize: '1.2rem', textAlign: 'center', margin: '20px 0' }}>
-                        New or updated tickets available!
-                    </p>
-                </div>
-            </Modal>
         </div>
     );
 };

@@ -1,14 +1,14 @@
 package com.ticketer.dtos;
 
-import java.util.Map;
+import java.util.List;
+import java.util.UUID;
 
 public record ItemDto(
-                String name,
-                long price,
-                boolean available,
-                boolean kitchen,
-                Map<String, SideDto> sides,
-                java.util.List<String> sideOrder,
-                Map<String, ExtraDto> extras,
-                java.util.List<String> extraOrder) {
+        UUID baseItemId,
+        String name,
+        long price,
+        boolean available,
+        boolean kitchen,
+        List<String> sideSources,
+        List<BaseItemDto> sideOptions) {
 }

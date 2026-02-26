@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/api';
 import Button from '../components/common/Button';
-import Modal from '../components/common/Modal'; // Will use for item selection
+import Modal from '../components/common/Modal';
 import { useToast } from '../context/ToastContext';
 import {
     DndContext,
@@ -77,13 +77,11 @@ const TicketDetail = () => {
     const toast = useToast();
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [menu, setMenu] = useState({}); // Categories -> Items
-    const [categoryOrder, setCategoryOrder] = useState([]); // Explicit order
+    const [menu, setMenu] = useState({}); // Map: categoryName -> ItemDto[]
+    const [categoryOrder, setCategoryOrder] = useState([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [selectedOrderIndex, setSelectedOrderIndex] = useState(0); // Default to last or specific
+    const [selectedOrderIndex, setSelectedOrderIndex] = useState(0);
     const [selectedItemForSides, setSelectedItemForSides] = useState(null);
-    const [selectedItemForExtras, setSelectedItemForExtras] = useState(null);
-    const [pendingSideName, setPendingSideName] = useState(null);
     const [menuSearch, setMenuSearch] = useState('');
     const [commentDrafts, setCommentDrafts] = useState({});
     const commentTimers = React.useRef({});
@@ -93,6 +91,10 @@ const TicketDetail = () => {
     const [editingPriceValue, setEditingPriceValue] = useState('');
     const [itemView, setItemView] = useState(false);
     const hasInitializedView = React.useRef(false);
+    const [combos, setCombos] = useState([]);
+    const [menuTab, setMenuTab] = useState('items');
+    const [selectedCombo, setSelectedCombo] = useState(null);
+    const [comboSlotSelections, setComboSlotSelections] = useState({});
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -115,7 +117,6 @@ const TicketDetail = () => {
             }
         } catch (error) {
             console.error("Failed to fetch ticket", error);
-            // navigate('/tickets');
         } finally {
             setLoading(false);
         }
@@ -123,12 +124,14 @@ const TicketDetail = () => {
 
     const fetchMenu = async () => {
         try {
-            const [categoriesData, orderData] = await Promise.all([
-                api.get('/menu/categories'),
-                api.get('/menu/category-order')
-            ]);
-            setMenu(categoriesData);
-            setCategoryOrder(orderData || []);
+            const menuData = await api.get('/menu');
+            const cats = {};
+            for (const [name, cat] of Object.entries(menuData.categories || {})) {
+                cats[name] = cat.items || [];
+            }
+            setMenu(cats);
+            setCategoryOrder(menuData.categoryOrder || []);
+            setCombos(menuData.combos || []);
         } catch (e) {
             console.error("Failed to fetch menu");
         }
@@ -143,30 +146,24 @@ const TicketDetail = () => {
         }
     };
 
-    const handleAddItem = async (category, itemName, sideName, extraName) => {
-        // Add to the specifically selected order index.
+    const handleAddItem = async (menuItemId, selectedSideId) => {
         let orderIdx = selectedOrderIndex;
-        // If for some reason index is invalid (should not happen with UI), fallback to last
         if (typeof orderIdx !== 'number' || orderIdx < 0) {
             if (ticket.orders && ticket.orders.length > 0) {
                 orderIdx = ticket.orders.length - 1;
             } else {
-                // No orders exist?
                 return;
             }
         }
 
         try {
             await api.post(`/tickets/${id}/orders/${orderIdx}/items`, {
-                category: category,
-                name: itemName,
-                selectedSide: sideName,
-                selectedExtra: extraName
+                menuItemId,
+                selectedSideId: selectedSideId || null,
             });
             setIsMenuOpen(false);
-            setSelectedItemForExtras(null);
-            setPendingSideName(null);
-            fetchTicket(); // refresh
+            setSelectedItemForSides(null);
+            fetchTicket();
         } catch (e) {
             toast.error(e.message);
         }
@@ -304,9 +301,7 @@ const TicketDetail = () => {
 
     // Confirmation modal state
     const [confirmationModal, setConfirmationModal] = useState({
-        isOpen: false,
-        title: '',
-        message: ''
+        isOpen: false, title: '', message: ''
     });
     const confirmAction = React.useRef(null);
     const [isProcessing, setIsProcessing] = React.useState(false);
@@ -317,7 +312,7 @@ const TicketDetail = () => {
                 await api.delete(`/tickets/${id}`);
                 toast.success('Ticket deleted');
                 navigate('/tickets');
-                return true; // Signal that we navigated, don't fetch ticket
+                return true;
             } catch (e) {
                 toast.error('Failed to delete ticket: ' + e.message);
                 return false;
@@ -346,13 +341,9 @@ const TicketDetail = () => {
         });
     };
 
-    const handleDeleteItem = async (orderIndex, item) => {
+    const handleDeleteItem = async (orderIndex, itemIndex) => {
         try {
-            await api.delete(`/tickets/${id}/orders/${orderIndex}/items`, {
-                name: item.name,
-                selectedSide: item.selectedSide,
-                selectedExtra: item.selectedExtra
-            });
+            await api.delete(`/tickets/${id}/orders/${orderIndex}/items/${itemIndex}`);
             fetchTicket();
         } catch (e) {
             toast.error('Failed to delete item: ' + e.message);
@@ -372,7 +363,6 @@ const TicketDetail = () => {
         if (!over) return;
 
         const activeData = active.data.current;
-        // Determine which order was dropped on
         let targetOrderIndex = null;
 
         if (over.data.current && over.data.current.type === 'ORDER') {
@@ -389,22 +379,15 @@ const TicketDetail = () => {
 
             if (fromOrderIndex === targetOrderIndex) return;
 
-            // Optimistic update
             const prevTicket = ticket;
             try {
-                const newOrders = ticket.orders.map(o => ({
-                    ...o,
-                    items: [...o.items]
-                }));
+                const newOrders = ticket.orders.map(o => ({ ...o, items: [...o.items] }));
                 const [movedItem] = newOrders[fromOrderIndex].items.splice(itemIndex, 1);
                 newOrders[targetOrderIndex].items.push(movedItem);
-                // Remove empty source order
                 const filtered = newOrders.filter(o => o.items.length > 0);
                 setTicket({ ...ticket, orders: filtered });
 
-                await api.put(`/tickets/${id}/orders/${fromOrderIndex}/items/${itemIndex}/move`, {
-                    targetOrderIndex
-                });
+                await api.put(`/tickets/${id}/orders/${fromOrderIndex}/items/${itemIndex}/move`, { targetOrderIndex });
                 fetchTicket();
             } catch (e) {
                 setTicket(prevTicket);
@@ -415,21 +398,15 @@ const TicketDetail = () => {
 
             if (fromOrderIndex === targetOrderIndex) return;
 
-            // Optimistic update
             const prevTicket = ticket;
             try {
-                const newOrders = ticket.orders.map(o => ({
-                    ...o,
-                    items: [...o.items]
-                }));
+                const newOrders = ticket.orders.map(o => ({ ...o, items: [...o.items] }));
                 const sourceItems = newOrders[fromOrderIndex].items;
                 newOrders[targetOrderIndex].items.push(...sourceItems);
                 newOrders.splice(fromOrderIndex, 1);
                 setTicket({ ...ticket, orders: newOrders });
 
-                await api.put(`/tickets/${id}/orders/${fromOrderIndex}/merge`, {
-                    targetOrderIndex
-                });
+                await api.put(`/tickets/${id}/orders/${fromOrderIndex}/merge`, { targetOrderIndex });
                 fetchTicket();
             } catch (e) {
                 setTicket(prevTicket);
@@ -445,19 +422,6 @@ const TicketDetail = () => {
     if (loading) return <div className="loading">Loading...</div>;
     if (!ticket) return <div className="error">Ticket not found</div>;
 
-    // Helper to render Menu Selection Modal
-    const hasExtras = (item) => item.extras && Object.keys(item.extras).length > 0;
-
-    const proceedAfterSide = (item, sideName) => {
-        if (hasExtras(item)) {
-            setSelectedItemForExtras(item);
-            setPendingSideName(sideName);
-            setSelectedItemForSides(null);
-        } else {
-            handleAddItem(item.category, item.name, sideName, null);
-        }
-    };
-
     const isDndEnabled = (ticket.orders || []).length > 1;
 
     const renderDragOverlay = () => {
@@ -471,7 +435,7 @@ const TicketDetail = () => {
             return (
                 <div className="drag-overlay-item">
                     <span>{item.name}</span>
-                    {item.selectedSide && item.selectedSide !== 'none' && (
+                    {item.selectedSide != null && (
                         <span className="item-side"> + {item.selectedSide}</span>
                     )}
                 </div>
@@ -586,12 +550,12 @@ const TicketDetail = () => {
                         <>
                             <div className="item-name-col">
                                 <span>{item.name}</span>
-                                {item.selectedSide && item.selectedSide !== 'none' && (
+                                {item.selectedSide != null && (
                                     <span className="item-side"> + {item.selectedSide}</span>
                                 )}
-                                {item.selectedExtra && item.selectedExtra !== 'none' && (
-                                    <div className="item-extra">+ {item.selectedExtra} (${(item.extraPrice / 100).toFixed(2)})</div>
-                                )}
+                                {item.type === 'COMBO' && item.slotSelections?.map((s, si) => (
+                                    <span key={si} className="item-side"> + {s.selectedName}</span>
+                                ))}
                                 {isActive && (
                                     <input
                                         type="text"
@@ -623,15 +587,15 @@ const TicketDetail = () => {
                                 ) : (
                                     <span
                                         className={ticket.status === 'CLOSED' ? 'item-price-editable' : ''}
-                                        onClick={ticket.status === 'CLOSED' ? () => startEditingPrice(idx, iIdx, item.mainPrice + item.sidePrice + (item.extraPrice || 0)) : undefined}
+                                        onClick={ticket.status === 'CLOSED' ? () => startEditingPrice(idx, iIdx, item.mainPrice + item.sidePrice) : undefined}
                                     >
-                                        ${((item.mainPrice + item.sidePrice + (item.extraPrice || 0)) / 100).toFixed(2)}
+                                        ${((item.mainPrice + item.sidePrice) / 100).toFixed(2)}
                                     </span>
                                 )}
                                 {isActive && (
                                     <button
                                         className="delete-item-btn"
-                                        onClick={() => handleDeleteItem(idx, item)}
+                                        onClick={() => handleDeleteItem(idx, iIdx)}
                                         title="Remove Item"
                                     >&#10005;</button>
                                 )}
@@ -675,40 +639,68 @@ const TicketDetail = () => {
     const closeMenuModal = () => {
         setIsMenuOpen(false);
         setSelectedItemForSides(null);
-        setSelectedItemForExtras(null);
-        setPendingSideName(null);
         setMenuSearch('');
+        setSelectedCombo(null);
+        setComboSlotSelections({});
+    };
+
+    const handleAddCombo = async (comboId, slotSelections) => {
+        let orderIdx = selectedOrderIndex;
+        if (typeof orderIdx !== 'number' || orderIdx < 0) {
+            if (ticket.orders && ticket.orders.length > 0) {
+                orderIdx = ticket.orders.length - 1;
+            } else {
+                return;
+            }
+        }
+        try {
+            await api.post(`/tickets/${id}/orders/${orderIdx}/combos`, {
+                comboId,
+                slotSelections,
+            });
+            setIsMenuOpen(false);
+            setSelectedCombo(null);
+            setComboSlotSelections({});
+            fetchTicket();
+        } catch (e) {
+            toast.error(e.message);
+        }
+    };
+
+    const handleComboClick = (combo) => {
+        const hasSlots = combo.slots && combo.slots.length > 0;
+        if (hasSlots) {
+            setSelectedCombo(combo);
+            setComboSlotSelections({});
+        } else {
+            handleAddCombo(combo.id, []);
+        }
     };
 
     const openMenuModal = (orderIdx) => {
         setSelectedOrderIndex(orderIdx);
         setSelectedItemForSides(null);
-        setSelectedItemForExtras(null);
-        setPendingSideName(null);
         setMenuSearch('');
         setIsMenuOpen(true);
     };
 
-    const handleItemClick = (category, item) => {
-        const hasSides = item.sides && Object.keys(item.sides).length > 0;
+    const handleItemClick = (item) => {
+        const hasSides = item.sideOptions && item.sideOptions.length > 0;
         if (hasSides) {
-            setSelectedItemForSides({ ...item, category });
-        } else if (hasExtras(item)) {
-            setSelectedItemForExtras({ ...item, category });
-            setPendingSideName(null);
+            setSelectedItemForSides(item);
         } else {
-            handleAddItem(category, item.name, null, null);
+            handleAddItem(item.baseItemId, null);
         }
     };
 
-    const renderItemGrid = (items, category) => (
+    const renderItemGrid = (items) => (
         <div className="menu-items-grid">
             {items.map(item => (
                 <button
-                    key={item.name}
+                    key={item.baseItemId}
                     className={`menu-item-btn ${!item.available ? 'unavailable' : ''}`}
                     disabled={!item.available}
-                    onClick={() => handleItemClick(category, item)}
+                    onClick={() => handleItemClick(item)}
                 >
                     <div className="item-name">{item.name}</div>
                     <div className="item-price">${(item.price / 100).toFixed(2)}</div>
@@ -717,52 +709,10 @@ const TicketDetail = () => {
         </div>
     );
 
-    const isSelectingSidesOrExtras = !!(selectedItemForSides || selectedItemForExtras);
     const searchTerm = menuSearch.trim().toLowerCase();
-    const isSearching = searchTerm.length > 0 && !isSelectingSidesOrExtras;
+    const isSearching = searchTerm.length > 0 && !selectedItemForSides;
 
     const renderMenuModalContent = () => {
-        // Side selection view — full panel, no search/sidebar
-        if (selectedItemForExtras) {
-            return (
-                <div className="menu-panel-content">
-                    <div className="menu-panel-heading">
-                        <Button size="small" variant="secondary" onClick={() => {
-                            setSelectedItemForExtras(null);
-                            setPendingSideName(null);
-                            if (selectedItemForExtras.sides && Object.keys(selectedItemForExtras.sides).length > 0) {
-                                setSelectedItemForSides(selectedItemForExtras);
-                            }
-                        }}>Back</Button>
-                        <h4>Select Extra for {selectedItemForExtras.name}</h4>
-                    </div>
-                    <div className="menu-items-grid">
-                        {Object.entries(selectedItemForExtras.extras || {})
-                            .sort(([extraA], [extraB]) => {
-                                const order = selectedItemForExtras.extraOrder || [];
-                                const idxA = order.indexOf(extraA);
-                                const idxB = order.indexOf(extraB);
-                                if (idxA === -1 && idxB === -1) return 0;
-                                if (idxA === -1) return 1;
-                                if (idxB === -1) return -1;
-                                return idxA - idxB;
-                            })
-                            .map(([extraName, extraData]) => (
-                                <button
-                                    key={extraName}
-                                    className={`menu-item-btn ${!extraData.available ? 'unavailable' : ''}`}
-                                    disabled={!extraData.available}
-                                    onClick={() => handleAddItem(selectedItemForExtras.category, selectedItemForExtras.name, pendingSideName, extraName)}
-                                >
-                                    <div className="item-name">{extraName}</div>
-                                    <div className="item-price">${(extraData.price / 100).toFixed(2)}</div>
-                                </button>
-                            ))}
-                    </div>
-                </div>
-            );
-        }
-
         if (selectedItemForSides) {
             return (
                 <div className="menu-panel-content">
@@ -771,62 +721,160 @@ const TicketDetail = () => {
                         <h4>Select Side for {selectedItemForSides.name}</h4>
                     </div>
                     <div className="menu-items-grid">
-                        {Object.entries(selectedItemForSides.sides || {})
-                            .sort(([sideA], [sideB]) => {
-                                const order = selectedItemForSides.sideOrder || [];
-                                const idxA = order.indexOf(sideA);
-                                const idxB = order.indexOf(sideB);
-                                if (idxA === -1 && idxB === -1) return 0;
-                                if (idxA === -1) return 1;
-                                if (idxB === -1) return -1;
-                                return idxA - idxB;
-                            })
-                            .map(([sideName, sideData]) => (
-                                <button
-                                    key={sideName}
-                                    className={`menu-item-btn ${!sideData.available ? 'unavailable' : ''}`}
-                                    disabled={!sideData.available}
-                                    onClick={() => proceedAfterSide(selectedItemForSides, sideName)}
-                                >
-                                    <div className="item-name">{sideName}</div>
-                                    <div className="item-price">${(sideData.price / 100).toFixed(2)}</div>
-                                </button>
-                            ))}
+                        <button
+                            className="menu-item-btn"
+                            onClick={() => handleAddItem(selectedItemForSides.baseItemId, null)}
+                        >
+                            <div className="item-name">No Side</div>
+                            <div className="item-price">—</div>
+                        </button>
+                        {(selectedItemForSides.sideOptions || []).map(side => (
+                            <button
+                                key={side.id}
+                                className={`menu-item-btn ${!side.available ? 'unavailable' : ''}`}
+                                disabled={!side.available}
+                                onClick={() => handleAddItem(selectedItemForSides.baseItemId, side.id)}
+                            >
+                                <div className="item-name">{side.name}</div>
+                                <div className="item-price">${(side.price / 100).toFixed(2)}</div>
+                            </button>
+                        ))}
                     </div>
                 </div>
             );
         }
 
-        // Search results — continuous scroll filtered
-        if (isSearching) {
+        if (selectedCombo) {
+            const allRequiredSelected = selectedCombo.slots
+                .filter(s => s.required)
+                .every(s => comboSlotSelections[s.id]);
             return (
-                <div className="menu-scroll-content">
-                    {sortedCategories.map(([category, items]) => {
-                        const filtered = items.filter(item =>
-                            item.name.toLowerCase().includes(searchTerm)
-                        );
-                        if (filtered.length === 0) return null;
-                        return (
-                            <div key={category} className="menu-section">
-                                <div className="menu-section-title">{category}</div>
-                                {renderItemGrid(filtered, category)}
+                <div className="menu-panel-content">
+                    <div className="menu-panel-heading">
+                        <Button size="small" variant="secondary" onClick={() => setSelectedCombo(null)}>Back</Button>
+                        <h4>Configure {selectedCombo.name}</h4>
+                    </div>
+                    {selectedCombo.slots.map(slot => (
+                        <div key={slot.id} className="combo-slot-section">
+                            <div className="combo-slot-title">
+                                {slot.name}
+                                {slot.required && <span className="combo-slot-required"> *</span>}
                             </div>
-                        );
-                    })}
+                            <div className="menu-items-grid">
+                                {!slot.required && (
+                                    <button
+                                        className={`menu-item-btn ${!comboSlotSelections[slot.id] ? 'menu-item-btn-selected' : ''}`}
+                                        onClick={() => setComboSlotSelections(prev => {
+                                            const next = { ...prev };
+                                            delete next[slot.id];
+                                            return next;
+                                        })}
+                                    >
+                                        <div className="item-name">None</div>
+                                        <div className="item-price">—</div>
+                                    </button>
+                                )}
+                                {slot.options.map(option => (
+                                    <button
+                                        key={option.id}
+                                        className={`menu-item-btn ${comboSlotSelections[slot.id]?.selectedBaseItemId === option.id ? 'menu-item-btn-selected' : ''} ${!option.available ? 'unavailable' : ''}`}
+                                        disabled={!option.available}
+                                        onClick={() => setComboSlotSelections(prev => ({
+                                            ...prev,
+                                            [slot.id]: { selectedBaseItemId: option.id, selectedName: option.name },
+                                        }))}
+                                    >
+                                        <div className="item-name">{option.name}</div>
+                                        <div className="item-price">${(option.price / 100).toFixed(2)}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                    <div className="combo-slot-add-btn">
+                        <Button
+                            variant="primary"
+                            disabled={!allRequiredSelected}
+                            onClick={() => {
+                                const selections = Object.entries(comboSlotSelections).map(([slotId, sel]) => ({
+                                    slotId,
+                                    selectedBaseItemId: sel.selectedBaseItemId,
+                                }));
+                                handleAddCombo(selectedCombo.id, selections);
+                            }}
+                        >
+                            Add to Order
+                        </Button>
+                    </div>
                 </div>
             );
         }
 
-        // Default: continuous scroll with section titles
+        const availableCombos = combos.filter(c => c.available);
+
         return (
-            <div className="menu-scroll-content">
-                {sortedCategories.map(([category, items]) => (
-                    <div key={category} className="menu-section">
-                        <div className="menu-section-title">{category}</div>
-                        {renderItemGrid(items, category)}
+            <>
+                <div className="menu-tabs">
+                    <button
+                        className={`menu-tab ${menuTab === 'items' ? 'menu-tab-active' : ''}`}
+                        onClick={() => setMenuTab('items')}
+                    >Items</button>
+                    <button
+                        className={`menu-tab ${menuTab === 'combos' ? 'menu-tab-active' : ''}`}
+                        onClick={() => setMenuTab('combos')}
+                    >Combos{availableCombos.length > 0 ? ` (${availableCombos.length})` : ''}</button>
+                </div>
+                {menuTab === 'items' ? (
+                    isSearching ? (
+                        <div className="menu-scroll-content">
+                            {sortedCategories.map(([category, items]) => {
+                                const filtered = items.filter(item =>
+                                    item.name.toLowerCase().includes(searchTerm)
+                                );
+                                if (filtered.length === 0) return null;
+                                return (
+                                    <div key={category} className="menu-section">
+                                        <div className="menu-section-title">{category}</div>
+                                        {renderItemGrid(filtered)}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="menu-scroll-content">
+                            {sortedCategories.map(([category, items]) => (
+                                <div key={category} className="menu-section">
+                                    <div className="menu-section-title">{category}</div>
+                                    {renderItemGrid(items)}
+                                </div>
+                            ))}
+                        </div>
+                    )
+                ) : (
+                    <div className="menu-scroll-content">
+                        {availableCombos.length === 0 ? (
+                            <div className="menu-empty">No combos available.</div>
+                        ) : (
+                            <div className="menu-items-grid">
+                                {availableCombos.map(combo => (
+                                    <button
+                                        key={combo.id}
+                                        className="menu-item-btn"
+                                        onClick={() => handleComboClick(combo)}
+                                    >
+                                        <div className="item-name">{combo.name}</div>
+                                        <div className="item-price">
+                                            {combo.price != null
+                                                ? `$${(combo.price / 100).toFixed(2)}`
+                                                : 'See details'}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                ))}
-            </div>
+                )}
+            </>
         );
     };
 
@@ -838,12 +886,12 @@ const TicketDetail = () => {
                 {allItems.map((item, idx) => (
                     <div key={idx} className="item-view-row">
                         <span className="item-view-name">{item.name}</span>
-                        {item.selectedSide && item.selectedSide !== 'none' && (
+                        {item.selectedSide != null && (
                             <span className="item-view-sub">+ {item.selectedSide}</span>
                         )}
-                        {item.selectedExtra && item.selectedExtra !== 'none' && (
-                            <span className="item-view-sub">+ {item.selectedExtra}</span>
-                        )}
+                        {item.type === 'COMBO' && item.slotSelections?.map((s, si) => (
+                            <span key={si} className="item-view-sub">+ {s.selectedName}</span>
+                        ))}
                         {item.comment && (
                             <span className="item-view-note">{item.comment}</span>
                         )}
@@ -861,7 +909,7 @@ const TicketDetail = () => {
             className="modal-large"
         >
             <div className="menu-modal-inner">
-                {!isSelectingSidesOrExtras && (
+                {!selectedItemForSides && !selectedCombo && menuTab === 'items' && (
                     <div className="menu-search-bar">
                         <input
                             type="text"
@@ -1025,10 +1073,8 @@ const TicketDetail = () => {
                                 console.error('Confirmation action failed:', err);
                             } finally {
                                 setIsProcessing(false);
-                                // Always close modal after action completes
                                 setConfirmationModal({ isOpen: false, title: '', message: '' });
                             }
-                            // Only refresh ticket data if we didn't navigate away
                             if (!navigated) {
                                 try {
                                     fetchTicket();
@@ -1040,7 +1086,7 @@ const TicketDetail = () => {
                     }}>{isProcessing ? 'Processing...' : 'Confirm'}</Button>
                 </div>
             </Modal>
-        </div >
+        </div>
     );
 };
 

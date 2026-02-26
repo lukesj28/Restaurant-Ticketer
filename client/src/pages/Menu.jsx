@@ -14,7 +14,6 @@ import {
     useSensor,
     useSensors,
     DragOverlay,
-    defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -28,61 +27,65 @@ import { CSS } from '@dnd-kit/utilities';
 
 const Menu = () => {
     const { toast } = useToast();
-    const [categories, setCategories] = useState({}); // Map: category -> items[]
+    const [categories, setCategories] = useState({}); // Map: category -> ItemDto[]
     const [categoryOrder, setCategoryOrder] = useState([]); // Array of category names
     const [loading, setLoading] = useState(true);
-    const [editItem, setEditItem] = useState(null); // Item being edited
+    const [editItem, setEditItem] = useState(null); // Item being edited (ItemDto + originalCategory)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     // Create Mode
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newItem, setNewItem] = useState({ name: '', category: '', price: '' });
     const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
+    const [newItemSideSources, setNewItemSideSources] = useState([]);
 
     // Edit Form State
-    const [editForm, setEditForm] = useState({ price: '', available: true, name: '', category: '' });
+    const [editForm, setEditForm] = useState({
+        price: '', available: true, name: '', category: '', kitchen: false, sideSources: []
+    });
 
-    const [editingCategory, setEditingCategory] = useState(null); // Category being edited
+    const [editingCategory, setEditingCategory] = useState(null);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-    // Kitchen Item State (for create modal only)
+    // Kitchen Item State (for create modal)
     const [isKitchenItem, setIsKitchenItem] = useState(false);
-
-    // New Side Input State
-    const [newSide, setNewSide] = useState({ name: '', price: '' });
-    const [sidesToDelete, setSidesToDelete] = useState([]); // Track sides to delete on save
-
-    // New Extra Input State
-    const [newExtra, setNewExtra] = useState({ name: '', price: '' });
-    const [extrasToDelete, setExtrasToDelete] = useState([]); // Track extras to delete on save
-
-    // Copy Sides/Extras State
-    const [copyTarget, setCopyTarget] = useState(null); // 'sides' | 'extras' | null
 
     // Confirmation Modal State
     const [confirmationModal, setConfirmationModal] = useState({
-        isOpen: false,
-        title: '',
-        message: ''
+        isOpen: false, title: '', message: ''
     });
     const confirmAction = useRef(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Combo state
+    const [combos, setCombos] = useState([]);
+    const [baseItems, setBaseItems] = useState([]);
+
+    // Create Combo
+    const [isCreateComboModalOpen, setIsCreateComboModalOpen] = useState(false);
+    const [newComboForm, setNewComboForm] = useState({ name: '', category: '', price: '', kitchen: false });
+    const [isCreatingComboCat, setIsCreatingComboCat] = useState(false);
+    const [newComboComponentIds, setNewComboComponentIds] = useState([]);
+    const [newComboSlots, setNewComboSlots] = useState([]);
+
+    // Edit Combo
+    const [isEditComboModalOpen, setIsEditComboModalOpen] = useState(false);
+    const [editComboData, setEditComboData] = useState(null);
+    const [editComboForm, setEditComboForm] = useState({ name: '', price: '', available: true, kitchen: false });
+
     // DnD Sensors
     const sensors = useSensors(
         useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8, // Require 8px movement before drag starts (prevents accidental drags on click)
-            },
+            activationConstraint: { distance: 8 },
         }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
 
-    const [activeId, setActiveId] = useState(null); // ID of currently dragged item
-    const [activeDragType, setActiveDragType] = useState(null); // 'CATEGORY', 'ITEM', 'SIDE', 'EXTRA'
+    const [activeId, setActiveId] = useState(null);
+    const [activeDragType, setActiveDragType] = useState(null);
 
     useEffect(() => {
         fetchMenu();
@@ -91,28 +94,15 @@ const Menu = () => {
     const fetchMenu = async () => {
         setLoading(true);
         try {
-            const [categoriesData, orderData] = await Promise.all([
-                api.get('/menu/categories'),
-                api.get('/menu/category-order')
-            ]);
-            setCategories(categoriesData);
-
-            // If orderData is empty or missing keys, fallback to object keys (sorted roughly) or maintain existing
-            let order = orderData || [];
-            if (Object.keys(categoriesData).length > 0) {
-                const keys = Object.keys(categoriesData);
-                // If order is missing, use keys
-                if (!order || order.length === 0) {
-                    order = keys;
-                } else {
-                    // Ensure all current categories are in the order (handle new categories appearing before order sync)
-                    const missing = keys.filter(k => !order.includes(k.toLowerCase()) && !order.includes(k));
-                    if (missing.length > 0) order = [...order, ...missing];
-                }
+            const menuData = await api.get('/menu');
+            const cats = {};
+            for (const [name, cat] of Object.entries(menuData.categories || {})) {
+                cats[name] = cat.items || [];
             }
-            // Ensure order uses correct casing from keys if possible, or just rely on backend normalization
-            setCategoryOrder(order);
-
+            setCategories(cats);
+            setCategoryOrder(menuData.categoryOrder || []);
+            setBaseItems(menuData.baseItems || []);
+            setCombos(menuData.combos || []);
         } catch (e) {
             console.error(e);
             toast.error("Failed to load menu");
@@ -122,23 +112,15 @@ const Menu = () => {
     };
 
     const handleEditClick = (item, categoryName) => {
-        setEditItem({ ...item, originalName: item.name, originalCategory: categoryName });
+        setEditItem({ ...item, originalCategory: categoryName });
         setEditForm({
             price: (item.price / 100).toFixed(2),
             available: item.available,
             kitchen: item.kitchen || false,
             name: item.name,
             category: categoryName,
-            sides: item.sides ? JSON.parse(JSON.stringify(item.sides)) : {},
-            sideOrder: item.sideOrder ? [...item.sideOrder] : [],
-            extras: item.extras ? JSON.parse(JSON.stringify(item.extras)) : {},
-            extraOrder: item.extraOrder ? [...item.extraOrder] : []
+            sideSources: item.sideSources ? [...item.sideSources] : [],
         });
-        setNewSide({ name: '', price: '' });
-        setSidesToDelete([]);
-        setNewExtra({ name: '', price: '' });
-        setExtrasToDelete([]);
-        setCopyTarget(null);
         setIsEditModalOpen(true);
     };
 
@@ -157,7 +139,6 @@ const Menu = () => {
             setIsCategoryModalOpen(false);
             return;
         }
-
         try {
             await api.put(`/menu/categories/${editingCategory}/rename`, { newCategory: newCategoryName });
             setIsCategoryModalOpen(false);
@@ -171,15 +152,13 @@ const Menu = () => {
     const findContainer = (id) => {
         if (id in categories) return id;
         return Object.keys(categories).find(key =>
-            categories[key]?.find(item => item.name === id)
+            categories[key]?.find(item => item.baseItemId === id)
         );
     };
 
     const handleDragStart = (event) => {
         const { active } = event;
         setActiveId(active.id);
-
-        // Determine type based on ID format or data
         if (active.data.current?.type) {
             setActiveDragType(active.data.current.type);
         } else if (categoryOrder.includes(active.id)) {
@@ -191,24 +170,18 @@ const Menu = () => {
 
     const handleDragOver = (event) => {
         const { active, over } = event;
-
-        // Fill in specific item moving logic if needed for visual smoothness across containers
-        // For items, we want to move them in the state as we drag over different containers
         if (!over || active.id === over.id || activeDragType !== 'ITEM') return;
 
         const activeContainer = findContainer(active.id);
-        const overContainer = findContainer(over.id) || (over.id in categories ? over.id : null); // If over a category container directly
+        const overContainer = findContainer(over.id) || (over.id in categories ? over.id : null);
 
-        if (!activeContainer || !overContainer || activeContainer === overContainer) {
-            return;
-        }
+        if (!activeContainer || !overContainer || activeContainer === overContainer) return;
 
-        // Move item to new container in state
         setCategories((prev) => {
             const activeItems = prev[activeContainer];
             const overItems = prev[overContainer];
-            const activeIndex = activeItems.findIndex(i => i.name === active.id);
-            const overIndex = overItems.findIndex(i => i.name === over.id);
+            const activeIndex = activeItems.findIndex(i => i.baseItemId === active.id);
+            const overIndex = overItems.findIndex(i => i.baseItemId === over.id);
 
             let newIndex;
             if (over.id in prev) {
@@ -217,20 +190,18 @@ const Menu = () => {
                 const isBelowOverItem =
                     over &&
                     active.rect.current.translated &&
-                    active.rect.current.translated.top >
-                    over.rect.top + over.rect.height;
-
+                    active.rect.current.translated.top > over.rect.top + over.rect.height;
                 const modifier = isBelowOverItem ? 1 : 0;
                 newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
             }
 
             return {
                 ...prev,
-                [activeContainer]: [...prev[activeContainer].filter(item => item.name !== active.id)],
+                [activeContainer]: prev[activeContainer].filter(item => item.baseItemId !== active.id),
                 [overContainer]: [
                     ...prev[overContainer].slice(0, newIndex),
-                    activeItems[activeIndex], // Move the item object with its data
-                    ...prev[overContainer].slice(newIndex, prev[overContainer].length)
+                    activeItems[activeIndex],
+                    ...prev[overContainer].slice(newIndex)
                 ]
             };
         });
@@ -238,13 +209,12 @@ const Menu = () => {
 
     const handleDragEnd = async (event) => {
         const { active, over } = event;
-        const type = activeDragType; // capture current type
+        const type = activeDragType;
         setActiveId(null);
         setActiveDragType(null);
 
         if (!over) return;
 
-        // Category Reordering
         if (type === 'CATEGORY') {
             if (active.id !== over.id) {
                 const oldIndex = categoryOrder.indexOf(active.id);
@@ -264,28 +234,23 @@ const Menu = () => {
             return;
         }
 
-        // Item Reordering
         if (type === 'ITEM') {
             const activeContainer = findContainer(active.id);
             const overContainer = findContainer(over.id) || (over.id in categories ? over.id : null);
 
             if (activeContainer && overContainer) {
-                const activeIndex = categories[activeContainer].findIndex(i => i.name === active.id);
-                const overIndex = over.id in categories ? categories[overContainer].length + 1 : categories[overContainer].findIndex(i => i.name === over.id);
+                const activeIndex = categories[activeContainer].findIndex(i => i.baseItemId === active.id);
+                const overIndex = over.id in categories
+                    ? categories[overContainer].length + 1
+                    : categories[overContainer].findIndex(i => i.baseItemId === over.id);
 
                 if (activeContainer === overContainer) {
-                    // Same container reorder
                     if (activeIndex !== overIndex && activeIndex !== -1 && overIndex !== -1) {
                         const newItems = arrayMove(categories[activeContainer], activeIndex, overIndex);
-                        setCategories(prev => ({
-                            ...prev,
-                            [activeContainer]: newItems
-                        }));
-
-                        // API Call
+                        setCategories(prev => ({ ...prev, [activeContainer]: newItems }));
                         try {
                             await api.put(`/menu/categories/${activeContainer}/items/reorder`, {
-                                order: newItems.map(i => i.name)
+                                order: newItems.map(i => i.baseItemId)
                             });
                         } catch (e) {
                             toast.error("Failed to reorder items");
@@ -293,58 +258,36 @@ const Menu = () => {
                         }
                     }
                 } else {
-                    // Different container (already handled in dragOver for state, but need to finalize via API)
-                    // Actually, if we handled it in dragOver, the active item is ALREADY in the overContainer in state!
-                    // So identifying "activeContainer" via findContainer might return the NEW container if we look at current state.
-                    // But we need to know it changed.
-
-                    // In dnd-kit, dragOver mutations persist. So activeContainer === overContainer usually at dragEnd.
-                    // We just need to persist the new order of the target category.
-                    // AND we need to call the API to update the item's category.
-
-                    // Problem: How do we know it changed category if the state is already updated?
-                    // We can compare with `active.data.current.category` (if we updated SortableItem to pass it).
-
-                    // Let's assume dragOver updated the state.
-                    // The item is now in `activeContainer` (which matches `overContainer`).
-                    // Use `active.data.current` to get ORIGINAL category.
-
                     const originalCategory = active.data.current?.category;
                     const currentCategory = activeContainer;
-
                     if (originalCategory && currentCategory && originalCategory !== currentCategory) {
-                        // 1. Update backend category
                         try {
-                            await api.put(`/menu/categories/${encodeURIComponent(originalCategory)}/items/${encodeURIComponent(active.id)}/category`, { newCategory: currentCategory });
-                            // 2. Update backend order in new category
+                            await api.put(`/menu/categories/${encodeURIComponent(originalCategory)}/items/${active.id}/category`, { newCategory: currentCategory });
                             const newItems = categories[currentCategory];
                             await api.put(`/menu/categories/${currentCategory}/items/reorder`, {
-                                order: newItems.map(i => i.name)
+                                order: newItems.map(i => i.baseItemId)
                             });
                         } catch (e) {
                             toast.error("Failed to save move");
                             fetchMenu();
                         }
                     } else {
-                        // It was a reorder within the same category (after dragOver settled it)
                         const newItems = categories[activeContainer];
                         try {
                             await api.put(`/menu/categories/${activeContainer}/items/reorder`, {
-                                order: newItems.map(i => i.name)
+                                order: newItems.map(i => i.baseItemId)
                             });
                         } catch (e) {
-                            // ignore trivial errors or revert
+                            // ignore trivial reorder error
                         }
                     }
                 }
             }
         }
-
     };
 
     const handleCategoryDelete = async () => {
         confirmAction.current = async () => {
-            // ... existing delete logic
             try {
                 await api.delete(`/menu/categories/${editingCategory}`);
                 setIsCategoryModalOpen(false);
@@ -354,7 +297,6 @@ const Menu = () => {
                 toast.error('Failed to delete category: ' + (e.message || 'Unknown error'));
             }
         };
-
         setConfirmationModal({
             isOpen: true,
             title: 'Delete Category',
@@ -364,87 +306,33 @@ const Menu = () => {
 
     const handleSaveEdit = async () => {
         try {
-            let currentName = editItem.originalName;
+            const itemId = editItem.baseItemId;
             let currentCategory = editItem.originalCategory;
 
-            // Check what changed and call appropriate APIs
-            // Price
             const newPriceCents = Math.round(parseFloat(editForm.price) * 100);
-            if (newPriceCents !== editItem.price) {
-                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/price`, { newPrice: newPriceCents });
-            }
-            // Availability
-            if (editForm.available !== editItem.available) {
-                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/availability`, { available: editForm.available });
-            }
-            // Rename
-            if (editForm.name !== currentName) {
-                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/rename`, { newName: editForm.name });
-                currentName = editForm.name;
-            }
-            // Category
+            const ops = [];
+            if (newPriceCents !== editItem.price)
+                ops.push(api.put(`/menu/items/${itemId}/price`, { newPrice: newPriceCents }));
+            if (editForm.available !== editItem.available)
+                ops.push(api.put(`/menu/items/${itemId}/availability`, { available: editForm.available }));
+            if (editForm.kitchen !== (editItem.kitchen || false))
+                ops.push(api.put(`/menu/items/${itemId}/kitchen`, { kitchen: editForm.kitchen }));
+            if (editForm.name !== editItem.name)
+                ops.push(api.put(`/menu/items/${itemId}/rename`, { newName: editForm.name }));
+
+            await Promise.all(ops);
+
+            // Category change (sequential — affects path for side-sources call below)
             if (editForm.category !== editItem.originalCategory) {
-                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/category`, { newCategory: editForm.category });
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${itemId}/category`, { newCategory: editForm.category });
                 currentCategory = editForm.category;
             }
 
-            // Kitchen Status
-            if (editForm.kitchen !== (editItem.kitchen || false)) {
-                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/kitchen`, { kitchen: editForm.kitchen });
-            }
-
-            // Sides updates (only for existing sides that changed)
-            if (editForm.sides) {
-                for (const [sideName, sideData] of Object.entries(editForm.sides)) {
-                    if (sideName === 'none') continue;
-                    if (sidesToDelete.includes(sideName)) continue;
-                    const originalSide = editItem.sides && editItem.sides[sideName];
-                    if (originalSide && (originalSide.price !== sideData.price || originalSide.available !== sideData.available || originalSide.kitchen !== sideData.kitchen)) {
-                        await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/sides/${encodeURIComponent(sideName)}`, {
-                            price: sideData.price,
-                            available: sideData.available,
-                            kitchen: sideData.kitchen
-                        });
-                    }
-                }
-            }
-
-            // Delete sides
-            for (const sideName of sidesToDelete) {
-                await api.delete(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/sides/${encodeURIComponent(sideName)}`);
-            }
-
-            // Reorder sides
-            if (editForm.sideOrder && editForm.sideOrder.length > 0) {
-                const finalOrder = editForm.sideOrder.filter(s => !sidesToDelete.includes(s));
-                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/sides/reorder`, { order: finalOrder });
-            }
-
-            // Extras updates (only for existing extras that changed)
-            if (editForm.extras) {
-                for (const [extraName, extraData] of Object.entries(editForm.extras)) {
-                    if (extraName === 'none') continue;
-                    if (extrasToDelete.includes(extraName)) continue;
-                    const originalExtra = editItem.extras && editItem.extras[extraName];
-                    if (originalExtra && (originalExtra.price !== extraData.price || originalExtra.available !== extraData.available || originalExtra.kitchen !== extraData.kitchen)) {
-                        await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/${encodeURIComponent(extraName)}`, {
-                            price: extraData.price,
-                            available: extraData.available,
-                            kitchen: extraData.kitchen
-                        });
-                    }
-                }
-            }
-
-            // Delete extras
-            for (const extraName of extrasToDelete) {
-                await api.delete(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/${encodeURIComponent(extraName)}`);
-            }
-
-            // Reorder extras
-            if (editForm.extraOrder && editForm.extraOrder.length > 0) {
-                const finalOrder = editForm.extraOrder.filter(e => !extrasToDelete.includes(e));
-                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${encodeURIComponent(currentName)}/extras/reorder`, { order: finalOrder });
+            // Side sources change
+            const originalSources = [...(editItem.sideSources || [])].sort();
+            const newSources = [...(editForm.sideSources || [])].sort();
+            if (JSON.stringify(originalSources) !== JSON.stringify(newSources)) {
+                await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${itemId}/side-sources`, { sideSources: editForm.sideSources });
             }
 
             setIsEditModalOpen(false);
@@ -462,14 +350,14 @@ const Menu = () => {
                 name: newItem.name,
                 category: newItem.category,
                 price: Math.round(parseFloat(newItem.price) * 100),
-                sides: {},
-                kitchen: isKitchenItem
+                kitchen: isKitchenItem,
+                sideSources: newItemSideSources,
             });
-
             setIsCreateModalOpen(false);
             setNewItem({ name: '', category: '', price: '' });
             setIsKitchenItem(false);
             setIsCreatingNewCategory(false);
+            setNewItemSideSources([]);
             fetchMenu();
             toast.success('Item created successfully');
         } catch (error) {
@@ -480,7 +368,7 @@ const Menu = () => {
     const handleDelete = async () => {
         confirmAction.current = async () => {
             try {
-                await api.delete(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}`);
+                await api.delete(`/menu/items/${editItem.baseItemId}`);
                 setIsEditModalOpen(false);
                 fetchMenu();
                 toast.success('Item deleted successfully');
@@ -488,7 +376,6 @@ const Menu = () => {
                 toast.error(e.message);
             }
         };
-
         setConfirmationModal({
             isOpen: true,
             title: 'Delete Item',
@@ -496,134 +383,144 @@ const Menu = () => {
         });
     };
 
-    const handleCopyAddons = async (sourceValue) => {
-        if (!sourceValue) return;
-        const [sourceCategory, sourceItemName] = sourceValue.split('::');
-        const type = copyTarget; // 'sides' or 'extras'
-        const sourceItem = categories[sourceCategory]?.find(i => i.name === sourceItemName);
-        if (!sourceItem) {
-            toast.error('Source item not found');
-            setCopyTarget(null);
-            return;
-        }
-
-        const sourceAddons = type === 'sides' ? sourceItem.sides : sourceItem.extras;
-        if (!sourceAddons) {
-            toast.error('Source item has no ' + type);
-            setCopyTarget(null);
-            return;
-        }
-
-        const existingNames = Object.keys(
-            type === 'sides' ? (editForm.sides || {}) : (editForm.extras || {})
-        ).map(n => n.toLowerCase());
-
-        const newAddons = Object.entries(sourceAddons).filter(
-            ([name]) => name.toLowerCase() !== 'none' && !existingNames.includes(name.toLowerCase())
-        );
-
-        if (newAddons.length === 0) {
-            toast.info('No new ' + type + ' to copy (all duplicates)');
-            setCopyTarget(null);
-            return;
-        }
-
-        let copiedCount = 0;
-        const endpoint = type === 'sides' ? 'sides' : 'extras';
-
-        for (const [name, data] of newAddons) {
-            try {
-                const result = await api.post(
-                    `/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/${endpoint}`,
-                    { name, price: data.price || 0 }
-                );
-
-                // Update available/kitchen to match source via PUT if they differ from defaults
-                const needsUpdate = data.available === false || data.kitchen;
-                if (needsUpdate) {
-                    await api.put(
-                        `/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/${endpoint}/${encodeURIComponent(name)}`,
-                        { price: data.price || 0, available: data.available !== false, kitchen: data.kitchen || false }
-                    );
-                }
-
-                if (type === 'sides') {
-                    setEditForm(prev => ({
-                        ...prev,
-                        sides: {
-                            ...result.sides,
-                            [name]: { ...result.sides[name], available: data.available !== false, kitchen: data.kitchen || false }
-                        },
-                        sideOrder: result.sideOrder
-                    }));
-                } else {
-                    setEditForm(prev => ({
-                        ...prev,
-                        extras: {
-                            ...prev.extras,
-                            [name]: { price: data.price || 0, available: data.available !== false, kitchen: data.kitchen || false }
-                        }
-                    }));
-                }
-                copiedCount++;
-            } catch (e) {
-                toast.error(`Failed to copy ${type.slice(0, -1)} "${name}": ${e.message}`);
-            }
-        }
-
-        // Reorder to match source item's order (existing target addons first, then copied in source order)
-        if (copiedCount > 0) {
-            const sourceOrder = type === 'sides'
-                ? (sourceItem.sideOrder || Object.keys(sourceAddons).filter(k => k.toLowerCase() !== 'none'))
-                : (sourceItem.extraOrder || Object.keys(sourceAddons).filter(k => k.toLowerCase() !== 'none'));
-
-            const copiedNames = newAddons.filter(([name]) =>
-                // only include ones that were actually copied successfully
-                newAddons.slice(0, copiedCount).some(([n]) => n === name)
-            ).map(([name]) => name);
-
-            // Build final order: existing target addons in their current order, then copied ones in source order
-            const orderKey = type === 'sides' ? 'sideOrder' : 'extraOrder';
-            const existingOrder = type === 'sides'
-                ? (editForm.sideOrder?.length > 0 ? editForm.sideOrder : Object.keys(editForm.sides || {}).filter(k => k.toLowerCase() !== 'none'))
-                : (editForm.extraOrder?.length > 0 ? editForm.extraOrder : Object.keys(editForm.extras || {}).filter(k => k.toLowerCase() !== 'none'));
-
-            // Copied names in the source's order
-            const copiedInSourceOrder = sourceOrder.filter(name => copiedNames.includes(name));
-            const finalOrder = [...existingOrder.filter(n => !copiedNames.includes(n)), ...copiedInSourceOrder];
-
-            try {
-                await api.put(
-                    `/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/${endpoint}/reorder`,
-                    { order: finalOrder }
-                );
-                setEditForm(prev => ({
-                    ...prev,
-                    [orderKey]: finalOrder
-                }));
-            } catch (e) {
-                // Non-critical, order just won't match perfectly
-                console.error('Failed to reorder after copy:', e);
-            }
-
-            toast.success(`Copied ${copiedCount} ${type} from "${sourceItemName}"`);
-        }
-        setCopyTarget(null);
-    };
-
     const closeConfirmation = () => {
         setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const toggleSideSourceInEditForm = (catName, checked) => {
+        setEditForm(prev => ({
+            ...prev,
+            sideSources: checked
+                ? [...prev.sideSources, catName]
+                : prev.sideSources.filter(s => s !== catName)
+        }));
+    };
+
+    const toggleNewItemSideSource = (catName, checked) => {
+        setNewItemSideSources(prev =>
+            checked ? [...prev, catName] : prev.filter(s => s !== catName)
+        );
+    };
+
+    // ── Combo management ───────────────────────────────────────────────────────
+
+    const handleCreateCombo = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/menu/combos', {
+                name: newComboForm.name,
+                category: newComboForm.category,
+                componentIds: newComboComponentIds,
+                slots: newComboSlots.map(s => ({
+                    name: s.name,
+                    optionIds: s.optionIds,
+                    required: s.required,
+                })),
+                price: newComboForm.price ? Math.round(parseFloat(newComboForm.price) * 100) : null,
+                kitchen: newComboForm.kitchen,
+            });
+            setIsCreateComboModalOpen(false);
+            setNewComboForm({ name: '', category: '', price: '', kitchen: false });
+            setNewComboComponentIds([]);
+            setNewComboSlots([]);
+            setIsCreatingComboCat(false);
+            fetchMenu();
+            toast.success('Combo created successfully');
+        } catch (e) {
+            toast.error('Failed to create combo: ' + e.message);
+        }
+    };
+
+    const handleEditComboClick = (combo) => {
+        setEditComboData(combo);
+        setEditComboForm({
+            name: combo.name,
+            price: combo.price != null ? (combo.price / 100).toFixed(2) : '',
+            available: combo.available,
+            kitchen: combo.kitchen,
+        });
+        setIsEditComboModalOpen(true);
+    };
+
+    const handleSaveEditCombo = async () => {
+        try {
+            await api.put(`/menu/combos/${editComboData.id}`, {
+                name: editComboForm.name,
+                price: editComboForm.price ? Math.round(parseFloat(editComboForm.price) * 100) : null,
+                available: editComboForm.available,
+                kitchen: editComboForm.kitchen,
+            });
+            setIsEditComboModalOpen(false);
+            fetchMenu();
+            toast.success('Combo updated successfully');
+        } catch (e) {
+            toast.error('Failed to update combo: ' + e.message);
+        }
+    };
+
+    const handleDeleteCombo = () => {
+        confirmAction.current = async () => {
+            try {
+                await api.delete(`/menu/combos/${editComboData.id}`);
+                setIsEditComboModalOpen(false);
+                fetchMenu();
+                toast.success('Combo deleted successfully');
+            } catch (e) {
+                toast.error(e.message);
+            }
+        };
+        setConfirmationModal({
+            isOpen: true,
+            title: 'Delete Combo',
+            message: `Are you sure you want to delete combo "${editComboData.name}"?`,
+        });
+    };
+
+    const addNewSlot = () => {
+        setNewComboSlots(prev => [...prev, { tempId: Date.now(), name: '', required: false, optionIds: [] }]);
+    };
+
+    const removeNewSlot = (tempId) => {
+        setNewComboSlots(prev => prev.filter(s => s.tempId !== tempId));
+    };
+
+    const updateNewSlot = (tempId, updates) => {
+        setNewComboSlots(prev => prev.map(s => s.tempId === tempId ? { ...s, ...updates } : s));
+    };
+
+    const toggleComboComponent = (itemId) => {
+        setNewComboComponentIds(prev =>
+            prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+        );
+    };
+
+    const toggleSlotOption = (slotTempId, itemId) => {
+        setNewComboSlots(prev => prev.map(s => {
+            if (s.tempId !== slotTempId) return s;
+            const already = s.optionIds.includes(itemId);
+            return { ...s, optionIds: already ? s.optionIds.filter(id => id !== itemId) : [...s.optionIds, itemId] };
+        }));
     };
 
     return (
         <div className="menu-page">
             <div className="menu-header">
                 <h1>Menu Management</h1>
-                <Button onClick={() => {
-                    setIsCreateModalOpen(true);
-                    setIsCreatingNewCategory(false);
-                    setIsKitchenItem(false);
-                }}>+ Add Item</Button>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                    <Button variant="secondary" onClick={() => {
+                        setIsCreateComboModalOpen(true);
+                        setIsCreatingComboCat(false);
+                        setNewComboForm({ name: '', category: '', price: '', kitchen: false });
+                        setNewComboComponentIds([]);
+                        setNewComboSlots([]);
+                    }}>+ Add Combo</Button>
+                    <Button onClick={() => {
+                        setIsCreateModalOpen(true);
+                        setIsCreatingNewCategory(false);
+                        setIsKitchenItem(false);
+                        setNewItemSideSources([]);
+                    }}>+ Add Item</Button>
+                </div>
             </div>
 
             {loading ? <div>Loading...</div> : (
@@ -641,7 +538,6 @@ const Menu = () => {
                         <div className="menu-list">
                             {categoryOrder.map(categoryName => {
                                 const items = categories[categoryName] || [];
-                                // Only render if category exists in map (it should)
                                 return (
                                     <SortableCategory
                                         key={categoryName}
@@ -665,8 +561,6 @@ const Menu = () => {
                                 </div>
                             ) : activeDragType === 'ITEM' ? (
                                 <div style={{ width: '200px' }}>
-                                    {/* We don't have easy access to the item object here without searching. 
-                                         Ideally we pass it in active.data.current.item */}
                                     <div className="menu-item-card" style={{ height: '100px', background: 'white', border: '1px solid #ccc' }}>
                                         Dragging...
                                     </div>
@@ -675,6 +569,47 @@ const Menu = () => {
                         ) : null}
                     </DragOverlay>
                 </DndContext>
+            )}
+
+            {/* Combos Section */}
+            {!loading && combos.length > 0 && (
+                <div className="combos-section">
+                    <div className="combos-section-header">
+                        <h2 className="combos-section-title">Combos</h2>
+                    </div>
+                    <div className="combos-grid">
+                        {combos.map(combo => (
+                            <div
+                                key={combo.id}
+                                className="combo-card"
+                                onClick={() => handleEditComboClick(combo)}
+                            >
+                                <div className="combo-card-top">
+                                    <span className="combo-card-name">{combo.name}</span>
+                                    {!combo.available && <span className="combo-unavailable-badge">Off</span>}
+                                    {combo.kitchen && <span className="combo-kitchen-badge">Kitchen</span>}
+                                </div>
+                                {combo.components?.length > 0 && (
+                                    <div className="combo-card-components">
+                                        {combo.components.map(c => c.name).join(' + ')}
+                                    </div>
+                                )}
+                                {combo.slots?.length > 0 && (
+                                    <div className="combo-card-slots">
+                                        {combo.slots.map(s => (
+                                            <span key={s.id} className="combo-slot-tag">
+                                                {s.name}{s.required ? '*' : ''}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                {combo.price != null && (
+                                    <div className="combo-card-price">${(combo.price / 100).toFixed(2)}</div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
 
             {/* Edit Modal */}
@@ -710,10 +645,15 @@ const Menu = () => {
                 </div>
                 <div className="form-group">
                     <label>Category</label>
-                    <input
+                    <select
                         value={editForm.category}
                         onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                    />
+                        className="form-select"
+                    >
+                        {categoryOrder.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="form-group checkbox-group">
                     <label>
@@ -735,338 +675,24 @@ const Menu = () => {
                         Kitchen Item
                     </label>
                 </div>
-                {/* Sides Editing */}
-                <div className="sides-section">
-                    <h4>Sides</h4>
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event) => {
-                            const { active, over } = event;
-                            if (!over || active.id === over.id) return;
-                            const activeId = active.id.replace('side-', '');
-                            const overId = over.id.replace('side-', '');
-                            const sides = editForm.sides || {};
-                            const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
-                            const currentOrder = editForm.sideOrder?.length > 0
-                                ? editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k) && k.toLowerCase() !== 'none')
-                                : rawSideNames;
-                            const oldIndex = currentOrder.indexOf(activeId);
-                            const newIndex = currentOrder.indexOf(overId);
-                            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                                setEditForm(prev => ({ ...prev, sideOrder: arrayMove(currentOrder, oldIndex, newIndex) }));
-                            }
-                        }}
-                    >
-                    {(() => {
-                        const sides = editForm.sides || {};
-                        const rawSideNames = Object.keys(sides).filter(k => k.toLowerCase() !== 'none' && !sidesToDelete.includes(k));
-                        let orderedSides = [];
-                        if (editForm.sideOrder && editForm.sideOrder.length > 0) {
-                            orderedSides = editForm.sideOrder.filter(k => sides[k] && !sidesToDelete.includes(k) && k.toLowerCase() !== 'none');
-                            const missing = rawSideNames.filter(k => !orderedSides.includes(k));
-                            orderedSides = [...orderedSides, ...missing];
-                        } else {
-                            orderedSides = rawSideNames;
-                        }
-
-                        return (
-                            <SortableContext items={orderedSides.map(s => `side-${s}`)} strategy={verticalListSortingStrategy}>
-                                <div className="sides-grid">
-                                    {orderedSides.map(sideName => (
-                                        <SideRow
-                                            key={sideName}
-                                            sideName={sideName}
-                                            sideData={sides[sideName]}
-                                            onPriceChange={e => {
-                                                const newPrice = e.target.value;
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    sides: {
-                                                        ...prev.sides,
-                                                        [sideName]: { ...prev.sides[sideName], price: Math.round(parseFloat(newPrice) * 100) }
-                                                    }
-                                                }));
-                                            }}
-                                            onAvailableChange={e => {
-                                                const newAvail = e.target.checked;
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    sides: {
-                                                        ...prev.sides,
-                                                        [sideName]: { ...prev.sides[sideName], available: newAvail }
-                                                    }
-                                                }));
-                                            }}
-                                            onKitchenChange={e => {
-                                                const newKitchen = e.target.checked;
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    sides: {
-                                                        ...prev.sides,
-                                                        [sideName]: { ...prev.sides[sideName], kitchen: newKitchen }
-                                                    }
-                                                }));
-                                            }}
-                                            onDelete={() => setSidesToDelete(prev => [...prev, sideName])}
-                                        />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                        );
-                    })()}
-                    </DndContext>
-                    {/* Add New Side */}
-                    <div className="add-side-row">
-                        <input
-                            type="text"
-                            placeholder="Side name"
-                            className="side-name-input"
-                            value={newSide.name}
-                            onChange={e => setNewSide(prev => ({ ...prev, name: e.target.value }))}
-                        />
-                        <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="Price"
-                            className="side-price-input"
-                            value={newSide.price}
-                            onChange={e => {
-                                if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) setNewSide(prev => ({ ...prev, price: e.target.value }));
-                            }}
-                        />
-                        <Button
-                            variant="secondary"
-                            className="add-side-btn"
-                            onClick={async () => {
-                                if (!newSide.name.trim()) {
-                                    toast.error('Side name is required');
-                                    return;
-                                }
-                                const priceCents = Math.round(parseFloat(newSide.price || '0') * 100);
-                                try {
-                                    const updatedItem = await api.post(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/sides`, {
-                                        name: newSide.name.trim(),
-                                        price: priceCents
-                                    });
-                                    // Update local state with backend response to ensure correct order
-                                    setEditForm(prev => ({
-                                        ...prev,
-                                        sides: updatedItem.sides,
-                                        sideOrder: updatedItem.sideOrder
-                                    }));
-                                    setNewSide({ name: '', price: '' });
-                                    toast.success(`Side "${newSide.name}" added`);
-                                } catch (e) {
-                                    toast.error('Failed to add side: ' + e.message);
-                                }
-                            }}
-                        >
-                            Add
-                        </Button>
+                {categoryOrder.length > 0 && (
+                    <div className="form-group">
+                        <label>Side Sources</label>
+                        <div className="side-sources-list">
+                            {categoryOrder.map(cat => (
+                                <label key={cat} className="side-source-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        checked={editForm.sideSources.includes(cat)}
+                                        onChange={e => toggleSideSourceInEditForm(cat, e.target.checked)}
+                                    />
+                                    {cat}
+                                </label>
+                            ))}
+                        </div>
                     </div>
-                    <div className="copy-addons-row">
-                        {copyTarget === 'sides' ? (
-                            <select
-                                className="copy-addons-select"
-                                defaultValue=""
-                                onChange={e => handleCopyAddons(e.target.value)}
-                                onBlur={() => setCopyTarget(null)}
-                                autoFocus
-                            >
-                                <option value="" disabled>Select item to copy sides from...</option>
-                                {categoryOrder.map(cat => {
-                                    const itemsWithSides = (categories[cat] || []).filter(
-                                        i => !(i.name === editItem?.originalName && cat === editItem?.originalCategory)
-                                            && i.sides && Object.keys(i.sides).filter(k => k.toLowerCase() !== 'none').length > 0
-                                    );
-                                    if (itemsWithSides.length === 0) return null;
-                                    return (
-                                        <optgroup key={cat} label={cat}>
-                                            {itemsWithSides.map(i => (
-                                                <option key={i.name} value={`${cat}::${i.name}`}>{i.name}</option>
-                                            ))}
-                                        </optgroup>
-                                    );
-                                })}
-                            </select>
-                        ) : (
-                            <Button
-                                variant="secondary"
-                                className="copy-addons-btn"
-                                onClick={() => setCopyTarget('sides')}
-                            >
-                                Copy from...
-                            </Button>
-                        )}
-                    </div>
-                </div>
-                {/* Extras Editing */}
-                <div className="extras-section">
-                    <h4>Extras</h4>
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event) => {
-                            const { active, over } = event;
-                            if (!over || active.id === over.id) return;
-                            const activeId = active.id.replace('extra-', '');
-                            const overId = over.id.replace('extra-', '');
-                            const extras = editForm.extras || {};
-                            const rawExtraNames = Object.keys(extras).filter(k => k.toLowerCase() !== 'none' && !extrasToDelete.includes(k));
-                            const currentOrder = editForm.extraOrder?.length > 0
-                                ? editForm.extraOrder.filter(k => extras[k] && !extrasToDelete.includes(k) && k.toLowerCase() !== 'none')
-                                : rawExtraNames;
-                            const oldIndex = currentOrder.indexOf(activeId);
-                            const newIndex = currentOrder.indexOf(overId);
-                            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                                setEditForm(prev => ({ ...prev, extraOrder: arrayMove(currentOrder, oldIndex, newIndex) }));
-                            }
-                        }}
-                    >
-                    {(() => {
-                        const extras = editForm.extras || {};
-                        const rawExtraNames = Object.keys(extras).filter(k => k.toLowerCase() !== 'none' && !extrasToDelete.includes(k));
-                        let orderedExtras = [];
-                        if (editForm.extraOrder && editForm.extraOrder.length > 0) {
-                            orderedExtras = editForm.extraOrder.filter(k => extras[k] && !extrasToDelete.includes(k));
-                            const missing = rawExtraNames.filter(k => !orderedExtras.includes(k));
-                            orderedExtras = [...orderedExtras, ...missing];
-                        } else {
-                            orderedExtras = rawExtraNames;
-                        }
-
-                        return (
-                            <SortableContext items={orderedExtras.map(e => `extra-${e}`)} strategy={verticalListSortingStrategy}>
-                                <div className="extras-grid">
-                                    {orderedExtras.map(extraName => (
-                                        <ExtraRow
-                                            key={extraName}
-                                            extraName={extraName}
-                                            extraData={extras[extraName]}
-                                            onPriceChange={e => {
-                                                const newPrice = e.target.value;
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    extras: {
-                                                        ...prev.extras,
-                                                        [extraName]: { ...prev.extras[extraName], price: Math.round(parseFloat(newPrice) * 100) }
-                                                    }
-                                                }));
-                                            }}
-                                            onAvailableChange={e => {
-                                                const newAvail = e.target.checked;
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    extras: {
-                                                        ...prev.extras,
-                                                        [extraName]: { ...prev.extras[extraName], available: newAvail }
-                                                    }
-                                                }));
-                                            }}
-                                            onKitchenChange={e => {
-                                                const newKitchen = e.target.checked;
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    extras: {
-                                                        ...prev.extras,
-                                                        [extraName]: { ...prev.extras[extraName], kitchen: newKitchen }
-                                                    }
-                                                }));
-                                            }}
-                                            onDelete={() => setExtrasToDelete(prev => [...prev, extraName])}
-                                        />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                        );
-                    })()}
-                    </DndContext>
-                    {/* Add New Extra */}
-                    <div className="add-extra-row">
-                        <input
-                            type="text"
-                            placeholder="Extra name"
-                            className="extra-name-input"
-                            value={newExtra.name}
-                            onChange={e => setNewExtra(prev => ({ ...prev, name: e.target.value }))}
-                        />
-                        <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="Price"
-                            className="extra-price-input"
-                            value={newExtra.price}
-                            onChange={e => {
-                                if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) setNewExtra(prev => ({ ...prev, price: e.target.value }));
-                            }}
-                        />
-                        <Button
-                            variant="secondary"
-                            className="add-extra-btn"
-                            onClick={async () => {
-                                if (!newExtra.name.trim()) {
-                                    toast.error('Extra name is required');
-                                    return;
-                                }
-                                const priceCents = Math.round(parseFloat(newExtra.price || '0') * 100);
-                                try {
-                                    const updatedItem = await api.post(`/menu/categories/${encodeURIComponent(editItem.originalCategory)}/items/${encodeURIComponent(editItem.originalName)}/extras`, {
-                                        name: newExtra.name.trim(),
-                                        price: priceCents
-                                    });
-                                    setEditForm(prev => ({
-                                        ...prev,
-                                        extras: updatedItem.extras,
-                                        extraOrder: updatedItem.extraOrder
-                                    }));
-                                    setNewExtra({ name: '', price: '' });
-                                    toast.success(`Extra "${newExtra.name}" added`);
-                                } catch (e) {
-                                    toast.error('Failed to add extra: ' + e.message);
-                                }
-                            }}
-                        >
-                            Add
-                        </Button>
-                    </div>
-                    <div className="copy-addons-row">
-                        {copyTarget === 'extras' ? (
-                            <select
-                                className="copy-addons-select"
-                                defaultValue=""
-                                onChange={e => handleCopyAddons(e.target.value)}
-                                onBlur={() => setCopyTarget(null)}
-                                autoFocus
-                            >
-                                <option value="" disabled>Select item to copy extras from...</option>
-                                {categoryOrder.map(cat => {
-                                    const itemsWithExtras = (categories[cat] || []).filter(
-                                        i => !(i.name === editItem?.originalName && cat === editItem?.originalCategory)
-                                            && i.extras && Object.keys(i.extras).filter(k => k.toLowerCase() !== 'none').length > 0
-                                    );
-                                    if (itemsWithExtras.length === 0) return null;
-                                    return (
-                                        <optgroup key={cat} label={cat}>
-                                            {itemsWithExtras.map(i => (
-                                                <option key={i.name} value={`${cat}::${i.name}`}>{i.name}</option>
-                                            ))}
-                                        </optgroup>
-                                    );
-                                })}
-                            </select>
-                        ) : (
-                            <Button
-                                variant="secondary"
-                                className="copy-addons-btn"
-                                onClick={() => setCopyTarget('extras')}
-                            >
-                                Copy from...
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </Modal >
+                )}
+            </Modal>
 
             {/* Category Edit Modal */}
             <Modal
@@ -1094,7 +720,7 @@ const Menu = () => {
             </Modal>
 
             {/* Create Modal */}
-            < Modal
+            <Modal
                 isOpen={isCreateModalOpen}
                 onClose={() => {
                     setIsCreateModalOpen(false);
@@ -1185,8 +811,221 @@ const Menu = () => {
                             Kitchen Item
                         </label>
                     </div>
+                    {categoryOrder.length > 0 && (
+                        <div className="form-group">
+                            <label>Side Sources</label>
+                            <div className="side-sources-list">
+                                {categoryOrder.map(cat => (
+                                    <label key={cat} className="side-source-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            checked={newItemSideSources.includes(cat)}
+                                            onChange={e => toggleNewItemSideSource(cat, e.target.checked)}
+                                        />
+                                        {cat}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </form>
-            </Modal >
+            </Modal>
+
+            {/* Create Combo Modal */}
+            <Modal
+                isOpen={isCreateComboModalOpen}
+                onClose={() => setIsCreateComboModalOpen(false)}
+                title="Create Combo"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsCreateComboModalOpen(false)}>Cancel</Button>
+                        <Button variant="primary" onClick={handleCreateCombo}>Create</Button>
+                    </>
+                }
+            >
+                <form onSubmit={handleCreateCombo}>
+                    <div className="form-group">
+                        <label>Name</label>
+                        <input
+                            value={newComboForm.name}
+                            onChange={e => setNewComboForm({ ...newComboForm, name: e.target.value })}
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Category</label>
+                        {isCreatingComboCat ? (
+                            <div className="category-input-group">
+                                <input
+                                    value={newComboForm.category}
+                                    onChange={e => setNewComboForm({ ...newComboForm, category: e.target.value })}
+                                    required
+                                    placeholder="New Category Name"
+                                    autoFocus
+                                />
+                                <Button type="button" variant="secondary" onClick={() => { setIsCreatingComboCat(false); setNewComboForm({ ...newComboForm, category: '' }); }} style={{ marginLeft: '8px' }}>Cancel</Button>
+                            </div>
+                        ) : (
+                            <select
+                                value={newComboForm.category}
+                                onChange={e => {
+                                    if (e.target.value === '__NEW__') {
+                                        setIsCreatingComboCat(true);
+                                        setNewComboForm({ ...newComboForm, category: '' });
+                                    } else {
+                                        setNewComboForm({ ...newComboForm, category: e.target.value });
+                                    }
+                                }}
+                                required
+                                className="form-select"
+                            >
+                                <option value="" disabled>Select a category</option>
+                                {categoryOrder.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                                <option value="__NEW__">+ Create New Category...</option>
+                            </select>
+                        )}
+                    </div>
+                    <div className="form-group">
+                        <label>Price ($) <span style={{ fontWeight: 'normal', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>(optional — computed from components if blank)</span></label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={newComboForm.price}
+                            onChange={e => setNewComboForm({ ...newComboForm, price: e.target.value })}
+                            placeholder="e.g. 9.99"
+                        />
+                    </div>
+                    <div className="form-group checkbox-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={newComboForm.kitchen}
+                                onChange={e => setNewComboForm({ ...newComboForm, kitchen: e.target.checked })}
+                            />
+                            Kitchen Item
+                        </label>
+                    </div>
+                    <div className="form-group">
+                        <label>Fixed Components</label>
+                        <ItemPicker
+                            items={baseItems}
+                            selectedIds={newComboComponentIds}
+                            onToggle={toggleComboComponent}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                            <label style={{ margin: 0 }}>Choice Slots</label>
+                            <Button type="button" variant="secondary" onClick={addNewSlot} style={{ padding: '4px 10px', fontSize: '0.85rem' }}>+ Add Slot</Button>
+                        </div>
+                        {newComboSlots.map(slot => (
+                            <div key={slot.tempId} className="slot-builder">
+                                <div className="slot-builder-header">
+                                    <input
+                                        className="slot-name-input"
+                                        placeholder="Slot name (e.g., Drink)"
+                                        value={slot.name}
+                                        onChange={e => updateNewSlot(slot.tempId, { name: e.target.value })}
+                                    />
+                                    <label className="slot-required-label">
+                                        <input
+                                            type="checkbox"
+                                            checked={slot.required}
+                                            onChange={e => updateNewSlot(slot.tempId, { required: e.target.checked })}
+                                        />
+                                        Required
+                                    </label>
+                                    <button type="button" className="slot-remove-btn" onClick={() => removeNewSlot(slot.tempId)}>✕</button>
+                                </div>
+                                <ItemPicker
+                                    items={baseItems}
+                                    selectedIds={slot.optionIds}
+                                    onToggle={(id) => toggleSlotOption(slot.tempId, id)}
+                                />
+                            </div>
+                        ))}
+                        {newComboSlots.length === 0 && (
+                            <div className="combo-slots-empty">No slots yet. Add slots for customer choices (e.g., Drink, Size).</div>
+                        )}
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Combo Modal */}
+            <Modal
+                isOpen={isEditComboModalOpen}
+                onClose={() => setIsEditComboModalOpen(false)}
+                title="Edit Combo"
+                footer={
+                    <div className="edit-footer">
+                        <Button variant="danger" onClick={handleDeleteCombo}>Delete</Button>
+                        <div className="edit-actions-right">
+                            <Button variant="secondary" onClick={() => setIsEditComboModalOpen(false)}>Cancel</Button>
+                            <Button variant="primary" onClick={handleSaveEditCombo}>Save</Button>
+                        </div>
+                    </div>
+                }
+            >
+                <div className="form-group">
+                    <label>Name</label>
+                    <input
+                        value={editComboForm.name}
+                        onChange={e => setEditComboForm({ ...editComboForm, name: e.target.value })}
+                    />
+                </div>
+                <div className="form-group">
+                    <label>Price ($) <span style={{ fontWeight: 'normal', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>(leave blank to compute from components)</span></label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        value={editComboForm.price}
+                        onChange={e => setEditComboForm({ ...editComboForm, price: e.target.value })}
+                        placeholder="Computed from components"
+                    />
+                </div>
+                <div className="form-group checkbox-group">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={editComboForm.available}
+                            onChange={e => setEditComboForm({ ...editComboForm, available: e.target.checked })}
+                        />
+                        Available
+                    </label>
+                </div>
+                <div className="form-group checkbox-group">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={editComboForm.kitchen}
+                            onChange={e => setEditComboForm({ ...editComboForm, kitchen: e.target.checked })}
+                        />
+                        Kitchen Item
+                    </label>
+                </div>
+                {editComboData?.components?.length > 0 && (
+                    <div className="form-group">
+                        <label>Components</label>
+                        <div className="combo-info-chips">
+                            {editComboData.components.map(c => (
+                                <span key={c.id} className="combo-info-chip">{c.name}</span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {editComboData?.slots?.length > 0 && (
+                    <div className="form-group">
+                        <label>Slots</label>
+                        <div className="combo-info-chips">
+                            {editComboData.slots.map(s => (
+                                <span key={s.id} className="combo-info-chip">{s.name}{s.required ? '*' : ''}</span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </Modal>
 
             {/* Confirmation Modal */}
             <Modal
@@ -1211,8 +1050,8 @@ const Menu = () => {
                 }
             >
                 <p>{confirmationModal.message}</p>
-            </Modal >
-        </div >
+            </Modal>
+        </div>
     );
 };
 
@@ -1225,10 +1064,7 @@ const SortableCategory = ({ category, items, onEditCategory, onEditItem }) => {
         transition,
     } = useSortable({
         id: category,
-        data: {
-            type: 'CATEGORY',
-            category
-        }
+        data: { type: 'CATEGORY', category }
     });
 
     const style = {
@@ -1240,17 +1076,16 @@ const SortableCategory = ({ category, items, onEditCategory, onEditItem }) => {
         <div ref={setNodeRef} style={style} className="menu-category-section">
             <div className="menu-category-header" {...attributes} {...listeners}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {/* Drag Handle Icon could go here, or just clicking header works */}
                     <span style={{ cursor: 'grab' }}>:::</span>
                     <h3 className="menu-category-title">{category}</h3>
                 </div>
                 <button
                     className="category-edit-btn"
                     onClick={(e) => {
-                        e.stopPropagation(); // Prevent drag start when clicking edit
+                        e.stopPropagation();
                         onEditCategory(category);
                     }}
-                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag start
+                    onPointerDown={(e) => e.stopPropagation()}
                     aria-label={`Edit ${category} category`}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1262,13 +1097,13 @@ const SortableCategory = ({ category, items, onEditCategory, onEditItem }) => {
 
             <SortableContext
                 id={category}
-                items={items.map(i => i.name)}
+                items={items.map(i => i.baseItemId)}
                 strategy={rectSortingStrategy}
             >
                 <div className="menu-grid">
                     {items.map(item => (
                         <SortableItem
-                            key={item.name}
+                            key={item.baseItemId}
                             item={item}
                             category={category}
                             onEdit={onEditItem}
@@ -1288,12 +1123,8 @@ const SortableItem = ({ item, category, onEdit }) => {
         transform,
         transition,
     } = useSortable({
-        id: item.name,
-        data: {
-            type: 'ITEM',
-            item,
-            category
-        }
+        id: item.baseItemId,
+        data: { type: 'ITEM', item, category }
     });
 
     const style = {
@@ -1311,112 +1142,38 @@ const SortableItem = ({ item, category, onEdit }) => {
     );
 };
 
-const SideRow = ({ sideName, sideData, onPriceChange, onAvailableChange, onKitchenChange, onDelete }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({ id: `side-${sideName}` });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
+const ItemPicker = ({ items, selectedIds, onToggle }) => {
+    const [search, setSearch] = useState('');
+    const filtered = search
+        ? items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
+        : items;
     return (
-        <div ref={setNodeRef} style={style} className="side-edit-row">
-            <span className="addon-drag-handle" {...attributes} {...listeners}>:::</span>
-            <span className="side-name">{sideName}</span>
+        <div className="item-picker">
             <input
-                type="text"
-                inputMode="decimal"
-                className="side-price-input"
-                value={sideData.price !== undefined ? (sideData.price / 100).toFixed(2) : ''}
-                onChange={e => {
-                    if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) onPriceChange(e);
-                }}
+                className="item-picker-search"
+                placeholder="Search items..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
             />
-            <label className="side-avail-label">
-                <input
-                    type="checkbox"
-                    checked={sideData.available}
-                    onChange={onAvailableChange}
-                />
-                Avail
-            </label>
-            <label className="side-avail-label">
-                <input
-                    type="checkbox"
-                    checked={sideData.kitchen || false}
-                    onChange={onKitchenChange}
-                />
-                Kitchen
-            </label>
-            <button
-                type="button"
-                className="side-delete-btn"
-                onClick={onDelete}
-                aria-label={`Delete ${sideName}`}
-            >
-                ×
-            </button>
-        </div>
-    );
-};
-
-const ExtraRow = ({ extraName, extraData, onPriceChange, onAvailableChange, onKitchenChange, onDelete }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({ id: `extra-${extraName}` });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
-    return (
-        <div ref={setNodeRef} style={style} className="extra-edit-row">
-            <span className="addon-drag-handle" {...attributes} {...listeners}>:::</span>
-            <span className="extra-name">{extraName}</span>
-            <input
-                type="text"
-                inputMode="decimal"
-                className="extra-price-input"
-                value={extraData.price !== undefined ? (extraData.price / 100).toFixed(2) : ''}
-                onChange={e => {
-                    if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) onPriceChange(e);
-                }}
-            />
-            <label className="extra-avail-label">
-                <input
-                    type="checkbox"
-                    checked={extraData.available}
-                    onChange={onAvailableChange}
-                />
-                Avail
-            </label>
-            <label className="extra-avail-label">
-                <input
-                    type="checkbox"
-                    checked={extraData.kitchen || false}
-                    onChange={onKitchenChange}
-                />
-                Kitchen
-            </label>
-            <button
-                type="button"
-                className="extra-delete-btn"
-                onClick={onDelete}
-                aria-label={`Delete ${extraName}`}
-            >
-                ×
-            </button>
+            <div className="item-picker-list">
+                {filtered.map(item => (
+                    <label
+                        key={item.id}
+                        className={`item-picker-row ${selectedIds.includes(item.id) ? 'item-picker-selected' : ''}`}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={() => onToggle(item.id)}
+                        />
+                        <span className="item-picker-name">{item.name}</span>
+                        <span className="item-picker-price">${(item.price / 100).toFixed(2)}</span>
+                    </label>
+                ))}
+                {filtered.length === 0 && (
+                    <div className="item-picker-empty">No items found</div>
+                )}
+            </div>
         </div>
     );
 };

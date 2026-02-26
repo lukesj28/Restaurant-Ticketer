@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticketer.models.AnalysisReport;
 import com.ticketer.models.AnalysisReport.ItemRank;
 import com.ticketer.models.AnalysisReport.SideRank;
+import com.ticketer.models.ComboComponentSnapshot;
+import com.ticketer.models.ComboSlotSelection;
 import com.ticketer.models.DailyTicketLog;
+import com.ticketer.models.OrderItem;
 import com.ticketer.models.Ticket;
 import com.ticketer.repositories.TicketRepository;
 import org.slf4j.Logger;
@@ -17,9 +20,9 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Comparator;
 import java.util.stream.Collectors;
 import com.ticketer.models.AnalysisReport.DayRank;
 
@@ -47,10 +50,6 @@ public class AnalysisService {
         logger.info("Generating analysis report from {} to {}", startDate, endDate);
 
         List<Ticket> allTickets = new ArrayList<>();
-        int totalTicketCount = 0;
-        int totalOrderCount = 0;
-        long totalSubtotalCents = 0;
-        long totalTotalCents = 0;
 
         LocalDate current = startDate;
         while (!current.isAfter(endDate)) {
@@ -59,7 +58,6 @@ public class AnalysisService {
                 try {
                     DailyTicketLog log = mapper.readValue(dailyFile, DailyTicketLog.class);
                     allTickets.addAll(log.getTickets());
-
                 } catch (IOException e) {
                     logger.error("Failed to read ticket log for {}", current, e);
                 }
@@ -69,18 +67,17 @@ public class AnalysisService {
 
         LocalDate today = LocalDate.now(clock.withZone(ZoneId.systemDefault()));
         if (!today.isBefore(startDate) && !today.isAfter(endDate)) {
-            List<Ticket> inMemory = ticketRepository.findAllClosed();
-            allTickets.addAll(inMemory);
+            allTickets.addAll(ticketRepository.findAllClosed());
         }
 
         AnalysisReport report = new AnalysisReport();
         report.setStartDate(startDate.toString());
         report.setEndDate(endDate.toString());
 
-        totalTicketCount = allTickets.size();
-        totalSubtotalCents = allTickets.stream().mapToLong(Ticket::getSubtotal).sum();
-        totalTotalCents = allTickets.stream().mapToLong(Ticket::getTotal).sum();
-        totalOrderCount = allTickets.stream().mapToInt(t -> t.getOrders().size()).sum();
+        int totalTicketCount = allTickets.size();
+        long totalSubtotalCents = allTickets.stream().mapToLong(Ticket::getSubtotal).sum();
+        long totalTotalCents = allTickets.stream().mapToLong(Ticket::getTotal).sum();
+        int totalOrderCount = allTickets.stream().mapToInt(t -> t.getOrders().size()).sum();
 
         report.setTotalTicketCount(totalTicketCount);
         report.setTotalOrderCount(totalOrderCount);
@@ -88,85 +85,70 @@ public class AnalysisService {
         report.setTotalTotalCents(totalTotalCents);
 
         if (totalTicketCount > 0) {
-            report.setAverageTicketSubtotalCents(Math.round((double) totalSubtotalCents / totalTicketCount));
-            report.setAverageTicketTotalCents(Math.round((double) totalTotalCents / totalTicketCount));
+            report.setAverageTicketSubtotalCents(
+                    Math.round((double) totalSubtotalCents / totalTicketCount));
+            report.setAverageTicketTotalCents(
+                    Math.round((double) totalTotalCents / totalTicketCount));
         } else {
             report.setAverageTicketSubtotalCents(0);
             report.setAverageTicketTotalCents(0);
         }
 
         Map<Integer, Integer> hourlyTraffic = new java.util.HashMap<>();
-        for (int i = 0; i < 24; i++) {
-            hourlyTraffic.put(i, 0);
-        }
-
+        for (int i = 0; i < 24; i++) hourlyTraffic.put(i, 0);
         ZoneId zoneId = ZoneId.systemDefault();
         for (Ticket t : allTickets) {
             java.time.ZonedDateTime zdt = t.getCreatedAt().atZone(zoneId);
-            int hour = zdt.getHour();
-            hourlyTraffic.merge(hour, 1, Integer::sum);
+            hourlyTraffic.merge(zdt.getHour(), 1, Integer::sum);
         }
         report.setHourlyTraffic(hourlyTraffic);
 
         double totalDurationSeconds = 0;
         int turnoverCount = 0;
-
         for (Ticket t : allTickets) {
             if (t.getClosedAt() != null) {
-                java.time.Duration duration = java.time.Duration.between(t.getCreatedAt(), t.getClosedAt());
-                totalDurationSeconds += duration.getSeconds();
+                java.time.Duration dur = java.time.Duration.between(t.getCreatedAt(), t.getClosedAt());
+                totalDurationSeconds += dur.getSeconds();
                 turnoverCount++;
             }
         }
-
         if (turnoverCount > 0) {
-            double avgSeconds = totalDurationSeconds / turnoverCount;
-            report.setAverageTurnoverTimeMinutes((int) Math.round(avgSeconds / 60.0));
+            report.setAverageTurnoverTimeMinutes((int) Math.round(totalDurationSeconds / turnoverCount / 60.0));
         } else {
             report.setAverageTurnoverTimeMinutes(0);
         }
 
-        Map<String, Map<String, Integer>> itemSideCounts = new java.util.HashMap<>();
         Map<String, ItemRank> itemMap = new java.util.HashMap<>();
+        Map<String, Map<String, Integer>> itemSideCounts = new java.util.HashMap<>();
 
         for (Ticket t : allTickets) {
             for (com.ticketer.models.Order o : t.getOrders()) {
-                for (com.ticketer.models.OrderItem item : o.getItems()) {
-                    itemMap.putIfAbsent(item.getName(),
-                            new ItemRank(item.getName(), 0, 0));
-                    ItemRank itemRank = itemMap.get(item.getName());
-                    itemRank.setCount(itemRank.getCount() + 1);
-                    itemRank.setTotalRevenueCents(itemRank.getTotalRevenueCents() + item.getMainPrice());
+                for (OrderItem item : o.getItems()) {
+                    if (item.isCombo()) {
+                        trackItem(itemMap, item.getName(), item.getMainPrice());
 
-                    String side = item.getSelectedSide();
-                    String sideKey = null;
-
-                    if (side == null || side.isEmpty()) {
-                    } else if ("none".equalsIgnoreCase(side)) {
-                        sideKey = "none";
-                    } else {
-                        sideKey = side;
-                    }
-
-                    if (sideKey != null) {
-                        itemSideCounts.putIfAbsent(item.getName(), new java.util.HashMap<>());
-                        itemSideCounts.get(item.getName()).merge(sideKey, 1, Integer::sum);
-
-                        if (!"none".equals(sideKey)) {
-                            itemMap.putIfAbsent(sideKey, new ItemRank(sideKey, 0, 0));
-                            ItemRank sideItemRank = itemMap.get(sideKey);
-                            sideItemRank.setCount(sideItemRank.getCount() + 1);
-                            sideItemRank
-                                    .setTotalRevenueCents(sideItemRank.getTotalRevenueCents() + item.getSidePrice());
+                        if (item.getComponents() != null) {
+                            for (ComboComponentSnapshot comp : item.getComponents()) {
+                                trackItem(itemMap, comp.getName(), 0);
+                            }
                         }
-                    }
 
-                    String extra = item.getSelectedExtra();
-                    if (extra != null && !extra.isEmpty() && !"none".equalsIgnoreCase(extra)) {
-                        itemMap.putIfAbsent(extra, new ItemRank(extra, 0, 0));
-                        ItemRank extraItemRank = itemMap.get(extra);
-                        extraItemRank.setCount(extraItemRank.getCount() + 1);
-                        extraItemRank.setTotalRevenueCents(extraItemRank.getTotalRevenueCents() + item.getExtraPrice());
+                        if (item.getSlotSelections() != null) {
+                            for (ComboSlotSelection sel : item.getSlotSelections()) {
+                                trackItem(itemMap, sel.getSelectedName(), 0);
+                                itemSideCounts.computeIfAbsent(item.getName(), k -> new java.util.HashMap<>())
+                                        .merge(sel.getSelectedName(), 1, Integer::sum);
+                            }
+                        }
+                    } else {
+                        trackItem(itemMap, item.getName(), item.getMainPrice());
+
+                        String side = item.getSelectedSide();
+                        if (side != null && !side.isEmpty()) {
+                            itemSideCounts.computeIfAbsent(item.getName(), k -> new java.util.HashMap<>())
+                                    .merge(side, 1, Integer::sum);
+                            trackItem(itemMap, side, item.getSidePrice());
+                        }
                     }
                 }
             }
@@ -190,14 +172,20 @@ public class AnalysisService {
                 .collect(Collectors.groupingBy(
                         t -> t.getCreatedAt().atZone(zoneId).toLocalDate().toString(),
                         Collectors.summingLong(Ticket::getTotal)));
-
         List<DayRank> dayRankings = dailyTotals.entrySet().stream()
                 .map(entry -> new DayRank(entry.getKey(), entry.getValue()))
                 .sorted(Comparator.comparingLong(DayRank::getTotalTotalCents).reversed())
                 .toList();
-
         report.setDayRankings(dayRankings);
 
         return report;
+    }
+
+    private void trackItem(Map<String, ItemRank> itemMap, String name, long revenueCents) {
+        if (name == null || name.isEmpty()) return;
+        itemMap.computeIfAbsent(name, n -> new ItemRank(n, 0, 0));
+        ItemRank rank = itemMap.get(name);
+        rank.setCount(rank.getCount() + 1);
+        rank.setTotalRevenueCents(rank.getTotalRevenueCents() + revenueCents);
     }
 }

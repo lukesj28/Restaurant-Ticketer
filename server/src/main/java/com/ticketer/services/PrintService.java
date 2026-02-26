@@ -351,17 +351,18 @@ public class PrintService {
             escpos.writeLF(line);
         }
 
-        if (item.getSelectedSide() != null && !"none".equalsIgnoreCase(item.getSelectedSide())) {
+        if (item.getSelectedSide() != null && !item.getSelectedSide().isEmpty()) {
             String sidePrice = formatPrice(item.getSidePrice());
             for (String line : formatLineWrapped("  + " + item.getSelectedSide(), sidePrice, receiptWidth)) {
                 escpos.writeLF(line);
             }
         }
 
-        if (item.getSelectedExtra() != null && !"none".equalsIgnoreCase(item.getSelectedExtra())) {
-            String extraPrice = formatPrice(item.getExtraPrice());
-            for (String line : formatLineWrapped("  + " + item.getSelectedExtra(), extraPrice, receiptWidth)) {
-                escpos.writeLF(line);
+        if (item.isCombo() && item.getSlotSelections() != null) {
+            for (com.ticketer.models.ComboSlotSelection sel : item.getSlotSelections()) {
+                for (String line : formatLineWrapped("  + " + sel.getSelectedName(), "", receiptWidth)) {
+                    escpos.writeLF(line);
+                }
             }
         }
     }

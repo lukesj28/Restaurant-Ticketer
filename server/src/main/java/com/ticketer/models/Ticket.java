@@ -145,16 +145,25 @@ public class Ticket {
         java.util.Map<String, Integer> tally = new java.util.HashMap<>();
         for (Order order : orders) {
             for (OrderItem item : order.getItems()) {
-                if (!"none".equalsIgnoreCase(item.getName())) {
+                if (item.isCombo()) {
                     tally.merge(item.getName(), 1, Integer::sum);
-                }
-                if (item.getSelectedSide() != null && !item.getSelectedSide().isEmpty()
-                        && !"none".equalsIgnoreCase(item.getSelectedSide())) {
-                    tally.merge(item.getSelectedSide(), 1, Integer::sum);
-                }
-                if (item.getSelectedExtra() != null && !item.getSelectedExtra().isEmpty()
-                        && !"none".equalsIgnoreCase(item.getSelectedExtra())) {
-                    tally.merge(item.getSelectedExtra(), 1, Integer::sum);
+                    if (item.getComponents() != null) {
+                        for (ComboComponentSnapshot comp : item.getComponents()) {
+                            tally.merge(comp.getName(), 1, Integer::sum);
+                        }
+                    }
+                    if (item.getSlotSelections() != null) {
+                        for (ComboSlotSelection sel : item.getSlotSelections()) {
+                            tally.merge(sel.getSelectedName(), 1, Integer::sum);
+                        }
+                    }
+                } else {
+                    if (item.getName() != null) {
+                        tally.merge(item.getName(), 1, Integer::sum);
+                    }
+                    if (item.getSelectedSide() != null && !item.getSelectedSide().isEmpty()) {
+                        tally.merge(item.getSelectedSide(), 1, Integer::sum);
+                    }
                 }
             }
         }
