@@ -524,24 +524,46 @@ public class PrintService {
         }
         escpos.feed(1);
         escpos.writeLF(repeatChar('-', receiptWidth));
-        
+
         for (String line : formatLineWrapped("Tot Tickets:", String.valueOf(stats.getTicketCount()), receiptWidth)) {
             escpos.writeLF(line);
         }
         for (String line : formatLineWrapped("Tot Orders:", String.valueOf(stats.getOrderCount()), receiptWidth)) {
             escpos.writeLF(normalStyle, line);
         }
-        
+
         String turnoverStr = stats.getAverageTurnoverTimeMinutes() + " min";
         for (String line : formatLineWrapped("Avg Turnover:", turnoverStr, receiptWidth)) {
             escpos.writeLF(normalStyle, line);
         }
-        
+
         for (String line : formatLineWrapped("Avg / Ticket:", formatPrice(stats.getAverageCostPerTicket()), receiptWidth)) {
             escpos.writeLF(normalStyle, line);
         }
-        
+
         escpos.writeLF(repeatChar('-', receiptWidth));
+
+        if (stats.getBarTotal() > 0) {
+            escpos.writeLF(normalStyle, "BAR SUMMARY");
+            for (String line : formatLineWrapped("Bar Subtotal:", formatPrice(stats.getBarSubtotal()), receiptWidth)) {
+                escpos.writeLF(normalStyle, line);
+            }
+            for (String line : formatLineWrapped("Bar Tax:", formatPrice(stats.getBarTax()), receiptWidth)) {
+                escpos.writeLF(normalStyle, line);
+            }
+            escpos.setStyle(boldStyle);
+            if (fontSizeVal == 2) {
+                escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+            }
+            for (String line : formatLineWrapped("BAR TOTAL:", formatPrice(stats.getBarTotal()), receiptWidth)) {
+                escpos.writeLF(line);
+            }
+            escpos.setStyle(normalStyle);
+            if (fontSizeVal == 2) {
+                escpos.write(new byte[]{0x1B, 0x33, 60}, 0, 3);
+            }
+            escpos.writeLF(repeatChar('-', receiptWidth));
+        }
     }
 
     private String repeatChar(char c, int count) {

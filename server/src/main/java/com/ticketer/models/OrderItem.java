@@ -40,6 +40,8 @@ public class OrderItem {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String comment;
 
+    private boolean alcohol;
+
     @JsonCreator
     public OrderItem(
             @JsonProperty("type") String type,
@@ -52,7 +54,8 @@ public class OrderItem {
             @JsonProperty("comboId") UUID comboId,
             @JsonProperty("components") List<ComboComponentSnapshot> components,
             @JsonProperty("slotSelections") List<ComboSlotSelection> slotSelections,
-            @JsonProperty("comment") String comment) {
+            @JsonProperty("comment") String comment,
+            @JsonProperty("alcohol") boolean alcohol) {
         this.type = type != null ? type : TYPE_ITEM;
         this.menuItemId = menuItemId;
         this.name = name;
@@ -64,15 +67,22 @@ public class OrderItem {
         this.components = components;
         this.slotSelections = slotSelections;
         this.comment = comment;
+        this.alcohol = alcohol;
     }
 
     public static OrderItem forItem(UUID menuItemId, String name,
             UUID selectedSideId, String selectedSide,
             long mainPrice, long sidePrice) {
+        return forItem(menuItemId, name, selectedSideId, selectedSide, mainPrice, sidePrice, false);
+    }
+
+    public static OrderItem forItem(UUID menuItemId, String name,
+            UUID selectedSideId, String selectedSide,
+            long mainPrice, long sidePrice, boolean alcohol) {
         return new OrderItem(TYPE_ITEM, menuItemId, name,
                 selectedSideId, selectedSide,
                 mainPrice, sidePrice,
-                null, null, null, null);
+                null, null, null, null, alcohol);
     }
 
     public static OrderItem forCombo(UUID comboId, String name,
@@ -82,7 +92,7 @@ public class OrderItem {
         return new OrderItem(TYPE_COMBO, null, name,
                 null, null,
                 price, 0,
-                comboId, components, slotSelections, null);
+                comboId, components, slotSelections, null, false);
     }
 
     public boolean isCombo() {
@@ -121,6 +131,8 @@ public class OrderItem {
     public String getComment() { return comment; }
 
     public void setComment(String comment) { this.comment = comment; }
+
+    public boolean isAlcohol() { return alcohol; }
 
     @Override
     public boolean equals(Object o) {

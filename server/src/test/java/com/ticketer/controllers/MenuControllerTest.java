@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -89,7 +91,7 @@ public class MenuControllerTest {
     public void testCreateItem() throws Exception {
         UUID id = UUID.randomUUID();
         BaseItem created = new BaseItem(id, "Burger", 1000, true, false);
-        when(menuService.createBaseItem(eq("Burger"), eq(1000L), eq(false))).thenReturn(created);
+        when(menuService.createBaseItem(eq("Burger"), eq(1000L), eq(false), eq(false), isNull())).thenReturn(created);
 
         String json = "{\"category\":\"Mains\",\"name\":\"Burger\",\"price\":1000,\"kitchen\":false,\"sideSources\":[]}";
         mockMvc.perform(post("/api/menu/items")
@@ -97,13 +99,13 @@ public class MenuControllerTest {
                 .content(json))
                 .andExpect(status().isOk());
 
-        verify(menuService).createBaseItem("Burger", 1000L, false);
+        verify(menuService).createBaseItem("Burger", 1000L, false, false, null);
         verify(menuService).addMenuItemToCategory(eq("Mains"), eq(id), any());
     }
 
     @Test
     public void testCreateItemInvalidName() throws Exception {
-        when(menuService.createBaseItem(eq(""), anyLong(), anyBoolean()))
+        when(menuService.createBaseItem(eq(""), anyLong(), anyBoolean(), anyBoolean(), any()))
                 .thenThrow(new InvalidInputException("Item name cannot be empty"));
 
         String json = "{\"category\":\"Mains\",\"name\":\"\",\"price\":100}";
@@ -186,6 +188,21 @@ public class MenuControllerTest {
                 .andExpect(status().isOk());
 
         verify(menuService).renameBaseItem(id, "Cheeseburger");
+    }
+
+    @Test
+    public void testUpdateItemComponents() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID subId = UUID.randomUUID();
+        String json = "{\"components\":[{\"baseItemId\":\"" + subId + "\",\"quantity\":2.0}]}";
+
+        mockMvc.perform(put("/api/menu/items/" + id + "/components")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isOk());
+
+        verify(menuService).updateBaseItemComponents(eq(id), argThat(list ->
+                list != null && list.size() == 1 && subId.equals(list.get(0).getBaseItemId())));
     }
 
     @Test

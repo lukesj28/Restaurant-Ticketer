@@ -15,9 +15,10 @@ import './KitchenTicketCard.css';
 const KitchenTicketCard = ({ ticket, onComplete, isHighlighted }) => {
     const time = new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Format tally entries, e.g. "2x Burger"
+    // Format tally entries, e.g. "2× Burger" or "0.5× Halibut"
+    const formatCount = (n) => Number.isInteger(n) || n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2).replace(/\.?0+$/, '');
     const tallyEntries = Object.entries(ticket.kitchenTally || {}).map(([name, count]) => (
-        <span key={name} className="tally-item">{count}× {name}</span>
+        <span key={name} className="tally-item">{formatCount(count)}× {name}</span>
     ));
 
     return (

@@ -13,6 +13,9 @@ public class AnalysisReport {
     private long averageTicketSubtotalCents;
     private long averageTicketTotalCents;
     private int averageTurnoverTimeMinutes;
+    private long barSubtotalCents;
+    private long barTaxCents;
+    private long barTotalCents;
     private Map<Integer, Integer> hourlyTraffic;
     private List<ItemRank> itemRankings;
     private Map<String, List<SideRank>> sideRankings;
@@ -92,6 +95,18 @@ public class AnalysisReport {
     public void setAverageTurnoverTimeMinutes(int averageTurnoverTimeMinutes) {
         this.averageTurnoverTimeMinutes = averageTurnoverTimeMinutes;
     }
+
+    public long getBarSubtotalCents() { return barSubtotalCents; }
+
+    public void setBarSubtotalCents(long barSubtotalCents) { this.barSubtotalCents = barSubtotalCents; }
+
+    public long getBarTaxCents() { return barTaxCents; }
+
+    public void setBarTaxCents(long barTaxCents) { this.barTaxCents = barTaxCents; }
+
+    public long getBarTotalCents() { return barTotalCents; }
+
+    public void setBarTotalCents(long barTotalCents) { this.barTotalCents = barTotalCents; }
 
     public Map<Integer, Integer> getHourlyTraffic() {
         return hourlyTraffic;

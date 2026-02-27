@@ -8,7 +8,7 @@ public class Requests {
     public record CompositeComponentRequest(UUID baseItemId, double quantity) {
     }
 
-    public record ItemCreateRequest(String category, String name, long price, Boolean kitchen,
+    public record ItemCreateRequest(String category, String name, long price, Boolean kitchen, Boolean alcohol,
             List<String> sideSources, List<CompositeComponentRequest> components) {
     }
 
@@ -19,6 +19,9 @@ public class Requests {
     }
 
     public record ItemKitchenUpdateRequest(boolean kitchen) {
+    }
+
+    public record ItemAlcoholUpdateRequest(boolean alcohol) {
     }
 
     public record ItemRenameRequest(String newName) {
@@ -52,6 +55,8 @@ public class Requests {
 
     public record UpdateComboRequest(String name, Long price, Boolean available, Boolean kitchen) {
     }
+
+    public record ItemComponentsUpdateRequest(List<CompositeComponentRequest> components) {}
 
     public record TaxUpdateRequest(int tax) {
     }

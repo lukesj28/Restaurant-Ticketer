@@ -16,6 +16,9 @@ const MenuItemCard = ({ item, onEdit, onDelete }) => {
                     {item.components && item.components.length > 0 && (
                         <span className="composite-badge">Composite</span>
                     )}
+                    {item.alcohol && (
+                        <span className="alcohol-badge">Alcohol</span>
+                    )}
                 </div>
             </div>
             <div className="menu-item-actions">

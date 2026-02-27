@@ -70,7 +70,7 @@ public class TicketController {
     }
 
     @GetMapping("/{ticketId}/tally/kitchen")
-    public ApiResponse<java.util.Map<String, Integer>> getTicketKitchenTally(@PathVariable("ticketId") int ticketId) {
+    public ApiResponse<java.util.Map<String, Double>> getTicketKitchenTally(@PathVariable("ticketId") int ticketId) {
         Ticket ticket = ticketService.getTicket(ticketId);
         if (ticket == null) {
             throw new EntityNotFoundException("Ticket not found");

@@ -2,6 +2,7 @@ package com.ticketer.repositories;
 
 import com.ticketer.models.BaseItem;
 import com.ticketer.models.CategoryEntry;
+import com.ticketer.models.CompositeComponent;
 import com.ticketer.models.Menu;
 import com.ticketer.models.MenuItem;
 import org.junit.jupiter.api.AfterEach;
@@ -114,6 +115,32 @@ public class FileMenuRepositoryTest {
         Menu loaded = repo.getMenu();
         assertNotNull(loaded);
         assertTrue(loaded.getBaseItem(id).isKitchen());
+    }
+
+    @Test
+    public void testCompositeComponentsSaveAndLoad() {
+        FileMenuRepository repo = new FileMenuRepository(TEST_FILE, mapper);
+
+        UUID subId = UUID.randomUUID();
+        UUID compositeId = UUID.randomUUID();
+        List<CompositeComponent> components = List.of(new CompositeComponent(subId, 2.5));
+
+        Map<UUID, BaseItem> baseItems = new LinkedHashMap<>();
+        baseItems.put(subId, new BaseItem(subId, "Sub", 500, true, true));
+        baseItems.put(compositeId, new BaseItem(compositeId, "Composite", 0, true, true, components));
+
+        Menu menu = new Menu(baseItems, new LinkedHashMap<>(), new LinkedHashMap<>(), new ArrayList<>());
+        repo.saveMenu(menu);
+
+        Menu loaded = repo.getMenu();
+        BaseItem loadedComposite = loaded.getBaseItem(compositeId);
+        assertNotNull(loadedComposite);
+        assertNotNull(loadedComposite.getComponents());
+        assertEquals(1, loadedComposite.getComponents().size());
+        assertEquals(subId, loadedComposite.getComponents().get(0).getBaseItemId());
+        assertEquals(2.5, loadedComposite.getComponents().get(0).getQuantity(), 0.001);
+
+        assertNull(loaded.getBaseItem(subId).getComponents());
     }
 
     @Test

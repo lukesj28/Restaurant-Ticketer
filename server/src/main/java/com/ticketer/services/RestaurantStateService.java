@@ -257,7 +257,10 @@ public class RestaurantStateService {
                 report.getTotalTicketCount(),
                 report.getTotalOrderCount(),
                 report.getAverageTurnoverTimeMinutes(),
-                report.getAverageTicketTotalCents()
+                report.getAverageTicketTotalCents(),
+                report.getBarSubtotalCents(),
+                report.getBarTaxCents(),
+                report.getBarTotalCents()
             );
             
             printService.printDailyStats(stats);

@@ -777,3 +777,13 @@
     padding: 2px 5px;
     margin-left: 6px;
 }
+
+.alcohol-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    background-color: #7c3aed;
+    color: #fff;
+    border-radius: var(--radius-sm);
+    padding: 2px 5px;
+    margin-left: 6px;
+}

@@ -5,6 +5,7 @@ import com.ticketer.models.BaseItem;
 import com.ticketer.models.CategoryEntry;
 import com.ticketer.models.ComboItem;
 import com.ticketer.models.ComboSlot;
+import com.ticketer.models.CompositeComponent;
 import com.ticketer.models.Menu;
 import com.ticketer.models.MenuItem;
 
@@ -55,7 +56,14 @@ public class FileMenuRepository implements MenuRepository {
                 for (Map.Entry<String, BaseItemJson> e : raw.baseItems.entrySet()) {
                     UUID id = UUID.fromString(e.getKey());
                     BaseItemJson b = e.getValue();
-                    baseItems.put(id, new BaseItem(id, b.name, b.price, b.available, b.kitchen));
+                    List<CompositeComponent> components = null;
+                    if (b.components != null && !b.components.isEmpty()) {
+                        components = new ArrayList<>();
+                        for (ComponentJson cj : b.components) {
+                            components.add(new CompositeComponent(UUID.fromString(cj.baseItemId), cj.quantity));
+                        }
+                    }
+                    baseItems.put(id, new BaseItem(id, b.name, b.price, b.available, b.kitchen, b.alcohol, components));
                 }
             }
 
@@ -128,6 +136,16 @@ public class FileMenuRepository implements MenuRepository {
             bj.price = b.getPrice();
             bj.available = b.isAvailable();
             bj.kitchen = b.isKitchen();
+            bj.alcohol = b.isAlcohol();
+            if (b.getComponents() != null && !b.getComponents().isEmpty()) {
+                bj.components = new ArrayList<>();
+                for (CompositeComponent cc : b.getComponents()) {
+                    ComponentJson cj = new ComponentJson();
+                    cj.baseItemId = cc.getBaseItemId().toString();
+                    cj.quantity = cc.getQuantity();
+                    bj.components.add(cj);
+                }
+            }
             raw.baseItems.put(e.getKey().toString(), bj);
         }
 
@@ -198,6 +216,13 @@ public class FileMenuRepository implements MenuRepository {
         public long price;
         public boolean available;
         public boolean kitchen;
+        public boolean alcohol;
+        public List<ComponentJson> components;
+    }
+
+    static class ComponentJson {
+        public String baseItemId;
+        public double quantity;
     }
 
     static class CategoryJson {

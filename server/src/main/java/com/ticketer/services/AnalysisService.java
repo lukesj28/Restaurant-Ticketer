@@ -84,6 +84,28 @@ public class AnalysisService {
         report.setTotalSubtotalCents(totalSubtotalCents);
         report.setTotalTotalCents(totalTotalCents);
 
+        long barSubtotalCents = 0;
+        long barTaxCents = 0;
+        for (Ticket t : allTickets) {
+            long ticketSubtotal = t.getSubtotal();
+            long ticketTax = t.getTax();
+            long ticketBarSubtotal = 0;
+            for (com.ticketer.models.Order o : t.getOrders()) {
+                for (com.ticketer.models.OrderItem item : o.getItems()) {
+                    if (!item.isCombo() && item.isAlcohol()) {
+                        ticketBarSubtotal += item.getPrice();
+                    }
+                }
+            }
+            barSubtotalCents += ticketBarSubtotal;
+            if (ticketSubtotal > 0 && ticketTax > 0) {
+                barTaxCents += Math.round((double) ticketBarSubtotal / ticketSubtotal * ticketTax);
+            }
+        }
+        report.setBarSubtotalCents(barSubtotalCents);
+        report.setBarTaxCents(barTaxCents);
+        report.setBarTotalCents(barSubtotalCents + barTaxCents);
+
         if (totalTicketCount > 0) {
             report.setAverageTicketSubtotalCents(
                     Math.round((double) totalSubtotalCents / totalTicketCount));

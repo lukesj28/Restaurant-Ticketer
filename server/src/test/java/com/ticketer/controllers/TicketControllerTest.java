@@ -231,9 +231,9 @@ public class TicketControllerTest {
 
         when(ticketService.getTicket(1)).thenReturn(ticket);
 
-        java.util.Map<String, Integer> kitchenTally = new java.util.LinkedHashMap<>();
-        kitchenTally.put("Burger", 1);
-        kitchenTally.put("Pizza", 1);
+        java.util.Map<String, Double> kitchenTally = new java.util.LinkedHashMap<>();
+        kitchenTally.put("Burger", 1.0);
+        kitchenTally.put("Pizza", 1.0);
         KitchenTicketDto ktDto = new KitchenTicketDto(1, "Table1", kitchenTally, null, null, null);
         when(menuService.getKitchenDetails(ticket)).thenReturn(ktDto);
 

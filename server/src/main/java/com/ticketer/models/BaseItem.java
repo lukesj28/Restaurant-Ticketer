@@ -11,6 +11,7 @@ public class BaseItem {
     private long price;
     private boolean available;
     private boolean kitchen;
+    private boolean alcohol;
     private List<CompositeComponent> components;
 
     @JsonCreator
@@ -20,17 +21,24 @@ public class BaseItem {
             @JsonProperty("price") long price,
             @JsonProperty("available") boolean available,
             @JsonProperty("kitchen") boolean kitchen,
+            @JsonProperty("alcohol") boolean alcohol,
             @JsonProperty("components") List<CompositeComponent> components) {
         this.id = id;
         this.name = name;
         this.price = price;
         this.available = available;
         this.kitchen = kitchen;
+        this.alcohol = alcohol;
         this.components = components;
     }
 
     public BaseItem(UUID id, String name, long price, boolean available, boolean kitchen) {
-        this(id, name, price, available, kitchen, null);
+        this(id, name, price, available, kitchen, false, null);
+    }
+
+    public BaseItem(UUID id, String name, long price, boolean available, boolean kitchen,
+            List<CompositeComponent> components) {
+        this(id, name, price, available, kitchen, false, components);
     }
 
     public BaseItem(BaseItem other) {
@@ -39,6 +47,7 @@ public class BaseItem {
         this.price = other.price;
         this.available = other.available;
         this.kitchen = other.kitchen;
+        this.alcohol = other.alcohol;
         this.components = other.components;
     }
 
@@ -59,6 +68,10 @@ public class BaseItem {
     public boolean isKitchen() { return kitchen; }
 
     public void setKitchen(boolean kitchen) { this.kitchen = kitchen; }
+
+    public boolean isAlcohol() { return alcohol; }
+
+    public void setAlcohol(boolean alcohol) { this.alcohol = alcohol; }
 
     public List<CompositeComponent> getComponents() { return components; }
 

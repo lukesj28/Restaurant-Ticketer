@@ -135,6 +135,70 @@ public class MenuServiceTest {
     }
 
     @Test
+    public void testUpdateBaseItemComponents() {
+        Menu menu = buildMenuWithItem("entrees", "Burger", 100, false);
+        UUID id = menu.getBaseItems().keySet().iterator().next();
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        UUID subId = UUID.randomUUID();
+        List<com.ticketer.models.CompositeComponent> components = List.of(
+                new com.ticketer.models.CompositeComponent(subId, 2.0));
+        menuService.updateBaseItemComponents(id, components);
+        assertNotNull(menu.getBaseItem(id).getComponents());
+        assertEquals(1, menu.getBaseItem(id).getComponents().size());
+        assertEquals(subId, menu.getBaseItem(id).getComponents().get(0).getBaseItemId());
+        verify(menuRepository).saveMenu(menu);
+    }
+
+    @Test
+    public void testUpdateBaseItemComponentsClear() {
+        Menu menu = buildMenuWithItem("entrees", "Burger", 100, false);
+        UUID id = menu.getBaseItems().keySet().iterator().next();
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        menuService.updateBaseItemComponents(id, Collections.emptyList());
+        assertNull(menu.getBaseItem(id).getComponents());
+        verify(menuRepository).saveMenu(menu);
+    }
+
+    @Test
+    public void testKitchenTallyRecursiveComposite() {
+        UUID xId = UUID.randomUUID();
+        BaseItem x = new BaseItem(xId, "X", 100, true, true);
+        UUID yId = UUID.randomUUID();
+        BaseItem y = new BaseItem(yId, "Y", 100, true, true);
+        UUID bId = UUID.randomUUID();
+        BaseItem b = new BaseItem(bId, "B", 0, true, true,
+                List.of(new com.ticketer.models.CompositeComponent(xId, 3.0),
+                        new com.ticketer.models.CompositeComponent(yId, 1.0)));
+        UUID aId = UUID.randomUUID();
+        BaseItem a = new BaseItem(aId, "A", 0, true, true,
+                List.of(new com.ticketer.models.CompositeComponent(bId, 2.0)));
+
+        Map<UUID, BaseItem> baseItems = new LinkedHashMap<>();
+        baseItems.put(xId, x);
+        baseItems.put(yId, y);
+        baseItems.put(bId, b);
+        baseItems.put(aId, a);
+        Menu menu = new Menu(baseItems, new LinkedHashMap<>(), new LinkedHashMap<>(), new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        com.ticketer.models.Order order = new com.ticketer.models.Order();
+        order.addItem(com.ticketer.models.OrderItem.forItem(aId, "A", null, null, 0, 0));
+        com.ticketer.models.Ticket ticket = new com.ticketer.models.Ticket(1);
+        ticket.addOrder(order);
+
+        com.ticketer.dtos.KitchenTicketDto dto = menuService.getKitchenDetails(ticket);
+        assertEquals(6.0, dto.kitchenTally().get("X"), 0.001);
+        assertEquals(2.0, dto.kitchenTally().get("Y"), 0.001);
+        assertNull(dto.kitchenTally().get("A"));
+        assertNull(dto.kitchenTally().get("B"));
+    }
+
+    @Test
     public void testRenameBaseItem() {
         Menu menu = buildMenuWithItem("entrees", "Burger", 100, false);
         UUID id = menu.getBaseItems().keySet().iterator().next();
@@ -373,5 +437,42 @@ public class MenuServiceTest {
         assertEquals(1200, orderItem.getMainPrice());
         assertEquals(200, orderItem.getSidePrice());
         assertEquals(1400, orderItem.getPrice());
+    }
+
+    @Test
+    public void testCreateItemOrderItemUnavailableComponent() {
+        UUID subId = UUID.randomUUID();
+        UUID compositeId = UUID.randomUUID();
+        BaseItem sub = new BaseItem(subId, "Sub", 100, false, true);
+        BaseItem composite = new BaseItem(compositeId, "Composite", 500, true, true,
+                List.of(new com.ticketer.models.CompositeComponent(subId, 1.0)));
+        Map<UUID, BaseItem> baseItems = new LinkedHashMap<>();
+        baseItems.put(subId, sub);
+        baseItems.put(compositeId, composite);
+        Menu menu = new Menu(baseItems, new LinkedHashMap<>(), new LinkedHashMap<>(), new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        assertThrows(com.ticketer.exceptions.InvalidInputException.class,
+                () -> menuService.createItemOrderItem(compositeId, null));
+    }
+
+    @Test
+    public void testCreateComboOrderItemUnavailableComponent() {
+        UUID compId = UUID.randomUUID();
+        UUID comboId = UUID.randomUUID();
+        BaseItem comp = new BaseItem(compId, "Comp", 500, false, true);
+        com.ticketer.models.ComboItem combo = new com.ticketer.models.ComboItem(
+                comboId, "Meal", "mains", List.of(compId), Collections.emptyList(), 1000L, true, false);
+        Map<UUID, BaseItem> baseItems = new LinkedHashMap<>();
+        baseItems.put(compId, comp);
+        Map<UUID, com.ticketer.models.ComboItem> combos = new LinkedHashMap<>();
+        combos.put(comboId, combo);
+        Menu menu = new Menu(baseItems, new LinkedHashMap<>(), combos, new ArrayList<>());
+        when(menuRepository.getMenu()).thenReturn(menu);
+        menuService = new MenuService(menuRepository);
+
+        assertThrows(com.ticketer.exceptions.InvalidInputException.class,
+                () -> menuService.createComboOrderItem(comboId, null));
     }
 }

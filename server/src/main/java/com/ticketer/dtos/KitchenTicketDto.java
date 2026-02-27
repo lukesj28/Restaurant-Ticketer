@@ -6,7 +6,7 @@ import java.util.Map;
 public record KitchenTicketDto(
                 int id,
                 String tableNumber,
-                Map<String, Integer> kitchenTally,
+                Map<String, Double> kitchenTally,
                 List<KitchenOrderGroupDto> kitchenOrders,
                 String createdAt,
                 String comment) {

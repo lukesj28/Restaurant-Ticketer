@@ -378,6 +378,26 @@ const Analysis = () => {
                         </div>
                     </div>
 
+                    {report.barTotalCents > 0 && (
+                        <div className="bar-summary-section">
+                            <h2 className="bar-summary-heading">Bar Summary</h2>
+                            <div className="bar-summary-grid">
+                                <div className="kpi-card bar-kpi-card">
+                                    <h3>Bar Subtotal</h3>
+                                    <div className="big-number">${(report.barSubtotalCents / 100).toFixed(2)}</div>
+                                </div>
+                                <div className="kpi-card bar-kpi-card">
+                                    <h3>Bar Tax</h3>
+                                    <div className="big-number">${(report.barTaxCents / 100).toFixed(2)}</div>
+                                </div>
+                                <div className="kpi-card bar-kpi-card bar-kpi-total">
+                                    <h3>Bar Total</h3>
+                                    <div className="big-number">${(report.barTotalCents / 100).toFixed(2)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="charts-row">
                         <div className="chart-section">
                             <h2>Hourly Traffic (Heatmap)</h2>

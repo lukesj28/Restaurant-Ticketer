@@ -8,9 +8,13 @@ public class DailyStatsDto {
     private int orderCount;
     private int averageTurnoverTimeMinutes;
     private long averageCostPerTicket;
+    private long barSubtotal;
+    private long barTax;
+    private long barTotal;
 
     public DailyStatsDto(long totalRevenue, long subtotal, long totalTax, int ticketCount, int orderCount,
-            int averageTurnoverTimeMinutes, long averageCostPerTicket) {
+            int averageTurnoverTimeMinutes, long averageCostPerTicket,
+            long barSubtotal, long barTax, long barTotal) {
         this.totalRevenue = totalRevenue;
         this.subtotal = subtotal;
         this.totalTax = totalTax;
@@ -18,6 +22,9 @@ public class DailyStatsDto {
         this.orderCount = orderCount;
         this.averageTurnoverTimeMinutes = averageTurnoverTimeMinutes;
         this.averageCostPerTicket = averageCostPerTicket;
+        this.barSubtotal = barSubtotal;
+        this.barTax = barTax;
+        this.barTotal = barTotal;
     }
 
     public long getTotalRevenue() {
@@ -46,5 +53,17 @@ public class DailyStatsDto {
 
     public long getAverageCostPerTicket() {
         return averageCostPerTicket;
+    }
+
+    public long getBarSubtotal() {
+        return barSubtotal;
+    }
+
+    public long getBarTax() {
+        return barTax;
+    }
+
+    public long getBarTotal() {
+        return barTotal;
     }
 }

@@ -2,10 +2,12 @@ package com.ticketer.dtos;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,6 +24,22 @@ import com.ticketer.models.Settings;
 import com.ticketer.models.Ticket;
 
 public class DtoMapper {
+
+    private static boolean isEffectivelyAvailable(BaseItem item, Map<UUID, BaseItem> allBaseItems) {
+        return isEffectivelyAvailable(item, allBaseItems, new HashSet<>());
+    }
+
+    private static boolean isEffectivelyAvailable(BaseItem item, Map<UUID, BaseItem> allBaseItems, Set<UUID> visited) {
+        if (item == null || !item.isAvailable()) return false;
+        if (!visited.add(item.getId())) return true;
+        if (item.getComponents() != null) {
+            for (CompositeComponent cc : item.getComponents()) {
+                BaseItem sub = allBaseItems.get(cc.getBaseItemId());
+                if (sub != null && !isEffectivelyAvailable(sub, allBaseItems, visited)) return false;
+            }
+        }
+        return true;
+    }
 
     public static SettingsDto toSettingsDto(Settings settings) {
         if (settings == null) return null;
@@ -44,7 +62,7 @@ public class DtoMapper {
                         .map(c -> toCompositeComponentDto(c, allBaseItems))
                         .collect(Collectors.toList());
         return new BaseItemDto(item.getId(), item.getName(), item.getPrice(),
-                item.isAvailable(), item.isKitchen(), components);
+                isEffectivelyAvailable(item, allBaseItems), item.isKitchen(), item.isAlcohol(), components);
     }
 
     public static ItemDto toItemDto(MenuItem menuItem, BaseItem baseItem, List<BaseItem> sideOptions,
@@ -60,8 +78,9 @@ public class DtoMapper {
                 baseItem.getId(),
                 baseItem.getName(),
                 baseItem.getPrice(),
-                baseItem.isAvailable(),
+                isEffectivelyAvailable(baseItem, allBaseItems),
                 baseItem.isKitchen(),
+                baseItem.isAlcohol(),
                 menuItem.getSideSources(),
                 sideOptionDtos,
                 componentDtos);
@@ -74,7 +93,7 @@ public class DtoMapper {
             if (catEntry != null) {
                 options = catEntry.getItems().stream()
                         .map(mi -> menu.getBaseItem(mi.getBaseItemId()))
-                        .filter(item -> item != null && item.isAvailable())
+                        .filter(item -> item != null && isEffectivelyAvailable(item, menu.getBaseItems()))
                         .map(DtoMapper::toBaseItemDto)
                         .collect(Collectors.toList());
             } else {
@@ -95,14 +114,16 @@ public class DtoMapper {
         List<BaseItemDto> components = combo.getComponents().stream()
                 .map(menu.getBaseItems()::get)
                 .filter(Objects::nonNull)
-                .map(DtoMapper::toBaseItemDto)
+                .map(item -> toBaseItemDto(item, menu.getBaseItems()))
                 .collect(Collectors.toList());
         List<ComboSlotDto> slots = combo.getSlots().stream()
                 .map(slot -> toComboSlotDto(slot, menu))
                 .collect(Collectors.toList());
+        boolean available = combo.isAvailable() && combo.getComponents().stream()
+                .allMatch(cid -> isEffectivelyAvailable(menu.getBaseItem(cid), menu.getBaseItems()));
         return new ComboItemDto(
                 combo.getId(), combo.getName(), combo.getCategory(),
-                components, slots, combo.getPrice(), combo.isAvailable(), combo.isKitchen());
+                components, slots, combo.getPrice(), available, combo.isKitchen());
     }
 
     public static CategoryDto toCategoryDto(CategoryEntry entry, Menu menu) {

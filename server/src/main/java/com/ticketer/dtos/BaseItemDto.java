@@ -10,9 +10,10 @@ public record BaseItemDto(
         long price,
         boolean available,
         boolean kitchen,
+        boolean alcohol,
         @JsonInclude(JsonInclude.Include.NON_NULL) List<CompositeComponentDto> components) {
 
     public BaseItemDto(UUID id, String name, long price, boolean available, boolean kitchen) {
-        this(id, name, price, available, kitchen, null);
+        this(id, name, price, available, kitchen, false, null);
     }
 }

@@ -12,6 +12,7 @@ import com.ticketer.models.ComboComponentSnapshot;
 import com.ticketer.models.ComboItem;
 import com.ticketer.models.ComboSlot;
 import com.ticketer.models.ComboSlotSelection;
+import com.ticketer.models.CompositeComponent;
 import com.ticketer.models.Menu;
 import com.ticketer.models.MenuItem;
 import com.ticketer.models.Order;
@@ -21,9 +22,11 @@ import com.ticketer.repositories.MenuRepository;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
@@ -76,10 +79,15 @@ public class MenuService {
     }
 
     public BaseItem createBaseItem(String name, long price, boolean kitchen) {
-        return createBaseItem(name, price, kitchen, null);
+        return createBaseItem(name, price, kitchen, false, null);
     }
 
     public BaseItem createBaseItem(String name, long price, boolean kitchen,
+            List<com.ticketer.models.CompositeComponent> components) {
+        return createBaseItem(name, price, kitchen, false, components);
+    }
+
+    public BaseItem createBaseItem(String name, long price, boolean kitchen, boolean alcohol,
             List<com.ticketer.models.CompositeComponent> components) {
         if (name == null || name.trim().isEmpty())
             throw new InvalidInputException("Name cannot be empty");
@@ -89,7 +97,7 @@ public class MenuService {
         lock.writeLock().lock();
         try {
             UUID id = UUID.randomUUID();
-            BaseItem item = new BaseItem(id, name.trim(), price, true, kitchen, components);
+            BaseItem item = new BaseItem(id, name.trim(), price, true, kitchen, alcohol, components);
             currentMenu.addBaseItem(item);
             menuRepository.saveMenu(currentMenu);
             return item;
@@ -124,6 +132,27 @@ public class MenuService {
         lock.writeLock().lock();
         try {
             requireBaseItem(id).setKitchen(kitchen);
+            menuRepository.saveMenu(currentMenu);
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public void updateBaseItemAlcohol(UUID id, boolean alcohol) {
+        lock.writeLock().lock();
+        try {
+            requireBaseItem(id).setAlcohol(alcohol);
+            menuRepository.saveMenu(currentMenu);
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public void updateBaseItemComponents(UUID id, List<CompositeComponent> components) {
+        lock.writeLock().lock();
+        try {
+            BaseItem item = requireBaseItem(id);
+            item.setComponents(components != null && !components.isEmpty() ? components : null);
             menuRepository.saveMenu(currentMenu);
         } finally {
             lock.writeLock().unlock();
@@ -375,7 +404,7 @@ public class MenuService {
         lock.readLock().lock();
         try {
             BaseItem baseItem = requireBaseItem(menuItemId);
-            if (!baseItem.isAvailable())
+            if (!isEffectivelyAvailable(menuItemId))
                 throw new InvalidInputException("Item is not available: " + baseItem.getName());
 
             UUID sideId = null;
@@ -388,7 +417,7 @@ public class MenuService {
                 sidePrice = sideItem.getPrice();
             }
             return OrderItem.forItem(menuItemId, baseItem.getName(), sideId, sideName,
-                    baseItem.getPrice(), sidePrice);
+                    baseItem.getPrice(), sidePrice, baseItem.isAlcohol());
         } finally {
             lock.readLock().unlock();
         }
@@ -399,6 +428,14 @@ public class MenuService {
         try {
             ComboItem combo = currentMenu.getCombo(comboId);
             if (combo == null) throw new EntityNotFoundException("Combo not found: " + comboId);
+            if (!combo.isAvailable())
+                throw new InvalidInputException("Combo is not available: " + combo.getName());
+            for (UUID cid : combo.getComponents()) {
+                if (!isEffectivelyAvailable(cid)) {
+                    BaseItem ci = currentMenu.getBaseItem(cid);
+                    throw new InvalidInputException("Item is not available: " + (ci != null ? ci.getName() : cid));
+                }
+            }
 
             List<ComboComponentSnapshot> components = combo.getComponents().stream()
                     .map(cid -> {
@@ -468,7 +505,7 @@ public class MenuService {
     public KitchenTicketDto getKitchenDetails(Ticket ticket) {
         lock.readLock().lock();
         try {
-            Map<String, Integer> tally = new LinkedHashMap<>();
+            Map<String, Double> tally = new LinkedHashMap<>();
             List<KitchenOrderGroupDto> kitchenOrders = new ArrayList<>();
 
             for (Order order : ticket.getOrders()) {
@@ -497,17 +534,13 @@ public class MenuService {
         }
     }
 
-    private void addToTally(Map<String, Integer> tally, OrderItem item) {
+    private void addToTally(Map<String, Double> tally, OrderItem item) {
         if (item.isCombo()) {
-            ComboItem combo = currentMenu.getCombo(item.getComboId());
-            if (combo != null && combo.isKitchen()) {
-                tally.merge(item.getName(), 1, Integer::sum);
-            }
             if (item.getComponents() != null) {
                 for (ComboComponentSnapshot comp : item.getComponents()) {
                     BaseItem bi = currentMenu.getBaseItem(comp.getBaseItemId());
                     if (bi != null && bi.isKitchen()) {
-                        tally.merge(comp.getName(), 1, Integer::sum);
+                        addBaseItemToTally(tally, bi, comp.getName());
                     }
                 }
             }
@@ -515,21 +548,38 @@ public class MenuService {
                 for (ComboSlotSelection sel : item.getSlotSelections()) {
                     BaseItem bi = currentMenu.getBaseItem(sel.getSelectedBaseItemId());
                     if (bi != null && bi.isKitchen()) {
-                        tally.merge(sel.getSelectedName(), 1, Integer::sum);
+                        addBaseItemToTally(tally, bi, sel.getSelectedName());
                     }
                 }
             }
         } else {
             BaseItem bi = currentMenu.getBaseItem(item.getMenuItemId());
             if (bi != null && bi.isKitchen()) {
-                tally.merge(item.getName(), 1, Integer::sum);
+                addBaseItemToTally(tally, bi, item.getName());
             }
             if (item.getSelectedSideId() != null) {
                 BaseItem side = currentMenu.getBaseItem(item.getSelectedSideId());
                 if (side != null && side.isKitchen() && item.getSelectedSide() != null) {
-                    tally.merge(item.getSelectedSide(), 1, Integer::sum);
+                    addBaseItemToTally(tally, side, item.getSelectedSide());
                 }
             }
+        }
+    }
+
+    private void addBaseItemToTally(Map<String, Double> tally, BaseItem bi, String snapshotName) {
+        addBaseItemToTally(tally, bi, snapshotName, 1.0);
+    }
+
+    private void addBaseItemToTally(Map<String, Double> tally, BaseItem bi, String snapshotName, double multiplier) {
+        if (bi.getComponents() != null && !bi.getComponents().isEmpty()) {
+            for (CompositeComponent cc : bi.getComponents()) {
+                BaseItem sub = currentMenu.getBaseItem(cc.getBaseItemId());
+                if (sub != null) {
+                    addBaseItemToTally(tally, sub, sub.getName(), multiplier * cc.getQuantity());
+                }
+            }
+        } else {
+            tally.merge(snapshotName, multiplier, Double::sum);
         }
     }
 
@@ -537,7 +587,7 @@ public class MenuService {
         List<KitchenItemDto> groupItems = new ArrayList<>();
         Map<String, Integer> groupCounts = new LinkedHashMap<>();
         Map<String, String> groupSide = new LinkedHashMap<>();
-        Map<String, List<String>> groupSlotNames = new LinkedHashMap<>();
+        Map<String, String> groupComboDisplayName = new LinkedHashMap<>();
         Map<String, Boolean> groupIsCombo = new LinkedHashMap<>();
 
         for (OrderItem item : order.getItems()) {
@@ -545,8 +595,7 @@ public class MenuService {
 
             if (item.getComment() != null && !item.getComment().trim().isEmpty()) {
                 if (item.isCombo()) {
-                    List<String> slotNames = slotSelectionNames(item);
-                    groupItems.add(new KitchenItemDto(item.getName(), null, 1, item.getComment(), slotNames));
+                    groupItems.add(new KitchenItemDto(buildComboKitchenDisplayName(item), null, 1, item.getComment(), null));
                 } else {
                     groupItems.add(new KitchenItemDto(item.getName(), item.getSelectedSide(), 1, item.getComment(), null));
                 }
@@ -557,7 +606,7 @@ public class MenuService {
                 String slotKey = buildSlotKey(item);
                 String groupKey = "combo|" + item.getName() + "|" + slotKey;
                 groupCounts.merge(groupKey, 1, Integer::sum);
-                groupSlotNames.putIfAbsent(groupKey, slotSelectionNames(item));
+                groupComboDisplayName.putIfAbsent(groupKey, buildComboKitchenDisplayName(item));
                 groupIsCombo.put(groupKey, true);
             } else {
                 String side = item.getSelectedSide() != null ? item.getSelectedSide() : "";
@@ -574,7 +623,7 @@ public class MenuService {
             String[] parts = key.split("\\|", 3);
             String name = parts.length > 1 ? parts[1] : key;
             if (Boolean.TRUE.equals(groupIsCombo.get(key))) {
-                groupItems.add(new KitchenItemDto(name, null, count, null, groupSlotNames.get(key)));
+                groupItems.add(new KitchenItemDto(groupComboDisplayName.get(key), null, count, null, null));
             } else {
                 groupItems.add(new KitchenItemDto(name, groupSide.get(key), count, null, null));
             }
@@ -583,18 +632,63 @@ public class MenuService {
         return groupItems;
     }
 
+    private String buildComboKitchenDisplayName(OrderItem item) {
+        List<String> kitchenParts = new ArrayList<>();
+        if (item.getComponents() != null) {
+            for (ComboComponentSnapshot comp : item.getComponents()) {
+                BaseItem bi = currentMenu.getBaseItem(comp.getBaseItemId());
+                if (bi != null && bi.isKitchen()) {
+                    kitchenParts.add(comp.getName());
+                }
+            }
+        }
+        if (item.getSlotSelections() != null) {
+            for (ComboSlotSelection sel : item.getSlotSelections()) {
+                BaseItem bi = currentMenu.getBaseItem(sel.getSelectedBaseItemId());
+                if (bi != null && bi.isKitchen()) {
+                    kitchenParts.add(sel.getSelectedName());
+                }
+            }
+        }
+        if (!kitchenParts.isEmpty()) {
+            return String.join(" + ", kitchenParts);
+        }
+        List<String> allParts = new ArrayList<>();
+        if (item.getComponents() != null) {
+            item.getComponents().forEach(c -> allParts.add(c.getName()));
+        }
+        if (item.getSlotSelections() != null) {
+            item.getSlotSelections().forEach(s -> allParts.add(s.getSelectedName()));
+        }
+        return allParts.isEmpty() ? item.getName() : String.join(" + ", allParts);
+    }
+
     private String buildSlotKey(OrderItem item) {
         if (item.getSlotSelections() == null) return "";
         return item.getSlotSelections().stream()
+                .filter(s -> {
+                    BaseItem bi = currentMenu.getBaseItem(s.getSelectedBaseItemId());
+                    return bi != null && bi.isKitchen();
+                })
                 .map(s -> s.getSlotId() + ":" + s.getSelectedBaseItemId())
                 .collect(Collectors.joining(","));
     }
 
-    private List<String> slotSelectionNames(OrderItem item) {
-        if (item.getSlotSelections() == null) return null;
-        return item.getSlotSelections().stream()
-                .map(ComboSlotSelection::getSelectedName)
-                .collect(Collectors.toList());
+
+    private boolean isEffectivelyAvailable(UUID id) {
+        return isEffectivelyAvailable(id, new HashSet<>());
+    }
+
+    private boolean isEffectivelyAvailable(UUID id, Set<UUID> visited) {
+        if (!visited.add(id)) return true;
+        BaseItem item = currentMenu.getBaseItem(id);
+        if (item == null || !item.isAvailable()) return false;
+        if (item.getComponents() != null) {
+            for (CompositeComponent cc : item.getComponents()) {
+                if (!isEffectivelyAvailable(cc.getBaseItemId(), visited)) return false;
+            }
+        }
+        return true;
     }
 
     private BaseItem requireBaseItem(UUID id) {

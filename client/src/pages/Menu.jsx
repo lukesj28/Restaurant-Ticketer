@@ -41,7 +41,7 @@ const Menu = () => {
 
     // Edit Form State
     const [editForm, setEditForm] = useState({
-        price: '', available: true, name: '', category: '', kitchen: false, sideSources: []
+        price: '', available: true, name: '', category: '', kitchen: false, alcohol: false, sideSources: [], editComponents: []
     });
 
     const [editingCategory, setEditingCategory] = useState(null);
@@ -50,6 +50,7 @@ const Menu = () => {
 
     // Kitchen Item State (for create modal)
     const [isKitchenItem, setIsKitchenItem] = useState(false);
+    const [isAlcoholItem, setIsAlcoholItem] = useState(false);
 
     // Confirmation Modal State
     const [confirmationModal, setConfirmationModal] = useState({
@@ -121,9 +122,14 @@ const Menu = () => {
             price: (item.price / 100).toFixed(2),
             available: item.available,
             kitchen: item.kitchen || false,
+            alcohol: item.alcohol || false,
             name: item.name,
             category: categoryName,
             sideSources: item.sideSources ? [...item.sideSources] : [],
+            editComponents: (item.components || []).map(c => ({
+                baseItemId: c.baseItemId,
+                quantity: c.quantity,
+            })),
         });
         setIsEditModalOpen(true);
     };
@@ -321,6 +327,8 @@ const Menu = () => {
                 ops.push(api.put(`/menu/items/${itemId}/availability`, { available: editForm.available }));
             if (editForm.kitchen !== (editItem.kitchen || false))
                 ops.push(api.put(`/menu/items/${itemId}/kitchen`, { kitchen: editForm.kitchen }));
+            if (editForm.alcohol !== (editItem.alcohol || false))
+                ops.push(api.put(`/menu/items/${itemId}/alcohol`, { alcohol: editForm.alcohol }));
             if (editForm.name !== editItem.name)
                 ops.push(api.put(`/menu/items/${itemId}/rename`, { newName: editForm.name }));
 
@@ -337,6 +345,15 @@ const Menu = () => {
             const newSources = [...(editForm.sideSources || [])].sort();
             if (JSON.stringify(originalSources) !== JSON.stringify(newSources)) {
                 await api.put(`/menu/categories/${encodeURIComponent(currentCategory)}/items/${itemId}/side-sources`, { sideSources: editForm.sideSources });
+            }
+
+            // Components change
+            const originalComponents = JSON.stringify((editItem.components || []).map(c => ({ baseItemId: c.baseItemId, quantity: c.quantity })));
+            const newComponentsList = (editForm.editComponents || [])
+                .filter(c => c.baseItemId)
+                .map(c => ({ baseItemId: c.baseItemId, quantity: parseFloat(c.quantity) || 1 }));
+            if (originalComponents !== JSON.stringify(newComponentsList)) {
+                await api.put(`/menu/items/${itemId}/components`, { components: newComponentsList });
             }
 
             setIsEditModalOpen(false);
@@ -361,12 +378,14 @@ const Menu = () => {
                 category: newItem.category,
                 price: Math.round(parseFloat(newItem.price) * 100),
                 kitchen: isKitchenItem,
+                alcohol: isAlcoholItem,
                 sideSources: newItemSideSources,
                 components,
             });
             setIsCreateModalOpen(false);
             setNewItem({ name: '', category: '', price: '' });
             setIsKitchenItem(false);
+            setIsAlcoholItem(false);
             setIsCreatingNewCategory(false);
             setNewItemSideSources([]);
             setIsComposite(false);
@@ -529,6 +548,7 @@ const Menu = () => {
                         setIsCreateModalOpen(true);
                         setIsCreatingNewCategory(false);
                         setIsKitchenItem(false);
+                        setIsAlcoholItem(false);
                         setNewItemSideSources([]);
                     }}>+ Add Item</Button>
                 </div>
@@ -648,6 +668,16 @@ const Menu = () => {
                         Kitchen Item
                     </label>
                 </div>
+                <div className="form-group checkbox-group">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={editForm.alcohol || false}
+                            onChange={e => setEditForm({ ...editForm, alcohol: e.target.checked })}
+                        />
+                        Alcohol
+                    </label>
+                </div>
                 {categoryOrder.length > 0 && (
                     <div className="form-group">
                         <label>Side Sources</label>
@@ -665,6 +695,39 @@ const Menu = () => {
                         </div>
                     </div>
                 )}
+                <div className="form-group">
+                    <label>Composite Components</label>
+                    {(editForm.editComponents || []).map((comp, idx) => (
+                        <div key={idx} className="composite-component-row">
+                            <select
+                                value={comp.baseItemId}
+                                onChange={e => setEditForm(f => ({ ...f, editComponents: f.editComponents.map((c, i) => i === idx ? { ...c, baseItemId: e.target.value } : c) }))}
+                                className="form-select"
+                            >
+                                <option value="">Select item...</option>
+                                {baseItems.map(bi => (
+                                    <option key={bi.id} value={bi.id}>{bi.name}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="number"
+                                step="0.25"
+                                min="0.25"
+                                value={comp.quantity}
+                                onChange={e => setEditForm(f => ({ ...f, editComponents: f.editComponents.map((c, i) => i === idx ? { ...c, quantity: e.target.value } : c) }))}
+                                className="composite-quantity-input"
+                                placeholder="Qty"
+                            />
+                            <button type="button" className="slot-remove-btn"
+                                onClick={() => setEditForm(f => ({ ...f, editComponents: f.editComponents.filter((_, i) => i !== idx) }))}>✕</button>
+                        </div>
+                    ))}
+                    <Button type="button" variant="secondary"
+                        onClick={() => setEditForm(f => ({ ...f, editComponents: [...(f.editComponents || []), { baseItemId: '', quantity: 1 }] }))}
+                        style={{ marginTop: 'var(--spacing-xs)', padding: '4px 10px', fontSize: '0.85rem' }}>
+                        + Add Component
+                    </Button>
+                </div>
             </Modal>
 
             {/* Category Edit Modal */}
@@ -784,6 +847,16 @@ const Menu = () => {
                                 onChange={e => setIsKitchenItem(e.target.checked)}
                             />
                             Kitchen Item
+                        </label>
+                    </div>
+                    <div className="form-group checkbox-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={isAlcoholItem}
+                                onChange={e => setIsAlcoholItem(e.target.checked)}
+                            />
+                            Alcohol
                         </label>
                     </div>
                     {categoryOrder.length > 0 && (

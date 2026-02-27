@@ -49,16 +49,14 @@ public class MenuController {
     public ApiResponse<MenuDto> createItem(@RequestBody Requests.ItemCreateRequest request) {
         logger.info("Received request to create item: {} in category: {}", request.name(), request.category());
         boolean kitchen = request.kitchen() != null && request.kitchen();
-        BaseItem item;
-        if (request.components() != null && !request.components().isEmpty()) {
-            List<CompositeComponent> components = request.components().stream()
-                    .filter(c -> c.baseItemId() != null)
-                    .map(c -> new CompositeComponent(c.baseItemId(), c.quantity()))
-                    .collect(Collectors.toList());
-            item = menuService.createBaseItem(request.name(), request.price(), kitchen, components);
-        } else {
-            item = menuService.createBaseItem(request.name(), request.price(), kitchen);
-        }
+        boolean alcohol = request.alcohol() != null && request.alcohol();
+        List<CompositeComponent> components = (request.components() != null && !request.components().isEmpty())
+                ? request.components().stream()
+                        .filter(c -> c.baseItemId() != null)
+                        .map(c -> new CompositeComponent(c.baseItemId(), c.quantity()))
+                        .collect(Collectors.toList())
+                : null;
+        BaseItem item = menuService.createBaseItem(request.name(), request.price(), kitchen, alcohol, components);
         menuService.addMenuItemToCategory(request.category(), item.getId(), request.sideSources());
         return getMenu();
     }
@@ -89,10 +87,29 @@ public class MenuController {
         return getMenu();
     }
 
+    @PutMapping("/items/{id}/alcohol")
+    public ApiResponse<MenuDto> updateItemAlcohol(@PathVariable UUID id,
+            @RequestBody Requests.ItemAlcoholUpdateRequest request) {
+        menuService.updateBaseItemAlcohol(id, request.alcohol());
+        return getMenu();
+    }
+
     @PutMapping("/items/{id}/rename")
     public ApiResponse<MenuDto> renameItem(@PathVariable UUID id,
             @RequestBody Requests.ItemRenameRequest request) {
         menuService.renameBaseItem(id, request.newName());
+        return getMenu();
+    }
+
+    @PutMapping("/items/{id}/components")
+    public ApiResponse<MenuDto> updateItemComponents(@PathVariable UUID id,
+            @RequestBody Requests.ItemComponentsUpdateRequest request) {
+        List<CompositeComponent> components = request.components() == null ? null :
+            request.components().stream()
+                .filter(c -> c.baseItemId() != null)
+                .map(c -> new CompositeComponent(c.baseItemId(), c.quantity()))
+                .collect(Collectors.toList());
+        menuService.updateBaseItemComponents(id, components);
         return getMenu();
     }
 
