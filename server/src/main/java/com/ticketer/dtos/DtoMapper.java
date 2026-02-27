@@ -1,5 +1,7 @@
 package com.ticketer.dtos;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +13,7 @@ import com.ticketer.models.BaseItem;
 import com.ticketer.models.CategoryEntry;
 import com.ticketer.models.ComboItem;
 import com.ticketer.models.ComboSlot;
+import com.ticketer.models.CompositeComponent;
 import com.ticketer.models.Menu;
 import com.ticketer.models.MenuItem;
 import com.ticketer.models.Order;
@@ -25,14 +28,34 @@ public class DtoMapper {
         return new SettingsDto(settings.getTax(), settings.getHours());
     }
 
-    public static BaseItemDto toBaseItemDto(BaseItem item) {
-        return new BaseItemDto(item.getId(), item.getName(), item.getPrice(),
-                item.isAvailable(), item.isKitchen());
+    public static CompositeComponentDto toCompositeComponentDto(CompositeComponent comp, Map<UUID, BaseItem> allBaseItems) {
+        BaseItem item = allBaseItems.get(comp.getBaseItemId());
+        return new CompositeComponentDto(comp.getBaseItemId(), item != null ? item.getName() : "Unknown", comp.getQuantity());
     }
 
-    public static ItemDto toItemDto(MenuItem menuItem, BaseItem baseItem, List<BaseItem> sideOptions) {
+    public static BaseItemDto toBaseItemDto(BaseItem item) {
+        return toBaseItemDto(item, Collections.emptyMap());
+    }
+
+    public static BaseItemDto toBaseItemDto(BaseItem item, Map<UUID, BaseItem> allBaseItems) {
+        List<CompositeComponentDto> components = (item.getComponents() == null || item.getComponents().isEmpty())
+                ? null
+                : item.getComponents().stream()
+                        .map(c -> toCompositeComponentDto(c, allBaseItems))
+                        .collect(Collectors.toList());
+        return new BaseItemDto(item.getId(), item.getName(), item.getPrice(),
+                item.isAvailable(), item.isKitchen(), components);
+    }
+
+    public static ItemDto toItemDto(MenuItem menuItem, BaseItem baseItem, List<BaseItem> sideOptions,
+            Map<UUID, BaseItem> allBaseItems) {
         List<BaseItemDto> sideOptionDtos = sideOptions == null ? null
                 : sideOptions.stream().map(DtoMapper::toBaseItemDto).collect(Collectors.toList());
+        List<CompositeComponentDto> componentDtos = (baseItem.getComponents() == null || baseItem.getComponents().isEmpty())
+                ? null
+                : baseItem.getComponents().stream()
+                        .map(c -> toCompositeComponentDto(c, allBaseItems))
+                        .collect(Collectors.toList());
         return new ItemDto(
                 baseItem.getId(),
                 baseItem.getName(),
@@ -40,27 +63,42 @@ public class DtoMapper {
                 baseItem.isAvailable(),
                 baseItem.isKitchen(),
                 menuItem.getSideSources(),
-                sideOptionDtos);
+                sideOptionDtos,
+                componentDtos);
     }
 
-    public static ComboSlotDto toComboSlotDto(ComboSlot slot, Map<UUID, BaseItem> baseItems) {
-        List<BaseItemDto> options = slot.getOptionOrder().stream()
-                .map(baseItems::get)
-                .filter(Objects::nonNull)
-                .map(DtoMapper::toBaseItemDto)
-                .collect(Collectors.toList());
+    public static ComboSlotDto toComboSlotDto(ComboSlot slot, Menu menu) {
+        List<BaseItemDto> options;
+        if (slot.getCategorySource() != null) {
+            CategoryEntry catEntry = menu.getCategory(slot.getCategorySource());
+            if (catEntry != null) {
+                options = catEntry.getItems().stream()
+                        .map(mi -> menu.getBaseItem(mi.getBaseItemId()))
+                        .filter(item -> item != null && item.isAvailable())
+                        .map(DtoMapper::toBaseItemDto)
+                        .collect(Collectors.toList());
+            } else {
+                options = new ArrayList<>();
+            }
+        } else {
+            options = slot.getOptionOrder().stream()
+                    .map(menu.getBaseItems()::get)
+                    .filter(Objects::nonNull)
+                    .map(DtoMapper::toBaseItemDto)
+                    .collect(Collectors.toList());
+        }
         return new ComboSlotDto(slot.getId(), slot.getName(), options, slot.getOptionOrder(),
-                slot.isRequired());
+                slot.isRequired(), slot.getCategorySource());
     }
 
-    public static ComboItemDto toComboItemDto(ComboItem combo, Map<UUID, BaseItem> baseItems) {
+    public static ComboItemDto toComboItemDto(ComboItem combo, Menu menu) {
         List<BaseItemDto> components = combo.getComponents().stream()
-                .map(baseItems::get)
+                .map(menu.getBaseItems()::get)
                 .filter(Objects::nonNull)
                 .map(DtoMapper::toBaseItemDto)
                 .collect(Collectors.toList());
         List<ComboSlotDto> slots = combo.getSlots().stream()
-                .map(slot -> toComboSlotDto(slot, baseItems))
+                .map(slot -> toComboSlotDto(slot, menu))
                 .collect(Collectors.toList());
         return new ComboItemDto(
                 combo.getId(), combo.getName(), combo.getCategory(),
@@ -73,7 +111,7 @@ public class DtoMapper {
                     BaseItem baseItem = menu.getBaseItem(menuItem.getBaseItemId());
                     if (baseItem == null) return null;
                     List<BaseItem> sideOptions = menu.getSideOptions(menuItem.getSideSources());
-                    return toItemDto(menuItem, baseItem, sideOptions);
+                    return toItemDto(menuItem, baseItem, sideOptions, menu.getBaseItems());
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
@@ -82,7 +120,7 @@ public class DtoMapper {
 
     public static MenuDto toMenuDto(Menu menu) {
         List<BaseItemDto> baseItemDtos = menu.getBaseItems().values().stream()
-                .map(DtoMapper::toBaseItemDto)
+                .map(item -> toBaseItemDto(item, menu.getBaseItems()))
                 .collect(Collectors.toList());
 
         Map<String, CategoryDto> catDtos = new LinkedHashMap<>();
@@ -91,7 +129,7 @@ public class DtoMapper {
         }
 
         List<ComboItemDto> comboDtos = menu.getCombos().values().stream()
-                .map(combo -> toComboItemDto(combo, menu.getBaseItems()))
+                .map(combo -> toComboItemDto(combo, menu))
                 .collect(Collectors.toList());
 
         return new MenuDto(baseItemDtos, catDtos, comboDtos, menu.getCategoryOrder());

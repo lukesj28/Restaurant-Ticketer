@@ -5,8 +5,11 @@ import java.util.UUID;
 
 public class Requests {
 
+    public record CompositeComponentRequest(UUID baseItemId, double quantity) {
+    }
+
     public record ItemCreateRequest(String category, String name, long price, Boolean kitchen,
-            List<String> sideSources) {
+            List<String> sideSources, List<CompositeComponentRequest> components) {
     }
 
     public record ItemPriceUpdateRequest(long newPrice) {
@@ -38,7 +41,8 @@ public class Requests {
     public record ItemReorderRequest(List<UUID> order) {
     }
 
-    public record ComboSlotRequest(UUID id, String name, List<UUID> optionIds, Boolean required) {
+    public record ComboSlotRequest(UUID id, String name, List<UUID> optionIds, Boolean required,
+            String categorySource) {
     }
 
     public record CreateComboRequest(String name, String category,

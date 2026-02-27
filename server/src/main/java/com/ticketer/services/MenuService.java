@@ -76,6 +76,11 @@ public class MenuService {
     }
 
     public BaseItem createBaseItem(String name, long price, boolean kitchen) {
+        return createBaseItem(name, price, kitchen, null);
+    }
+
+    public BaseItem createBaseItem(String name, long price, boolean kitchen,
+            List<com.ticketer.models.CompositeComponent> components) {
         if (name == null || name.trim().isEmpty())
             throw new InvalidInputException("Name cannot be empty");
         if (price < 0)
@@ -84,7 +89,7 @@ public class MenuService {
         lock.writeLock().lock();
         try {
             UUID id = UUID.randomUUID();
-            BaseItem item = new BaseItem(id, name.trim(), price, true, kitchen);
+            BaseItem item = new BaseItem(id, name.trim(), price, true, kitchen, components);
             currentMenu.addBaseItem(item);
             menuRepository.saveMenu(currentMenu);
             return item;
@@ -325,7 +330,7 @@ public class MenuService {
                     for (UUID oid : options) requireBaseItem(oid);
                     boolean required = sr.required() != null && sr.required();
                     slots.add(new ComboSlot(slotId, sr.name(), new ArrayList<>(options),
-                            new ArrayList<>(options), required));
+                            new ArrayList<>(options), required, sr.categorySource()));
                 }
             }
             UUID id = UUID.randomUUID();

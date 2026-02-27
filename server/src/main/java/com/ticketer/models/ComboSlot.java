@@ -12,6 +12,7 @@ public class ComboSlot {
     private List<UUID> options;
     private List<UUID> optionOrder;
     private boolean required;
+    private String categorySource;
 
     @JsonCreator
     public ComboSlot(
@@ -19,12 +20,18 @@ public class ComboSlot {
             @JsonProperty("name") String name,
             @JsonProperty("options") List<UUID> options,
             @JsonProperty("optionOrder") List<UUID> optionOrder,
-            @JsonProperty("required") boolean required) {
+            @JsonProperty("required") boolean required,
+            @JsonProperty("categorySource") String categorySource) {
         this.id = id;
         this.name = name;
         this.options = options != null ? options : new ArrayList<>();
         this.optionOrder = optionOrder != null ? optionOrder : new ArrayList<>(this.options);
         this.required = required;
+        this.categorySource = categorySource;
+    }
+
+    public ComboSlot(UUID id, String name, List<UUID> options, List<UUID> optionOrder, boolean required) {
+        this(id, name, options, optionOrder, required, null);
     }
 
     public UUID getId() { return id; }
@@ -44,4 +51,8 @@ public class ComboSlot {
     public boolean isRequired() { return required; }
 
     public void setRequired(boolean required) { this.required = required; }
+
+    public String getCategorySource() { return categorySource; }
+
+    public void setCategorySource(String categorySource) { this.categorySource = categorySource; }
 }

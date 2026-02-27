@@ -2,6 +2,7 @@ package com.ticketer.models;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import java.util.UUID;
 
 public class BaseItem {
@@ -10,6 +11,7 @@ public class BaseItem {
     private long price;
     private boolean available;
     private boolean kitchen;
+    private List<CompositeComponent> components;
 
     @JsonCreator
     public BaseItem(
@@ -17,12 +19,18 @@ public class BaseItem {
             @JsonProperty("name") String name,
             @JsonProperty("price") long price,
             @JsonProperty("available") boolean available,
-            @JsonProperty("kitchen") boolean kitchen) {
+            @JsonProperty("kitchen") boolean kitchen,
+            @JsonProperty("components") List<CompositeComponent> components) {
         this.id = id;
         this.name = name;
         this.price = price;
         this.available = available;
         this.kitchen = kitchen;
+        this.components = components;
+    }
+
+    public BaseItem(UUID id, String name, long price, boolean available, boolean kitchen) {
+        this(id, name, price, available, kitchen, null);
     }
 
     public BaseItem(BaseItem other) {
@@ -31,6 +39,7 @@ public class BaseItem {
         this.price = other.price;
         this.available = other.available;
         this.kitchen = other.kitchen;
+        this.components = other.components;
     }
 
     public UUID getId() { return id; }
@@ -50,4 +59,8 @@ public class BaseItem {
     public boolean isKitchen() { return kitchen; }
 
     public void setKitchen(boolean kitchen) { this.kitchen = kitchen; }
+
+    public List<CompositeComponent> getComponents() { return components; }
+
+    public void setComponents(List<CompositeComponent> components) { this.components = components; }
 }

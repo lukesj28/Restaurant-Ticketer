@@ -92,7 +92,6 @@ const TicketDetail = () => {
     const [itemView, setItemView] = useState(false);
     const hasInitializedView = React.useRef(false);
     const [combos, setCombos] = useState([]);
-    const [menuTab, setMenuTab] = useState('items');
     const [selectedCombo, setSelectedCombo] = useState(null);
     const [comboSlotSelections, setComboSlotSelections] = useState({});
 
@@ -127,7 +126,12 @@ const TicketDetail = () => {
             const menuData = await api.get('/menu');
             const cats = {};
             for (const [name, cat] of Object.entries(menuData.categories || {})) {
-                cats[name] = cat.items || [];
+                cats[name] = (cat.items || []).map(i => ({ entryType: 'ITEM', ...i }));
+            }
+            for (const combo of menuData.combos || []) {
+                if (combo.category && cats[combo.category]) {
+                    cats[combo.category].push({ entryType: 'COMBO', ...combo });
+                }
             }
             setMenu(cats);
             setCategoryOrder(menuData.categoryOrder || []);
@@ -693,24 +697,41 @@ const TicketDetail = () => {
         }
     };
 
-    const renderItemGrid = (items) => (
+    const renderItemGrid = (entries) => (
         <div className="menu-items-grid">
-            {items.map(item => (
-                <button
-                    key={item.baseItemId}
-                    className={`menu-item-btn ${!item.available ? 'unavailable' : ''}`}
-                    disabled={!item.available}
-                    onClick={() => handleItemClick(item)}
-                >
-                    <div className="item-name">{item.name}</div>
-                    <div className="item-price">${(item.price / 100).toFixed(2)}</div>
-                </button>
-            ))}
+            {entries.map(entry => {
+                if (entry.entryType === 'COMBO') {
+                    return (
+                        <button
+                            key={entry.id}
+                            className={`menu-item-btn menu-item-btn-combo ${!entry.available ? 'unavailable' : ''}`}
+                            disabled={!entry.available}
+                            onClick={() => handleComboClick(entry)}
+                        >
+                            <div className="item-name">{entry.name}</div>
+                            <div className="item-price">
+                                {entry.price != null ? `$${(entry.price / 100).toFixed(2)}` : 'Combo'}
+                            </div>
+                        </button>
+                    );
+                }
+                return (
+                    <button
+                        key={entry.baseItemId}
+                        className={`menu-item-btn ${!entry.available ? 'unavailable' : ''}`}
+                        disabled={!entry.available}
+                        onClick={() => handleItemClick(entry)}
+                    >
+                        <div className="item-name">{entry.name}</div>
+                        <div className="item-price">${(entry.price / 100).toFixed(2)}</div>
+                    </button>
+                );
+            })}
         </div>
     );
 
     const searchTerm = menuSearch.trim().toLowerCase();
-    const isSearching = searchTerm.length > 0 && !selectedItemForSides;
+    const isSearching = searchTerm.length > 0 && !selectedItemForSides && !selectedCombo;
 
     const renderMenuModalContent = () => {
         if (selectedItemForSides) {
@@ -810,71 +831,30 @@ const TicketDetail = () => {
             );
         }
 
-        const availableCombos = combos.filter(c => c.available);
-
         return (
-            <>
-                <div className="menu-tabs">
-                    <button
-                        className={`menu-tab ${menuTab === 'items' ? 'menu-tab-active' : ''}`}
-                        onClick={() => setMenuTab('items')}
-                    >Items</button>
-                    <button
-                        className={`menu-tab ${menuTab === 'combos' ? 'menu-tab-active' : ''}`}
-                        onClick={() => setMenuTab('combos')}
-                    >Combos{availableCombos.length > 0 ? ` (${availableCombos.length})` : ''}</button>
-                </div>
-                {menuTab === 'items' ? (
-                    isSearching ? (
-                        <div className="menu-scroll-content">
-                            {sortedCategories.map(([category, items]) => {
-                                const filtered = items.filter(item =>
-                                    item.name.toLowerCase().includes(searchTerm)
-                                );
-                                if (filtered.length === 0) return null;
-                                return (
-                                    <div key={category} className="menu-section">
-                                        <div className="menu-section-title">{category}</div>
-                                        {renderItemGrid(filtered)}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="menu-scroll-content">
-                            {sortedCategories.map(([category, items]) => (
-                                <div key={category} className="menu-section">
-                                    <div className="menu-section-title">{category}</div>
-                                    {renderItemGrid(items)}
-                                </div>
-                            ))}
-                        </div>
-                    )
-                ) : (
-                    <div className="menu-scroll-content">
-                        {availableCombos.length === 0 ? (
-                            <div className="menu-empty">No combos available.</div>
-                        ) : (
-                            <div className="menu-items-grid">
-                                {availableCombos.map(combo => (
-                                    <button
-                                        key={combo.id}
-                                        className="menu-item-btn"
-                                        onClick={() => handleComboClick(combo)}
-                                    >
-                                        <div className="item-name">{combo.name}</div>
-                                        <div className="item-price">
-                                            {combo.price != null
-                                                ? `$${(combo.price / 100).toFixed(2)}`
-                                                : 'See details'}
-                                        </div>
-                                    </button>
-                                ))}
+            <div className="menu-scroll-content">
+                {isSearching ? (
+                    sortedCategories.map(([category, entries]) => {
+                        const filtered = entries.filter(entry =>
+                            entry.name.toLowerCase().includes(searchTerm)
+                        );
+                        if (filtered.length === 0) return null;
+                        return (
+                            <div key={category} className="menu-section">
+                                <div className="menu-section-title">{category}</div>
+                                {renderItemGrid(filtered)}
                             </div>
-                        )}
-                    </div>
+                        );
+                    })
+                ) : (
+                    sortedCategories.map(([category, entries]) => (
+                        <div key={category} className="menu-section">
+                            <div className="menu-section-title">{category}</div>
+                            {renderItemGrid(entries)}
+                        </div>
+                    ))
                 )}
-            </>
+            </div>
         );
     };
 
@@ -909,7 +889,7 @@ const TicketDetail = () => {
             className="modal-large"
         >
             <div className="menu-modal-inner">
-                {!selectedItemForSides && !selectedCombo && menuTab === 'items' && (
+                {!selectedItemForSides && !selectedCombo && (
                     <div className="menu-search-bar">
                         <input
                             type="text"

@@ -74,6 +74,10 @@ const Menu = () => {
     const [editComboData, setEditComboData] = useState(null);
     const [editComboForm, setEditComboForm] = useState({ name: '', price: '', available: true, kitchen: false });
 
+    // Composite item state
+    const [isComposite, setIsComposite] = useState(false);
+    const [compositeComponents, setCompositeComponents] = useState([{ baseItemId: '', quantity: 1 }]);
+
     // DnD Sensors
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -346,18 +350,27 @@ const Menu = () => {
     const handleCreateItem = async (e) => {
         e.preventDefault();
         try {
+            const components = isComposite
+                ? compositeComponents.filter(c => c.baseItemId).map(c => ({
+                    baseItemId: c.baseItemId,
+                    quantity: parseFloat(c.quantity) || 1,
+                }))
+                : null;
             await api.post('/menu/items', {
                 name: newItem.name,
                 category: newItem.category,
                 price: Math.round(parseFloat(newItem.price) * 100),
                 kitchen: isKitchenItem,
                 sideSources: newItemSideSources,
+                components,
             });
             setIsCreateModalOpen(false);
             setNewItem({ name: '', category: '', price: '' });
             setIsKitchenItem(false);
             setIsCreatingNewCategory(false);
             setNewItemSideSources([]);
+            setIsComposite(false);
+            setCompositeComponents([{ baseItemId: '', quantity: 1 }]);
             fetchMenu();
             toast.success('Item created successfully');
         } catch (error) {
@@ -411,11 +424,9 @@ const Menu = () => {
                 name: newComboForm.name,
                 category: newComboForm.category,
                 componentIds: newComboComponentIds,
-                slots: newComboSlots.map(s => ({
-                    name: s.name,
-                    optionIds: s.optionIds,
-                    required: s.required,
-                })),
+                slots: newComboSlots.map(s => s.sourceType === 'category'
+                    ? { name: s.name, categorySource: s.categorySource, optionIds: [], required: s.required }
+                    : { name: s.name, optionIds: s.optionIds, required: s.required }),
                 price: newComboForm.price ? Math.round(parseFloat(newComboForm.price) * 100) : null,
                 kitchen: newComboForm.kitchen,
             });
@@ -477,7 +488,7 @@ const Menu = () => {
     };
 
     const addNewSlot = () => {
-        setNewComboSlots(prev => [...prev, { tempId: Date.now(), name: '', required: false, optionIds: [] }]);
+        setNewComboSlots(prev => [...prev, { tempId: Date.now(), name: '', required: false, sourceType: 'manual', categorySource: null, optionIds: [] }]);
     };
 
     const removeNewSlot = (tempId) => {
@@ -538,13 +549,16 @@ const Menu = () => {
                         <div className="menu-list">
                             {categoryOrder.map(categoryName => {
                                 const items = categories[categoryName] || [];
+                                const categoryCombos = combos.filter(c => c.category === categoryName);
                                 return (
                                     <SortableCategory
                                         key={categoryName}
                                         category={categoryName}
                                         items={items}
+                                        combos={categoryCombos}
                                         onEditCategory={handleEditCategoryClick}
                                         onEditItem={handleEditClick}
+                                        onEditCombo={handleEditComboClick}
                                     />
                                 );
                             })}
@@ -569,47 +583,6 @@ const Menu = () => {
                         ) : null}
                     </DragOverlay>
                 </DndContext>
-            )}
-
-            {/* Combos Section */}
-            {!loading && combos.length > 0 && (
-                <div className="combos-section">
-                    <div className="combos-section-header">
-                        <h2 className="combos-section-title">Combos</h2>
-                    </div>
-                    <div className="combos-grid">
-                        {combos.map(combo => (
-                            <div
-                                key={combo.id}
-                                className="combo-card"
-                                onClick={() => handleEditComboClick(combo)}
-                            >
-                                <div className="combo-card-top">
-                                    <span className="combo-card-name">{combo.name}</span>
-                                    {!combo.available && <span className="combo-unavailable-badge">Off</span>}
-                                    {combo.kitchen && <span className="combo-kitchen-badge">Kitchen</span>}
-                                </div>
-                                {combo.components?.length > 0 && (
-                                    <div className="combo-card-components">
-                                        {combo.components.map(c => c.name).join(' + ')}
-                                    </div>
-                                )}
-                                {combo.slots?.length > 0 && (
-                                    <div className="combo-card-slots">
-                                        {combo.slots.map(s => (
-                                            <span key={s.id} className="combo-slot-tag">
-                                                {s.name}{s.required ? '*' : ''}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                                {combo.price != null && (
-                                    <div className="combo-card-price">${(combo.price / 100).toFixed(2)}</div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
             )}
 
             {/* Edit Modal */}
@@ -725,6 +698,8 @@ const Menu = () => {
                 onClose={() => {
                     setIsCreateModalOpen(false);
                     setIsCreatingNewCategory(false);
+                    setIsComposite(false);
+                    setCompositeComponents([{ baseItemId: '', quantity: 1 }]);
                 }}
                 title="Create New Item"
                 footer={
@@ -826,6 +801,48 @@ const Menu = () => {
                                     </label>
                                 ))}
                             </div>
+                        </div>
+                    )}
+                    <div className="form-group checkbox-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={isComposite}
+                                onChange={e => setIsComposite(e.target.checked)}
+                            />
+                            Composite Item
+                        </label>
+                    </div>
+                    {isComposite && (
+                        <div className="form-group">
+                            <label>Components</label>
+                            {compositeComponents.map((comp, idx) => (
+                                <div key={idx} className="composite-component-row">
+                                    <select
+                                        value={comp.baseItemId}
+                                        onChange={e => setCompositeComponents(prev => prev.map((c, i) => i === idx ? { ...c, baseItemId: e.target.value } : c))}
+                                        className="form-select"
+                                    >
+                                        <option value="">Select item...</option>
+                                        {baseItems.map(bi => (
+                                            <option key={bi.id} value={bi.id}>{bi.name}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="number"
+                                        step="0.25"
+                                        min="0.25"
+                                        value={comp.quantity}
+                                        onChange={e => setCompositeComponents(prev => prev.map((c, i) => i === idx ? { ...c, quantity: e.target.value } : c))}
+                                        className="composite-quantity-input"
+                                        placeholder="Qty"
+                                    />
+                                    {compositeComponents.length > 1 && (
+                                        <button type="button" className="slot-remove-btn" onClick={() => setCompositeComponents(prev => prev.filter((_, i) => i !== idx))}>✕</button>
+                                    )}
+                                </div>
+                            ))}
+                            <Button type="button" variant="secondary" onClick={() => setCompositeComponents(prev => [...prev, { baseItemId: '', quantity: 1 }])} style={{ marginTop: 'var(--spacing-xs)', padding: '4px 10px', fontSize: '0.85rem' }}>+ Add Component</Button>
                         </div>
                     )}
                 </form>
@@ -939,11 +956,42 @@ const Menu = () => {
                                     </label>
                                     <button type="button" className="slot-remove-btn" onClick={() => removeNewSlot(slot.tempId)}>✕</button>
                                 </div>
-                                <ItemPicker
-                                    items={baseItems}
-                                    selectedIds={slot.optionIds}
-                                    onToggle={(id) => toggleSlotOption(slot.tempId, id)}
-                                />
+                                <div className="slot-source-toggle">
+                                    <label className="slot-source-radio">
+                                        <input
+                                            type="radio"
+                                            checked={slot.sourceType === 'manual'}
+                                            onChange={() => updateNewSlot(slot.tempId, { sourceType: 'manual', categorySource: null })}
+                                        />
+                                        Manual
+                                    </label>
+                                    <label className="slot-source-radio">
+                                        <input
+                                            type="radio"
+                                            checked={slot.sourceType === 'category'}
+                                            onChange={() => updateNewSlot(slot.tempId, { sourceType: 'category', optionIds: [] })}
+                                        />
+                                        Category
+                                    </label>
+                                </div>
+                                {slot.sourceType === 'category' ? (
+                                    <select
+                                        value={slot.categorySource || ''}
+                                        onChange={e => updateNewSlot(slot.tempId, { categorySource: e.target.value || null })}
+                                        className="form-select"
+                                    >
+                                        <option value="">Select category...</option>
+                                        {categoryOrder.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <ItemPicker
+                                        items={baseItems}
+                                        selectedIds={slot.optionIds}
+                                        onToggle={(id) => toggleSlotOption(slot.tempId, id)}
+                                    />
+                                )}
                             </div>
                         ))}
                         {newComboSlots.length === 0 && (
@@ -1055,7 +1103,7 @@ const Menu = () => {
     );
 };
 
-const SortableCategory = ({ category, items, onEditCategory, onEditItem }) => {
+const SortableCategory = ({ category, items, combos, onEditCategory, onEditItem, onEditCombo }) => {
     const {
         attributes,
         listeners,
@@ -1108,6 +1156,30 @@ const SortableCategory = ({ category, items, onEditCategory, onEditItem }) => {
                             category={category}
                             onEdit={onEditItem}
                         />
+                    ))}
+                    {(combos || []).map(combo => (
+                        <div key={combo.id} className="combo-grid-card" onClick={() => onEditCombo(combo)}>
+                            <div className="combo-grid-top">
+                                <span className="combo-grid-name">{combo.name}</span>
+                                <span className="combo-grid-badge">Combo</span>
+                            </div>
+                            <div className="combo-grid-badges">
+                                {!combo.available && <span className="combo-unavailable-badge">Off</span>}
+                                {combo.kitchen && <span className="combo-kitchen-badge">Kitchen</span>}
+                            </div>
+                            {combo.slots?.length > 0 && (
+                                <div className="combo-card-slots">
+                                    {combo.slots.map(s => (
+                                        <span key={s.id} className="combo-slot-tag">
+                                            {s.name}{s.required ? '*' : ''}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {combo.price != null && (
+                                <div className="combo-grid-price">${(combo.price / 100).toFixed(2)}</div>
+                            )}
+                        </div>
                     ))}
                 </div>
             </SortableContext>

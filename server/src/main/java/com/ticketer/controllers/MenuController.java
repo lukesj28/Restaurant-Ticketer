@@ -3,6 +3,7 @@ package com.ticketer.controllers;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import com.ticketer.api.ApiResponse;
 import com.ticketer.dtos.*;
 import com.ticketer.models.BaseItem;
 import com.ticketer.models.ComboItem;
+import com.ticketer.models.CompositeComponent;
 import com.ticketer.services.MenuService;
 
 @RestController
@@ -47,7 +49,16 @@ public class MenuController {
     public ApiResponse<MenuDto> createItem(@RequestBody Requests.ItemCreateRequest request) {
         logger.info("Received request to create item: {} in category: {}", request.name(), request.category());
         boolean kitchen = request.kitchen() != null && request.kitchen();
-        BaseItem item = menuService.createBaseItem(request.name(), request.price(), kitchen);
+        BaseItem item;
+        if (request.components() != null && !request.components().isEmpty()) {
+            List<CompositeComponent> components = request.components().stream()
+                    .filter(c -> c.baseItemId() != null)
+                    .map(c -> new CompositeComponent(c.baseItemId(), c.quantity()))
+                    .collect(Collectors.toList());
+            item = menuService.createBaseItem(request.name(), request.price(), kitchen, components);
+        } else {
+            item = menuService.createBaseItem(request.name(), request.price(), kitchen);
+        }
         menuService.addMenuItemToCategory(request.category(), item.getId(), request.sideSources());
         return getMenu();
     }
@@ -169,7 +180,7 @@ public class MenuController {
     @GetMapping("/combos/{id}")
     public ApiResponse<ComboItemDto> getCombo(@PathVariable UUID id) {
         ComboItem combo = menuService.getCombo(id);
-        return ApiResponse.success(DtoMapper.toComboItemDto(combo, menuService.getMenu().getBaseItems()));
+        return ApiResponse.success(DtoMapper.toComboItemDto(combo, menuService.getMenu()));
     }
 
     @PutMapping("/combos/{id}")

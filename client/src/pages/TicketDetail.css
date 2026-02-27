@@ -722,3 +722,17 @@
     display: flex;
     justify-content: flex-end;
 }
+.menu-item-btn-combo {
+    border: 2px solid var(--color-brand-secondary);
+    background-color: var(--color-bg-secondary);
+}
+
+.menu-item-btn-combo:hover:not(:disabled) {
+    background-color: var(--color-brand-secondary);
+    border-color: var(--color-brand-secondary);
+    color: #fff;
+}
+
+.menu-item-btn-combo:hover:not(:disabled) .item-price {
+    color: rgba(255, 255, 255, 0.9);
+}

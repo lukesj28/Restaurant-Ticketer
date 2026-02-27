@@ -13,6 +13,9 @@ const MenuItemCard = ({ item, onEdit, onDelete }) => {
                 </div>
                 <div className="menu-item-status">
                     {item.available ? 'Available' : 'Unavailable'}
+                    {item.components && item.components.length > 0 && (
+                        <span className="composite-badge">Composite</span>
+                    )}
                 </div>
             </div>
             <div className="menu-item-actions">

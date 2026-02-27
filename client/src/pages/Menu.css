@@ -681,3 +681,99 @@
     padding: 3px 8px;
     color: var(--color-text-secondary);
 }
+/* Combo inline in category grid */
+.combo-grid-card {
+    background-color: var(--color-bg-secondary);
+    border: 2px solid var(--color-brand-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 80px;
+}
+
+.combo-grid-card:hover {
+    background-color: color-mix(in srgb, var(--color-brand-secondary) 10%, var(--color-bg-secondary));
+    border-color: var(--color-brand-primary);
+}
+
+.combo-grid-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.combo-grid-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text-primary);
+}
+
+.combo-grid-badge {
+    font-size: 0.65rem;
+    background-color: var(--color-brand-secondary);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    padding: 2px 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.combo-grid-badges {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.combo-grid-price {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    margin-top: auto;
+}
+
+/* Slot source type toggle */
+.slot-source-toggle {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.slot-source-radio {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+}
+
+/* Composite item rows in create modal */
+.composite-component-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+.composite-quantity-input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+}
+
+/* Composite badge on item cards */
+.composite-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    background-color: var(--color-brand-primary);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    padding: 2px 5px;
+    margin-left: 6px;
+}
